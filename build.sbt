@@ -110,3 +110,35 @@ lazy val assemblySettings = Seq(
   logLevel in assembly := Level.Debug
 )
 
+lazy val hive = (project in file("hive")) settings (
+  scalaVersion := "2.12.8",
+  name := "hive-delta",
+  commonSettings,
+  unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
+  autoScalaLibrary := false,
+
+  // Ensures that the connector core jar is compiled before compiling this project
+  (compile in Compile) := ((compile in Compile) dependsOn (packageBin in (core, Compile, packageBin))).value,
+
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % "2.7.0" % "provided",
+    "org.apache.hive" % "hive-exec" % "2.3.3" % "provided" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
+    ),
+    "org.apache.hadoop" % "hadoop-common" % "2.7.0" % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % "2.7.0" % "test",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % "2.7.0" % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-yarn-server-tests" % "2.7.0" % "test" classifier "tests",
+    "org.apache.hive" % "hive-cli" % "2.3.3" % "test" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule("ch.qos.logback", "logback-classic"),
+      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
+    ),
+    // TODO Figure out how this fixes some bad dependency
+    "org.apache.spark" %% "spark-core" % "2.4.2" % "test" classifier "tests",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+  )
+)
