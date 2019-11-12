@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/delta-io/connectors/tree/master.svg?style=svg)](https://circleci.com/gh/delta-io/connectors/tree/master)
 
-We are building connectors to bring [Delta Lake](https://delta.io) to popular big-data engines (such as, [Apache Hive](https://hive.apache.org/) and [Presto](https://prestodb.io/)) outside [Apache Spark](https://spark.apache.org).
+We are building connectors to bring [Delta Lake](https://delta.io) to popular big-data engines outside [Apache Spark](https://spark.apache.org) (e.g., [Apache Hive](https://hive.apache.org/), [Presto](https://prestodb.io/)).
 
 # Building
 
@@ -28,7 +28,7 @@ We use [GitHub Issues](https://github.com/delta-io/connectors/issues) to track c
 
 # Contributing
 
-We welcome contributions to Delta Lake. We use [GitHub Pull Requests ](https://github.com/delta-io/connectors/pulls) for accepting changes. You will be prompted to sign a contributor license agreement before your change can be accepted.
+We welcome contributions to Delta Lake Connector repository. We use [GitHub Pull Requests](https://github.com/delta-io/connectors/pulls) for accepting changes. You will be prompted to sign a contributor license agreement before your change can be accepted.
 
 # Community
 
