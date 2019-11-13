@@ -1,4 +1,4 @@
-# <img src="https://docs.delta.io/latest/_static/delta-lake-white.png" width="50" alt="Delta Lake Logo"></img> Connectors
+# <img src="https://docs.delta.io/latest/_static/delta-lake-white.png" width="150" alt="Delta Lake Logo"></img> Connectors
 
 [![CircleCI](https://circleci.com/gh/delta-io/connectors/tree/master.svg?style=svg)](https://circleci.com/gh/delta-io/connectors/tree/master)
 
