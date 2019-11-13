@@ -4,6 +4,10 @@
 
 We are building connectors to bring [Delta Lake](https://delta.io) to popular big-data engines outside [Apache Spark](https://spark.apache.org) (e.g., [Apache Hive](https://hive.apache.org/), [Presto](https://prestodb.io/)).
 
+# Introduction
+
+This is the repository for Delta Lake Connectors. It includes a library for querying Delta Lake metadata and connectors to popular big-data engines (e.g., [Apache Hive](https://hive.apache.org/), [Presto](https://prestodb.io/)). Please refer to the main [Delta Lake](https://github.com/delta-io/delta) repository if you want to learn more about the Delta Lake project.
+
 # Building
 
 The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-Line-Reference.html).
@@ -28,7 +32,7 @@ We use [GitHub Issues](https://github.com/delta-io/connectors/issues) to track c
 
 # Contributing
 
-We welcome contributions to Delta Lake Connector repository. We use [GitHub Pull Requests](https://github.com/delta-io/connectors/pulls) for accepting changes. You will be prompted to sign a contributor license agreement before your change can be accepted.
+We welcome contributions to Delta Lake Connectors repository. We use [GitHub Pull Requests](https://github.com/delta-io/connectors/pulls) for accepting changes.
 
 # Community
 
