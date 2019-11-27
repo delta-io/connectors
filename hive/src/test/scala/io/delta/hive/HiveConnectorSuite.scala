@@ -19,7 +19,7 @@ class HiveConnectorSuite extends HiveTest with BeforeAndAfterEach {
     DeltaLog.clearCache()
   }
 
-  test("should not allow creating a managed Delta table") {
+  test("should not allow to create a non external Delta table") {
     val e = intercept[Exception] {
       runQuery(
         s"""
