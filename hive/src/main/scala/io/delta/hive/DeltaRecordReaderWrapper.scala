@@ -1,8 +1,5 @@
 package io.delta.hive
 
-import com.google.common.base.Joiner
-import scala.collection.JavaConverters._
-
 import org.apache.hadoop.hive.ql.io.parquet.read.ParquetRecordReaderWrapper
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorConverters
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory
@@ -10,72 +7,55 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory
 import org.apache.hadoop.io.ArrayWritable
 import org.apache.hadoop.io.NullWritable
 import org.apache.hadoop.io.Writable
-import org.apache.hadoop.mapred.FileSplit
-import org.apache.hadoop.mapred.InputSplit
 import org.apache.hadoop.mapred.JobConf
 import org.apache.hadoop.mapred.Reporter
 import org.apache.parquet.hadoop.ParquetInputFormat
-import org.apache.spark.sql.delta.DeltaHelper
 import org.slf4j.LoggerFactory
 
-class DeltaRecordReaderWrapper(newInputFormat: ParquetInputFormat[ArrayWritable], oldSplit: InputSplit, oldJobConf: JobConf, reporter: Reporter) extends ParquetRecordReaderWrapper(newInputFormat, oldSplit, oldJobConf, reporter) {
+/**
+ * A record reader that reads data from the underlying Parquet reader and inserts partition values
+ * which don't exist in the Parquet files.
+ */
+class DeltaRecordReaderWrapper(
+    inputFormat: ParquetInputFormat[ArrayWritable],
+    split: DeltaInputSplit,
+    jobConf: JobConf,
+    reporter: Reporter) extends ParquetRecordReaderWrapper(inputFormat, split, jobConf, reporter) {
 
   private val LOG = LoggerFactory.getLogger(classOf[DeltaRecordReaderWrapper])
 
-  private val partitionWritable: Array[Writable] =
-    if (!oldSplit.isInstanceOf[FileSplit]) {
-      throw new IllegalArgumentException("Unknown split type: " + oldSplit)
-    } else {
-      val columnNameProperty = oldJobConf.get(DeltaStorageHandler.DELTA_PARTITION_COLS_NAMES)
-      val columnTypeProperty = oldJobConf.get(DeltaStorageHandler.DELTA_PARTITION_COLS_TYPES)
-      LOG.info("Delta partition cols: " + columnNameProperty + " with types: " + columnTypeProperty)
-
-      if (columnNameProperty == null || columnNameProperty.trim().length() == 0
-        || columnTypeProperty == null || columnTypeProperty.trim().length() == 0) {
-        LOG.info("No partition info is provided...")
-        null
-      } else {
-        // generate partition writale values which will be appended after data values from parquet
-        val columnNames = columnNameProperty.split(",")
-        val columnTypes = columnTypeProperty.split(":")
-
-        val filePath = oldSplit.asInstanceOf[FileSplit].getPath()
-        val parsedPartitions = DeltaHelper.parsePathPartition(filePath, columnNames).asJava
-
-        val partitionWritable = new Array[Writable](columnNames.length)
-        // inspect partition values
-        for (i <- 0 until columnNames.length) {
-          val oi = PrimitiveObjectInspectorFactory
-            .getPrimitiveWritableObjectInspector(TypeInfoFactory
-              .getPrimitiveTypeInfo(columnTypes(i)))
-
-          partitionWritable(i) = ObjectInspectorConverters.getConverter(
-            PrimitiveObjectInspectorFactory.javaStringObjectInspector, oi).convert(parsedPartitions.get(columnNames(i))).asInstanceOf[Writable]
-        }
-        LOG.info("Parsed partition values from " + filePath.toString() + " list: " + Joiner.on(",").withKeyValueSeparator("=").join(parsedPartitions)
-          + ", partitionWritable length:" + partitionWritable.length)
-        partitionWritable
-      }
+  /** The indices of partition columns in schema and their values. */
+  private val partitionValues: Array[(Int, Writable)] =
+    split.getPartitionColumns.map { partition =>
+      val oi = PrimitiveObjectInspectorFactory
+        .getPrimitiveWritableObjectInspector(TypeInfoFactory
+          .getPrimitiveTypeInfo(partition.tpe))
+      partition.index -> ObjectInspectorConverters.getConverter(
+        PrimitiveObjectInspectorFactory.javaStringObjectInspector, oi)
+        .convert(partition.value).asInstanceOf[Writable]
     }
 
   override def next(key: NullWritable, value: ArrayWritable): Boolean = {
     val hasNext = super.next(key, value)
-    if (partitionWritable != null && partitionWritable.length != 0) {
-      // append partition values to data values
-      for (i <- 0 until partitionWritable.length) {
-        value.get()(value.get().length - partitionWritable.length + i) = partitionWritable(i)
-      }
-    }
+    // TODO Figure out when the parent reader resets partition columns to null so that we may come
+    // out a better solution to not insert partition values for each row.
+    insertPartitionValues(value)
     hasNext
   }
 
-  override def createValue(): ArrayWritable = {
-    val value = super.createValue()
-    if (partitionWritable != null && partitionWritable.length != 0) {
-      for (i <- 0 until partitionWritable.length) {
-        value.get()(value.get().length - partitionWritable.length + i) = partitionWritable(i)
-      }
+  /**
+   * As partition columns are not in the parquet files, they will be set to `null`s every time
+   * `next` is called. We should insert partition values manually for each row.
+   */
+  private def insertPartitionValues(value: ArrayWritable): Unit = {
+    val valueArray = value.get()
+    var i = 0
+    val n = partitionValues.length
+    // Using while loop for better performance since this method is called for each row.
+    while (i < n) {
+      val partition = partitionValues(i)
+      valueArray(partition._1) = partition._2
+      i += 1
     }
-    value
   }
 }
