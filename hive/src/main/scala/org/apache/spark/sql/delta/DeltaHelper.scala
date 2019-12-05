@@ -69,9 +69,12 @@ object DeltaHelper extends Logging {
 
   def listDeltaFiles(nonNormalizedPath: Path, job: JobConf): Array[FileStatus] = {
     val fs = nonNormalizedPath.getFileSystem(job)
-    // TODO It seems Hive doesn't work without "makeQualified". We should understand this deeply to
-    // make sure we call "makeQualified" in all places properly, because missing "makeQualified"
-    // returns an incorrect answer rather than failing the query, which is pretty bad.
+    // We need to normalize the table path so that all paths we return to Hive will be normalized
+    // This is necessary because `HiveInputFormat.pushProjectionsAndFilters` will try to figure out
+    // which table a split path belongs to by comparing the split path with the normalized (? I have
+    // not yet confirmed this) table paths.
+    // TODO The assumption about Path in Hive is too strong, we should try to see if we can fail if
+    // `pushProjectionsAndFilters` doesn't find a table for a Delta split path.
     val rootPath = fs.makeQualified(nonNormalizedPath)
     val deltaLog = DeltaLog.forTable(spark, rootPath)
     // get the snapshot of the version
