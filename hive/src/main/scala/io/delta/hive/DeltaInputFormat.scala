@@ -6,15 +6,35 @@ import org.apache.hadoop.fs.FileStatus
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hive.ql.exec.Utilities
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
-import org.apache.hadoop.hive.serde.serdeConstants
-import org.apache.hadoop.io.ArrayWritable
-import org.apache.hadoop.io.NullWritable
+import org.apache.hadoop.io.{ArrayWritable, NullWritable, Writable}
 import org.apache.hadoop.mapred._
 import org.apache.hadoop.mapreduce.security.TokenCache
 import org.apache.parquet.hadoop.ParquetInputFormat
 import org.apache.spark.sql.delta.DeltaHelper
 import org.slf4j.LoggerFactory
 
+/**
+ * A special [[InputFormat]] to wrap [[ParquetInputFormat]] to read a Delta table.
+ *
+ * The underlying files in a Delta table are in Parquet format. However, we cannot use the existing
+ * [[ParquetInputFormat]] to read them directly because they only store data for data columns.
+ * The values of partition columns are in Delta's metadata. Hence, we need to read them from Delta's
+ * metadata and re-assemble rows to include partition values and data values from the raw Parquet
+ * files.
+ *
+ * Note: We cannot use the file name to infer partition values because Delta Transaction Log
+ * Protocol requires "Actual partition values for a file must be read from the transaction log".
+ *
+ * In the current implementation, when listing files, we also read the partition values and put them
+ * into an `Array[PartitionColumnInfo]`. Then create a temp `Map` to store the mapping from the file
+ * path to `PartitionColumnInfo`s. When creating an [[InputSplit]], we will create a special
+ * [[FileSplit]] called [[DeltaInputSplit]] to carry over `PartitionColumnInfo`s.
+ *
+ * For each reader created from a [[DeltaInputSplit]], we can get all partition column types, the
+ * locations of a partition column in the schema, and their string values. The reader can build
+ * [[Writable]] for all partition values, and insert them to the raw row returned by
+ * [[org.apache.parquet.hadoop.ParquetRecordReader]].
+ */
 class DeltaInputFormat(realInput: ParquetInputFormat[ArrayWritable]) extends FileInputFormat[NullWritable, ArrayWritable] {
 
   private val LOG = LoggerFactory.getLogger(classOf[DeltaInputFormat])

@@ -96,11 +96,24 @@ object DeltaHelper extends Logging {
     // get the partition prune exprs
     val filterExprSerialized = job.get(TableScanDesc.FILTER_EXPR_CONF_STR)
 
-    // TODO Check whether valid types of a partition column in Spark can still be used in Hive.
-    // TODO Verify the partition columns are not changed so that the pushed filters are still
-    // correct. E.g., verify the filters are all partition filters.
-
     val convertedFilterExpr = DeltaPushFilter.partitionFilterConverter(filterExprSerialized)
+    if (convertedFilterExpr.forall { filter =>
+      DeltaTableUtils.isPredicatePartitionColumnsOnly(
+        filter,
+        snapshotToUse.metadata.partitionColumns,
+        spark)
+    }) {
+      // All of filters are based on partition columns. The partition columns may be changed because
+      // we cannot guarantee that we were using the same Delta Snapshot to generate the filters. But
+      // as long as the pushed filters are based on a subset of latest partition columns, it should
+      // be *correct*, even if we may not push all of partition filters and the query may be a bit
+      // slower.
+    } else {
+      throw new MetaException(s"The pushed filters $filterExprSerialized are not all based on" +
+        "partition columns. This may happen when the partition columns of a Delta table have " +
+        "been changed when running this query. Please try to re-run the query to pick up the " +
+        "latest partition columns.")
+    }
 
     // The default value 128M is the same as the default value of
     // "spark.sql.files.maxPartitionBytes" in Spark. It's also the default parquet row group size
