@@ -2,11 +2,10 @@ package org.apache.spark.sql.delta
 
 import java.net.URI
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import io.delta.hive.{DeltaStorageHandler, PartitionColumnInfo}
 import org.apache.hadoop.fs._
-import org.apache.hadoop.hive.metastore.api.{FieldSchema, MetaException}
+import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.plan.TableScanDesc
 import org.apache.hadoop.hive.serde2.typeinfo._
 import org.apache.hadoop.mapred.JobConf
@@ -86,8 +85,7 @@ object DeltaHelper extends Logging {
     // TODO The assumption about Path in Hive is too strong, we should try to see if we can fail if
     // `pushProjectionsAndFilters` doesn't find a table for a Delta split path.
     val rootPath = fs.makeQualified(nonNormalizedPath)
-    val deltaLog = DeltaLog.forTable(spark, rootPath)
-    val snapshotToUse = deltaLog.snapshot
+    val snapshotToUse = loadDeltaLatestSnapshot(rootPath)
 
     val hiveSchema = TypeInfoUtils.getTypeInfoFromTypeString(
       job.get(DeltaStorageHandler.DELTA_TABLE_SCHEMA)).asInstanceOf[StructTypeInfo]
@@ -194,16 +192,18 @@ object DeltaHelper extends Logging {
   }
 
   def getPartitionCols(rootPath: Path): Seq[String] = {
-    DeltaLog.forTable(spark, rootPath).snapshot.metadata.partitionColumns
+    loadDeltaLatestSnapshot(rootPath).metadata.partitionColumns
   }
 
-  def loadDeltaLog(rootPath: Path): DeltaLog = {
-    DeltaLog.forTable(spark, rootPath)
+  /** Load the latest Delta [[Snapshot]] from the path. */
+  def loadDeltaLatestSnapshot(rootPath: Path): Snapshot = {
+    DeltaLog.forTable(spark, rootPath).update()
   }
 
   /**
    * Verify the underlying Delta table schema is the same as the Hive schema defined in metastore.
    */
+  @throws(classOf[MetaException])
   def checkTableSchema(deltaSchema: StructType, hiveSchema: StructTypeInfo): Unit = {
     // TODO How to check column nullables?
     if (!isSameStructType(deltaSchema, hiveSchema)) {

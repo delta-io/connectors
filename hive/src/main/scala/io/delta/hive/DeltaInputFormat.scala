@@ -1,9 +1,11 @@
 package io.delta.hive
 
+import java.io.IOException
 import java.net.URI
 
 import org.apache.hadoop.fs.FileStatus
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.exec.Utilities
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.io.{ArrayWritable, NullWritable, Writable}
@@ -63,10 +65,20 @@ class DeltaInputFormat(realInput: ParquetInputFormat[ArrayWritable]) extends Fil
     }
   }
 
+  @throws(classOf[IOException])
   override def listStatus(job: JobConf): Array[FileStatus] = {
     val deltaRootPath = new Path(job.get(DeltaStorageHandler.DELTA_TABLE_PATH))
     TokenCache.obtainTokensForNamenodes(job.getCredentials(), Array(deltaRootPath), job)
-    val (files, partitions) = DeltaHelper.listDeltaFiles(deltaRootPath, job)
+    val (files, partitions) =
+      try {
+        DeltaHelper.listDeltaFiles(deltaRootPath, job)
+      } catch {
+        // Hive is using Java Reflection to call `listStatus`. Because `listStatus` doesn't declare
+        // `MetaException`, the Reflection API would throw `UndeclaredThrowableException` without an
+        // error message if `MetaException` was thrown directly. To improve the user experience, we
+        // wrap `MetaException` with `IOException` which will provide a better error message.
+        case e: MetaException => throw new IOException(e)
+      }
     fileToPartition = partitions.filter(_._2.nonEmpty)
     files
   }

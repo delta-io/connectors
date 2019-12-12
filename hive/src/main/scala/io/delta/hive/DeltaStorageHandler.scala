@@ -144,7 +144,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook with H
       throw new MetaException("table location should be set when creating a Delta table")
     }
 
-    val snapshot = DeltaHelper.loadDeltaLog(new Path(deltaRootString)).snapshot
+    val snapshot = DeltaHelper.loadDeltaLatestSnapshot(new Path(deltaRootString))
     if (snapshot.version < 0) {
       throw new MetaException(s"$deltaRootString does not exist or it's not a Delta table")
     }

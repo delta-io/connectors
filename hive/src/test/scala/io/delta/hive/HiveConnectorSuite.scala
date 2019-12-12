@@ -113,7 +113,6 @@ class HiveConnectorSuite extends HiveTest with BeforeAndAfterEach {
     }
   }
 
-  // check column number & column name
   test("Hive schema should match delta's schema") {
     withTable("deltaTbl") {
       withTempDir { dir =>
@@ -121,7 +120,6 @@ class HiveConnectorSuite extends HiveTest with BeforeAndAfterEach {
 
         withSparkSession { spark =>
           import spark.implicits._
-          val x = testData.toDS.toDF("a", "b", "c")
           testData.toDS.toDF("a", "b", "c").write.format("delta")
             .partitionBy("b").save(dir.getCanonicalPath)
         }
@@ -141,12 +139,77 @@ class HiveConnectorSuite extends HiveTest with BeforeAndAfterEach {
         e = intercept[Exception] {
           runQuery(
             s"""
-               |create external table deltaTbl(e string, c string, b string)
+               |create external table deltaTbl(e int, c string, b string)
                |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
          """.stripMargin
           )
         }
         assert(e.getMessage.contains(s"schema is not the same"))
+
+        // column order mismatch
+        e = intercept[Exception] {
+          runQuery(
+            s"""
+               |create external table deltaTbl(a int, c string, b string)
+               |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+         """.stripMargin
+          )
+        }
+        assert(e.getMessage.contains(s"schema is not the same"))
+      }
+    }
+  }
+
+  test("detect schema changes outside Hive") {
+    withTable("deltaTbl") {
+      withTempDir { dir =>
+        val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData.toDF("a", "b").write.format("delta").save(dir.getCanonicalPath)
+        }
+
+        runQuery(
+          s"""
+             |CREATE EXTERNAL TABLE deltaTbl(a INT, b STRING)
+             |STORED BY 'io.delta.hive.DeltaStorageHandler'
+             |LOCATION '${dir.getCanonicalPath}'""".stripMargin
+        )
+
+        checkAnswer("SELECT * FROM deltaTbl", testData)
+
+        // Change the underlying Delta table to a different schema
+        val testData2 = testData.map(_.swap)
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData2.toDF("a", "b")
+            .write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(dir.getCanonicalPath)
+        }
+
+        // Should detect the underlying schema change and fail the query
+        val e = intercept[Exception] {
+          runQuery("SELECT * FROM deltaTbl")
+        }
+        assert(e.getMessage.contains(s"schema is not the same"))
+
+        // Re-create the table because Hive doesn't allow `ALTER TABLE` on a non-native table.
+        // TODO Investigate whether there is a more convenient way to update the table schema.
+        runQuery("DROP TABLE deltaTbl")
+        runQuery(
+          s"""
+             |CREATE EXTERNAL TABLE deltaTbl(a STRING, b INT)
+             |STORED BY 'io.delta.hive.DeltaStorageHandler'
+             |LOCATION '${dir.getCanonicalPath}'""".stripMargin
+        )
+
+        // After fixing the schema, the query should work again.
+        checkAnswer("SELECT * FROM deltaTbl", testData2)
       }
     }
   }

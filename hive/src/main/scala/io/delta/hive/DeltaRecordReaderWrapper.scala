@@ -15,6 +15,12 @@ import org.slf4j.LoggerFactory
 /**
  * A record reader that reads data from the underlying Parquet reader and inserts partition values
  * which don't exist in the Parquet files.
+ *
+ * As we have verified the Hive schema in metastore is consistent with the Delta schema, the row
+ * returned by the underlying Parquet reader will match the Delta schema except that it leaves all
+ * partition columns as `null` since they are not in the raw parquet files. Hence, for the missing
+ * partition values, we need to use the partition information in [[DeltaInputSplit]] to create the
+ * corresponding [[Writable]]s, and insert them into the corresponding positions when reading a row.
  */
 class DeltaRecordReaderWrapper(
     inputFormat: ParquetInputFormat[ArrayWritable],
@@ -24,7 +30,7 @@ class DeltaRecordReaderWrapper(
 
   private val LOG = LoggerFactory.getLogger(classOf[DeltaRecordReaderWrapper])
 
-  /** The indices of partition columns in schema and their values. */
+  /** The positions of partition columns in Delta schema and their corresponding values. */
   private val partitionValues: Array[(Int, Writable)] =
     split.getPartitionColumns.map { partition =>
       val oi = PrimitiveObjectInspectorFactory
@@ -54,6 +60,9 @@ class DeltaRecordReaderWrapper(
     // Using while loop for better performance since this method is called for each row.
     while (i < n) {
       val partition = partitionValues(i)
+      // The schema of `valueArray` is the Hive schema, and it's the same as the Delta
+      // schema since we have verified it in `DeltaInputFormat`. Hence, the position of a partition
+      // column in `valueArray` is the same as its position in Delta schema.
       valueArray(partition._1) = partition._2
       i += 1
     }
