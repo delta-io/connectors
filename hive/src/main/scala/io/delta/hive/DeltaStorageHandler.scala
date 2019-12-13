@@ -200,7 +200,7 @@ object DeltaStorageHandler {
    * A config we use to remember the table schema in the table properties.
    *
    * TODO Maybe Hive can tell us this in the `configureInputJobProperties` method. Then we don't
-   * * need to store this extra information.
+   * need to store this extra information.
    */
   val DELTA_TABLE_SCHEMA = "delta.table.schema"
 }

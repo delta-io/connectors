@@ -36,16 +36,19 @@ class DeltaRecordReaderWrapper(
       val oi = PrimitiveObjectInspectorFactory
         .getPrimitiveWritableObjectInspector(TypeInfoFactory
           .getPrimitiveTypeInfo(partition.tpe))
-      partition.index -> ObjectInspectorConverters.getConverter(
-        PrimitiveObjectInspectorFactory.javaStringObjectInspector, oi)
-        .convert(partition.value).asInstanceOf[Writable]
+      val partitionValue = ObjectInspectorConverters.getConverter(
+        PrimitiveObjectInspectorFactory.javaStringObjectInspector,
+        oi).convert(partition.value).asInstanceOf[Writable]
+      (partition.index, partitionValue)
     }
 
   override def next(key: NullWritable, value: ArrayWritable): Boolean = {
     val hasNext = super.next(key, value)
     // TODO Figure out when the parent reader resets partition columns to null so that we may come
     // out a better solution to not insert partition values for each row.
-    insertPartitionValues(value)
+    if (hasNext) {
+      insertPartitionValues(value)
+    }
     hasNext
   }
 
