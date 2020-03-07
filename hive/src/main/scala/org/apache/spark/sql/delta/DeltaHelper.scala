@@ -97,6 +97,8 @@ object DeltaHelper extends Logging {
     val files = DeltaLog.filterFileList(
       snapshotToUse.metadata.partitionColumns, snapshotToUse.allFiles.toDF(), convertedFilterExpr)
       .as[AddFile](SingleAction.addFileEncoder)
+      // Drop unused potential huge fields
+      .map(add => add.copy(stats = null, tags = null))(SingleAction.addFileEncoder)
       .collect().map { f =>
         logInfo(s"selected delta file ${f.path} under $rootPath")
         val status = toFileStatus(fs, rootPath, f, blockSize)
@@ -263,9 +265,24 @@ object DeltaHelper extends Logging {
          |${hiveSchemaString}""".stripMargin)
   }
 
-  // TODO Configure `spark` to pick up the right Hadoop configuration.
-  def spark: SparkSession = SparkSession.builder()
-    .master("local[*]")
-    .appName("HiveOnDelta Get Files")
-    .getOrCreate()
+  /**
+   * Start a special Spark cluster using local mode to process Delta's metadata. The Spark UI has
+   * been disabled and `SparkListener`s have been removed to reduce the memory usage of Spark.
+   * `DeltaLog` cache size is also set to "1" to cache only the recent accessed `DeltaLog`.
+   */
+  def spark: SparkSession = {
+    // TODO Configure `spark` to pick up the right Hadoop configuration.
+    System.setProperty("delta.log.cacheSize", "1")
+    val sparkSession = SparkSession.builder()
+      .master("local[*]")
+      .appName("Delta Connector")
+      .config("spark.ui.enabled", "false")
+      .getOrCreate()
+    // Trigger codes that add `SparkListener`s before stopping the listener bus. Otherwise, they
+    // would fail to add `SparkListener`s.
+    sparkSession.sharedState
+    sparkSession.sessionState
+    sparkSession.sparkContext.listenerBus.stop()
+    sparkSession
+  }
 }
