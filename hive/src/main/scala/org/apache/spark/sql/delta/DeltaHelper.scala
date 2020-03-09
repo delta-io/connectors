@@ -268,11 +268,14 @@ object DeltaHelper extends Logging {
   /**
    * Start a special Spark cluster using local mode to process Delta's metadata. The Spark UI has
    * been disabled and `SparkListener`s have been removed to reduce the memory usage of Spark.
-   * `DeltaLog` cache size is also set to "1" to cache only the recent accessed `DeltaLog`.
+   * `DeltaLog` cache size is also set to "1" if the user doesn't specify it, to cache only the
+   * recent accessed `DeltaLog`.
    */
   def spark: SparkSession = {
     // TODO Configure `spark` to pick up the right Hadoop configuration.
-    System.setProperty("delta.log.cacheSize", "1")
+    if (System.getProperty("delta.log.cacheSize") == null) {
+      System.setProperty("delta.log.cacheSize", "1")
+    }
     val sparkSession = SparkSession.builder()
       .master("local[*]")
       .appName("Delta Connector")
