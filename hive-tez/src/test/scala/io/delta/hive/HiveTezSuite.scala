@@ -35,10 +35,12 @@ class HiveTezSuite extends HiveConnectorTest {
 
   private var tezConf: Configuration = _
 
+  // scalastyle:off
   /**
    * This method is based on
    * https://github.com/apache/hive/blob/c660cba003f9b7fff29db2202b375982a8c03450/shims/0.23/src/main/java/org/apache/hadoop/hive/shims/Hadoop23Shims.java#L406
    */
+  // scalastyle:on
   override def createCluster(
       namenode: String,
       conf: Configuration,
@@ -79,10 +81,12 @@ class HiveTezSuite extends HiveConnectorTest {
     }
   }
 
+  // scalastyle:off
   /**
    * The method is based on
    * https://github.com/apache/hive/blob/c660cba003f9b7fff29db2202b375982a8c03450/shims/0.23/src/main/java/org/apache/hadoop/hive/shims/Hadoop23Shims.java#L446
    */
+  // scalastyle:on
   override def setupConfiguration(conf: Configuration): Unit = {
     tezConf.asScala.foreach { e =>
       conf.set(e.getKey, e.getValue)
