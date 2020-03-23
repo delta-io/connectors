@@ -9,4 +9,5 @@ jobs:
           name: Run tests 
           command: |
             build/sbt "+ coreTest/test"
-            build/sbt "+ hive/test"
+            build/sbt "+ hiveMR/test"
+            build/sbt "+ hiveTez/test"

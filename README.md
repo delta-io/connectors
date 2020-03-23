@@ -53,6 +53,10 @@ Before starting your Hive CLI or running your Hive script, add the following spe
   <name>hive.input.format</name>
   <value>io.delta.hive.HiveInputFormat</value>
 </property>
+<property>
+  <name>hive.tez.input.format</name>
+  <value>io.delta.hive.HiveInputFormat</value>
+</property>
 ```
 
 The second step is to upload the above two JARs to the machine that runs Hive. Finally, add the paths of the JARs toHive’s environment variable, `HIVE_AUX_JARS_PATH`. You can find this environment variable in the `hive-env.sh` file, whose location is `/etc/hive/conf/hive-env.sh` on an EMR cluster. This setting will tell Hive where to find the connector JARs.
