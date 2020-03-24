@@ -65,7 +65,10 @@ class HiveTezSuite extends HiveConnectorTest {
         new File(tempPath, "apps_staging_dir").getAbsolutePath)
       // Set `spark.testing.reservedMemory` in the test so that Spark doesn't check the physical
       // memory size. we are using a very small container and that's enough for testing.
-      conf.set("tez.am.launch.cmd-opts", "-Dspark.testing.reservedMemory=0")
+      conf.set("tez.am.launch.cmd-opts",
+        "-Dspark.testing.reservedMemory=0 " +
+          "-Dspark.sql.shuffle.partitions=1 " +
+          "-Dspark.databricks.delta.snapshotPartitions=1")
       // Disable disk health check and authorization
       conf.setFloat(YarnConfiguration.NM_MAX_PER_DISK_UTILIZATION_PERCENTAGE, 100.0F)
       conf.setBoolean(YarnConfiguration.NM_DISK_HEALTH_CHECK_ENABLE, false)
