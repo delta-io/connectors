@@ -48,13 +48,13 @@ class HiveTezSuite extends HiveConnectorTest {
     private val tez = {
       assert(sys.env("JAVA_HOME") != null, "Cannot find JAVA_HOME")
       val tez = new MiniTezCluster("hivetest", 2)
-      conf.setInt(YarnConfiguration.YARN_MINICLUSTER_NM_PMEM_MB, 1024)
-      conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 512)
-      conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 1024)
+      conf.setInt(YarnConfiguration.YARN_MINICLUSTER_NM_PMEM_MB, 512)
+      conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 256)
+      conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 512)
       // Overrides values from the hive/tez-site.
-      conf.setInt("hive.tez.container.size", 512)
-      conf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 512)
-      conf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 512)
+      conf.setInt("hive.tez.container.size", 256)
+      conf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 256)
+      conf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 256)
       conf.setInt(TezRuntimeConfiguration.TEZ_RUNTIME_IO_SORT_MB, 24)
       conf.setInt(TezRuntimeConfiguration.TEZ_RUNTIME_UNORDERED_OUTPUT_BUFFER_SIZE_MB, 10)
       conf.setFloat(TezRuntimeConfiguration.TEZ_RUNTIME_SHUFFLE_FETCH_BUFFER_PERCENT, 0.4f)
@@ -92,9 +92,9 @@ class HiveTezSuite extends HiveConnectorTest {
       conf.set(e.getKey, e.getValue)
     }
     // Overrides values from the hive/tez-site.
-    conf.setInt("hive.tez.container.size", 512)
-    conf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 512)
-    conf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 512)
+    conf.setInt("hive.tez.container.size", 256)
+    conf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 256)
+    conf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 256)
     conf.setInt(TezRuntimeConfiguration.TEZ_RUNTIME_IO_SORT_MB, 24)
     conf.setInt(TezRuntimeConfiguration.TEZ_RUNTIME_UNORDERED_OUTPUT_BUFFER_SIZE_MB, 10)
     conf.setFloat(TezRuntimeConfiguration.TEZ_RUNTIME_SHUFFLE_FETCH_BUFFER_PERCENT, 0.4f)
