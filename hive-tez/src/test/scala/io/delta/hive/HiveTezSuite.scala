@@ -63,8 +63,12 @@ class HiveTezSuite extends HiveConnectorTest {
       conf.set(
         MRJobConfig.MR_AM_STAGING_DIR,
         new File(tempPath, "apps_staging_dir").getAbsolutePath)
-      // Set `spark.testing.reservedMemory` in the test so that Spark doesn't check the physical
-      // memory size. we are using a very small container and that's enough for testing.
+      // - Set `spark.testing.reservedMemory` in the test so that Spark doesn't check the physical
+      //   memory size. We are using a very small container and that's enough for testing.
+      // - Reduce the partition number to 1 to reduce the memory usage of Spark because CircleCI has
+      //   a small physical memory limit.
+      // - Set the default timezone so that the answers of tests using timestamp is not changed when
+      //   running in CircleCI.
       conf.set("tez.am.launch.cmd-opts",
         "-Dspark.testing.reservedMemory=0 " +
           "-Dspark.sql.shuffle.partitions=1 " +
