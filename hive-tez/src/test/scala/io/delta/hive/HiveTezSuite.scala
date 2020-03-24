@@ -68,7 +68,9 @@ class HiveTezSuite extends HiveConnectorTest {
       conf.set("tez.am.launch.cmd-opts",
         "-Dspark.testing.reservedMemory=0 " +
           "-Dspark.sql.shuffle.partitions=1 " +
-          "-Dspark.databricks.delta.snapshotPartitions=1")
+          "-Dspark.databricks.delta.snapshotPartitions=1 " +
+          "-Duser.timezone=America/Los_Angeles")
+      conf.set("tez.task.launch.cmd-opts", "-Duser.timezone=America/Los_Angeles")
       // Disable disk health check and authorization
       conf.setFloat(YarnConfiguration.NM_MAX_PER_DISK_UTILIZATION_PERCENTAGE, 100.0F)
       conf.setBoolean(YarnConfiguration.NM_DISK_HEALTH_CHECK_ENABLE, false)
