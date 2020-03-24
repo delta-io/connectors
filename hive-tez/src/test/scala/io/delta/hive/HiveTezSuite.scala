@@ -48,7 +48,7 @@ class HiveTezSuite extends HiveConnectorTest {
     private val tez = {
       assert(sys.env("JAVA_HOME") != null, "Cannot find JAVA_HOME")
       val tez = new MiniTezCluster("hivetest", 2)
-      conf.setInt(YarnConfiguration.YARN_MINICLUSTER_NM_PMEM_MB, 512)
+      conf.setInt(YarnConfiguration.YARN_MINICLUSTER_NM_PMEM_MB, 256)
       conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 256)
       conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 256)
       // Overrides values from the hive/tez-site.
