@@ -99,8 +99,8 @@ Hive 2.x.
 #### Can I use this connector in Apache Spark or Presto?
 No. The connector **must** be used with Apache Hive. It doesn't work in other systems, such as Apache Spark or Presto.
 - This connector does not provide the support for defining Hive Metastore tables in Apache Spark. It will be added in [Delta Lake core repository](https://github.com/delta-io/delta). It is tracked by the issue https://github.com/delta-io/delta/issues/85.
-- There is no native connector for Presto. But you can generate a manifest file to load a Delta table in Presto. See https://docs.delta.io/latest/presto-integration.html.
-- Other system supoprt can be found in https://docs.delta.io/latest/integrations.html.
+- This Hive connector does not native connectivity for Presto. But you can generate a manifest file to load a Delta table in Presto. See https://docs.delta.io/latest/presto-integration.html.
+- Other system support can be found in https://docs.delta.io/latest/integrations.html.
 
 #### If I create a table using the connector in Hive, can I query it in Apache Spark or Presto?
 No. The table created by this connector in Hive cannot be read in any other systems right now. We recommend to create different tables in different systems but point to the same path. Although you need to use different table names to query the same Delta table, the underlying data will be shared by all of systems.
