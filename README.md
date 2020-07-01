@@ -86,8 +86,17 @@ Here is an example of a CREATE TABLE command that defines an external Hive table
 ```SQL
 CREATE EXTERNAL TABLE deltaTable(col1 INT, col2 STRING)
 STORED BY 'io.delta.hive.DeltaStorageHandler'
-LOCATION '/delta/table/path'
+LOCATION 's3a://foo-bucket/bar-dir'
 ```
+
+Here is an  example of a CREATE TABLE command that defines an external Hive table pointing to a Delta table on the local filesystem at `/data/books.delta`.
+
+```SQL
+CREATE EXTERNAL TABLE deltaTable(col1 INT, col2 STRING)
+STORED BY 'io.delta.hive.DeltaStorageHandler'
+LOCATION 'file:/data/books.delta'
+```
+
 
 `io.delta.hive.DeltaStorageHandler` is the class that implements Hive data source APIs. It will know how to load a Delta table and extract its metadata. The table schema in the `CREATE TABLE` statement must be consistent with the underlying Delta metadata. Otherwise, the connector will throw an error to tell you about the inconsistency.
 
