@@ -86,7 +86,7 @@ Here is an example of a CREATE TABLE command that defines an external Hive table
 ```SQL
 CREATE EXTERNAL TABLE deltaTable(col1 INT, col2 STRING)
 STORED BY 'io.delta.hive.DeltaStorageHandler'
-LOCATION 's3a://foo-bucket/bar-dir'
+LOCATION '/delta/table/path'
 ```
 
 Here is an  example of a CREATE TABLE command that defines an external Hive table pointing to a Delta table on the local filesystem at `/data/books.delta`.
