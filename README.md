@@ -89,16 +89,11 @@ STORED BY 'io.delta.hive.DeltaStorageHandler'
 LOCATION '/delta/table/path'
 ```
 
-Here is an  example of a CREATE TABLE command that defines an external Hive table pointing to a Delta table on the local filesystem at `/data/books.delta`.
-
-```SQL
-CREATE EXTERNAL TABLE deltaTable(col1 INT, col2 STRING)
-STORED BY 'io.delta.hive.DeltaStorageHandler'
-LOCATION 'file:/data/books.delta'
-```
-
-
 `io.delta.hive.DeltaStorageHandler` is the class that implements Hive data source APIs. It will know how to load a Delta table and extract its metadata. The table schema in the `CREATE TABLE` statement must be consistent with the underlying Delta metadata. Otherwise, the connector will throw an error to tell you about the inconsistency.
+
+#### Specifying paths in LOCATION
+`/delta/table/path` in LOCATION is a normal path.  If there is no scheme in the path, it will use the default file system specified in your Hadoop configuration.
+You can add an explicit scheme to specify which file system you would like to use, such as `file://delta/table/path`, `s3://your-s3-bucket/delta/table/path`.
 
 ### Frequently asked questions (FAQ)
 
