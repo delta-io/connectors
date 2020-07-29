@@ -93,7 +93,7 @@ LOCATION '/delta/table/path'
 
 #### Specifying paths in LOCATION
 `/delta/table/path` in LOCATION is a normal path. If there is no scheme in the path, it will use the default file system specified in your Hadoop configuration.
-You can add an explicit scheme to specify which file system you would like to use, such as `file://delta/table/path`, `s3://your-s3-bucket/delta/table/path`.
+You can add an explicit scheme to specify which file system you would like to use, such as `file:///delta/table/path`, `s3://your-s3-bucket/delta/table/path`.
 
 ### Frequently asked questions (FAQ)
 
