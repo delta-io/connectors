@@ -271,3 +271,14 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "io.delta" %% "delta-core" % deltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
 )
+
+lazy val alpine = (project in file("alpine")) settings (
+  name := "alpine",
+  commonSettings,
+
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+//    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "io.delta" %% "delta-core" % deltaVersion excludeAll (ExclusionRule("org.apache.hadoop"))
+  )
+)
