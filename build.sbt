@@ -278,7 +278,14 @@ lazy val alpine = (project in file("alpine")) settings (
 
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
-//    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.2",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.11.2",
+
+    // "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.delta" %% "delta-core" % deltaVersion excludeAll (ExclusionRule("org.apache.hadoop"))
   )
 )
