@@ -2,19 +2,36 @@ package main.scala
 
 import java.net.URI
 
-import main.scala.actions.{Metadata, Protocol, SetTransaction}
-import main.scala.Snapshot.State
+import main.scala.actions.{AddFile, Metadata, Protocol, SetTransaction}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 class Snapshot(
     val path: Path,
     val version: Long,
-    previousSnapshot: Option[State],
-    files: Seq[Path],
-    val deltaLog: DeltaLog,
+    val minFileRetentionTimestamp: Long,
     val timestamp: Long) {
 
+  import Snapshot._
+
+  private def load() = {
+
+  }
+
+  lazy val computedState: State = {
+    null
+  }
+
+  def protocol: Protocol = computedState.protocol
+  def metadata: Metadata = computedState.metadata
+  def setTransactions: Seq[SetTransaction] = computedState.setTransactions
+  def sizeInBytes: Long = computedState.sizeInBytes
+  def numOfFiles: Long = computedState.numOfFiles
+  def numOfMetadata: Long = computedState.numOfMetadata
+  def numOfProtocol: Long = computedState.numOfProtocol
+  def numOfRemoves: Long = computedState.numOfRemoves
+  def numOfSetTransactions: Long = computedState.numOfSetTransactions
+  def allFiles: Set[AddFile] = computedState.activeFiles.values.toSet
 }
 
 object Snapshot {
@@ -34,6 +51,7 @@ object Snapshot {
       protocol: Protocol,
       metadata: Metadata,
       setTransactions: Seq[SetTransaction],
+      activeFiles: scala.collection.immutable.Map[URI, AddFile],
       sizeInBytes: Long,
       numOfFiles: Long,
       numOfMetadata: Long,

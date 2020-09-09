@@ -1,5 +1,6 @@
 package main.scala
 
+import main.scala.storage.LogStoreProvider
 import main.scala.util.Clock
 import org.apache.hadoop.fs.Path
 
@@ -17,7 +18,7 @@ class DeltaLog private(
     val clock: Clock)
 //  extends Checkpoints
 // with MetadataCleanup
-//  with LogStoreProvider
+  extends LogStoreProvider
 // with SnapshotManagement
 //  with ReadChecksum
   {

@@ -1,6 +1,7 @@
 
 package main.scala.storage
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
 /**
@@ -75,30 +76,11 @@ trait LogStore {
 }
 
 object LogStore extends LogStoreProvider {
-// TODO:
-//  def apply(sc: SparkContext): LogStore = {
-//    apply(sc.getConf, sc.hadoopConfiguration)
-//  }
-//
-//  def apply(sparkConf: SparkConf, hadoopConf: Configuration): LogStore = {
-//    createLogStore(sparkConf, hadoopConf)
-//  }
+  def apply(hadoopConf: Configuration): LogStore = {
+    createLogStore(hadoopConf)
+  }
 }
 
 trait LogStoreProvider {
-// TODO:
-//  val logStoreClassConfKey: String = "spark.delta.logStore.class"
-//  val defaultLogStoreClass: String = classOf[HDFSLogStore].getName
-//
-//  def createLogStore(spark: SparkSession): LogStore = {
-//    val sc = spark.sparkContext
-//    createLogStore(sc.getConf, sc.hadoopConfiguration)
-//  }
-//
-//  def createLogStore(sparkConf: SparkConf, hadoopConf: Configuration): LogStore = {
-//    val logStoreClassName = sparkConf.get(logStoreClassConfKey, defaultLogStoreClass)
-//    val logStoreClass = Utils.classForName(logStoreClassName)
-//    logStoreClass.getConstructor(classOf[SparkConf], classOf[Configuration])
-//      .newInstance(sparkConf, hadoopConf).asInstanceOf[LogStore]
-//  }
+  def createLogStore(hadoopConf: Configuration): LogStore = new HDFSLogStore(hadoopConf)
 }
