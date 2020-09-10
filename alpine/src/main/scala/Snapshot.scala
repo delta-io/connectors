@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 class Snapshot(
     val path: Path,
     val version: Long,
+    val logSegment: LogSegment,
     val minFileRetentionTimestamp: Long,
     val deltaLog: DeltaLog,
     val timestamp: Long) {
@@ -16,7 +17,7 @@ class Snapshot(
   import Snapshot._
 
   private def load() = {
-    deltaLog.lastCheckpoint.get.
+
   }
 
   lazy val computedState: State = {

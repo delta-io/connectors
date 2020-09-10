@@ -22,7 +22,12 @@ class DeltaLog private(
   with SnapshotManagement {
 
   import DeltaLog._
-  lazy val store = createLogStore(hadoopConf)
+
+  private def tombstoneRetentionMillis: Long = 100000000000000000L // TODO TOMBSTONE_RETENTION
+
+  def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
+
+  lazy val logStore = createLogStore(hadoopConf)
 }
 
 object DeltaLog {
