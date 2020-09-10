@@ -21,4 +21,9 @@ trait SnapshotManagement { self: DeltaLog =>
   protected def getSnapshotAtInit: Snapshot = {
     null
   }
+
+  protected def getLogSegmentFrom(
+    startingCheckpoint: Option[CheckpointMetaData]): LogSegment = {
+    getLogSegmentForVersion(startingCheckpoint.map(_.version))
+  }
 }

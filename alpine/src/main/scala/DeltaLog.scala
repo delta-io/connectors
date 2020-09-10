@@ -18,12 +18,11 @@ class DeltaLog private(
     val dataPath: Path,
     val clock: Clock)
   extends Checkpoints
-  // with MetadataCleanup
   with LogStoreProvider
-  // with ReadChecksum
   with SnapshotManagement {
+
   import DeltaLog._
-  val store = createLogStore(hadoopConf)
+  lazy val store = createLogStore(hadoopConf)
 }
 
 object DeltaLog {

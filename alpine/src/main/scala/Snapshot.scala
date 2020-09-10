@@ -10,12 +10,13 @@ class Snapshot(
     val path: Path,
     val version: Long,
     val minFileRetentionTimestamp: Long,
+    val deltaLog: DeltaLog,
     val timestamp: Long) {
 
   import Snapshot._
 
   private def load() = {
-
+    deltaLog.lastCheckpoint.get.
   }
 
   lazy val computedState: State = {
