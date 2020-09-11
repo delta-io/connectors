@@ -16,6 +16,8 @@
 
 package main.scala
 
+import java.util.concurrent.locks.ReentrantLock
+
 import main.scala.storage.LogStoreProvider
 import main.scala.util.Clock
 import org.apache.hadoop.conf.Configuration
@@ -44,6 +46,17 @@ class DeltaLog private(
   def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
 
   lazy val store = createLogStore(hadoopConf)
+
+  protected val deltaLogLock = new ReentrantLock()
+
+  def lockInterruptibly[T](body: => T): T = {
+    deltaLogLock.lockInterruptibly()
+    try {
+      body
+    } finally {
+      deltaLogLock.unlock()
+    }
+  }
 }
 
 object DeltaLog {

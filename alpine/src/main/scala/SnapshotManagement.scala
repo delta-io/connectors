@@ -30,7 +30,27 @@ trait SnapshotManagement { self: DeltaLog =>
   def snapshot: Snapshot = currentSnapshot
 
   def update(): Snapshot = {
-    null
+    lockInterruptibly {
+      updateInternal()
+    }
+  }
+
+  protected def updateInternal(): Snapshot = {
+    try {
+      val segment = getLogSegmentForVersion(currentSnapshot.logSegment.checkpointVersion)
+      if (segment != currentSnapshot.logSegment) {
+        val newSnapshot = createSnapshot(segment, segment.lastCommitTimestamp)
+        currentSnapshot = newSnapshot
+      }
+    } catch {
+      case e: FileNotFoundException =>
+        if (Option(e.getMessage).exists(_.contains("reconstruct state at version"))) {
+          throw e
+        }
+        currentSnapshot = new Snapshot(logPath, -1, LogSegment.empty(logPath), -1, this, -1)
+    }
+    lastUpdateTimestamp = clock.getTimeMillis()
+    currentSnapshot
   }
 
   def getSnapshotAt(
@@ -126,13 +146,17 @@ trait SnapshotManagement { self: DeltaLog =>
 
     lastUpdateTimestamp = clock.getTimeMillis()
 
+    createSnapshot(logSegment, logSegment.lastCommitTimestamp)
+  }
+
+  protected def createSnapshot(segment: LogSegment, latestCommitTimestamp: Long): Snapshot = {
     new Snapshot(
       logPath,
-      logSegment.version,
-      logSegment,
+      segment.version,
+      segment,
       minFileRetentionTimestamp,
       this,
-      logSegment.lastCommitTimestamp)
+      latestCommitTimestamp)
   }
 
   protected def verifyDeltaVersions(versions: Array[Long]): Unit = {
@@ -151,3 +175,8 @@ case class LogSegment(
     checkpoints: Seq[FileStatus],
     checkpointVersion: Option[Long],
     lastCommitTimestamp: Long)
+
+object LogSegment {
+  /** The LogSegment for an empty transaction log directory. */
+  def empty(path: Path): LogSegment = LogSegment(path, -1L, Nil, Nil, None, -1L)
+}

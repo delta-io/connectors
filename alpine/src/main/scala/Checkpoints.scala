@@ -86,7 +86,8 @@ trait Checkpoints {
   /** The path to the file that holds metadata about the most recent checkpoint. */
   val LAST_CHECKPOINT = new Path(logPath, "_last_checkpoint")
 
-  private def lastCheckpoint: Option[CheckpointMetaData] = {
+  // TODO private[alpine]
+  protected def lastCheckpoint: Option[CheckpointMetaData] = {
     loadMetadataFromFile(0)
   }
 
