@@ -2,7 +2,10 @@ package main.scala
 
 import java.net.URI
 
-import main.scala.actions.{AddFile, Metadata, Protocol, SetTransaction}
+import scala.main.util.JsonUtils
+
+import com.github.mjakubowski84.parquet4s.ParquetReader
+import actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, SetTransaction, SingleAction}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -13,27 +16,63 @@ class Snapshot(
     val minFileRetentionTimestamp: Long,
     val deltaLog: DeltaLog,
     val timestamp: Long) {
-
   import Snapshot._
 
-  private def load() = {
-
+  private def load(paths: Seq[Path]): Seq[SingleAction] = {
+    paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
+      if (path.endsWith("json")) {
+        deltaLog.store.read(path).map { line =>
+          JsonUtils.mapper.readValue[SingleAction](line)
+        }
+      } else if (path.endsWith("parquet")) {
+        ParquetReader.read[SingleAction](path).toSeq
+      } else Seq.empty[SingleAction]
+    }.toList
   }
 
-  lazy val computedState: State = {
-    null
+  lazy val state: State = {
+    val logPathURI = path.toUri
+    val replay = new InMemoryLogReplay(minFileRetentionTimestamp, DeltaLog.hadoopConf)
+    val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
+
+    // assertLogBelongsToTable
+    files.foreach {f =>
+      if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
+        // scalastyle:off throwerror
+        throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
+          s"transaction log at $logPathURI. Please contact Databricks Support.")
+        // scalastyle:on throwerror
+      }
+    }
+
+    val actions = load(files).map(_.unwrap)
+
+    replay.append(0, actions.iterator)
+
+    State(
+      replay.currentProtocolVersion,
+      replay.currentMetaData,
+      replay.transactions.values.toSeq,
+      replay.activeFiles.toMap,
+      replay.sizeInBytes,
+      replay.activeFiles.size,
+      replay.numMetadata,
+      replay.numProtocol,
+      replay.numRemoves,
+      replay.transactions.size
+    )
   }
 
-  def protocol: Protocol = computedState.protocol
-  def metadata: Metadata = computedState.metadata
-  def setTransactions: Seq[SetTransaction] = computedState.setTransactions
-  def sizeInBytes: Long = computedState.sizeInBytes
-  def numOfFiles: Long = computedState.numOfFiles
-  def numOfMetadata: Long = computedState.numOfMetadata
-  def numOfProtocol: Long = computedState.numOfProtocol
-  def numOfRemoves: Long = computedState.numOfRemoves
-  def numOfSetTransactions: Long = computedState.numOfSetTransactions
-  def allFiles: Set[AddFile] = computedState.activeFiles.values.toSet
+  def protocol: Protocol = state.protocol
+  def metadata: Metadata = state.metadata
+  def setTransactions: Seq[SetTransaction] = state.setTransactions
+  def sizeInBytes: Long = state.sizeInBytes
+  def numOfFiles: Long = state.numOfFiles
+  def numOfMetadata: Long = state.numOfMetadata
+  def numOfProtocol: Long = state.numOfProtocol
+  def numOfRemoves: Long = state.numOfRemoves
+  def numOfSetTransactions: Long = state.numOfSetTransactions
+  def allFiles: Set[AddFile] = state.activeFiles.values.toSet
 }
 
 object Snapshot {

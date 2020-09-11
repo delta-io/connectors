@@ -25,7 +25,7 @@ trait SnapshotManagement { self: DeltaLog =>
   }
 
   protected def getLogSegmentForVersion(startCheckpoint: Option[Long]): LogSegment = {
-    val newFiles = logStore.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
+    val newFiles = store.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
       .filter { file => isCheckpointFile(file.getPath) || isDeltaFile(file.getPath) }
       .filterNot { file => isCheckpointFile(file.getPath) && file.getLen == 0 }
       .toArray
@@ -110,7 +110,6 @@ trait SnapshotManagement { self: DeltaLog =>
 
     lastUpdateTimestamp = clock.getTimeMillis()
 
-
     new Snapshot(
       logPath,
       logSegment.version,
@@ -133,6 +132,6 @@ case class LogSegment(
     logPath: Path,
     version: Long,
     deltas: Seq[FileStatus],
-    checkpoint: Seq[FileStatus],
+    checkpoints: Seq[FileStatus],
     checkpointVersion: Option[Long],
     lastCommitTimestamp: Long)

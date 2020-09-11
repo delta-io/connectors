@@ -27,9 +27,9 @@ class DeltaLog private(
 
   def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
 
-  lazy val logStore = createLogStore(hadoopConf)
+  lazy val store = createLogStore(hadoopConf)
 }
 
 object DeltaLog {
-  private val hadoopConf = new Configuration()
+  val hadoopConf = new Configuration()
 }

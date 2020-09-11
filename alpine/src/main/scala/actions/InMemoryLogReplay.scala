@@ -1,9 +1,7 @@
-package actions
+package main.scala.actions
 
 import java.net.URI
 
-
-import main.scala.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile, SetTransaction}
 import main.scala.Snapshot.canonicalizePath
 import org.apache.hadoop.conf.Configuration
 
@@ -59,6 +57,8 @@ class InMemoryLogReplay(
   private def getTombstones: Iterable[FileAction] = {
     tombstones.values.filter(_.delTimestamp > minFileRetentionTimestamp)
   }
+
+  def numRemoves: Long = getTombstones.size
 
   /** Returns the current state of the Table as an iterator of actions. */
   def checkpoint: Iterator[Action] = {

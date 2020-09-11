@@ -279,6 +279,8 @@ lazy val alpine = (project in file("alpine")) settings (
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
 
+    "com.github.mjakubowski84" %% "parquet4s-core" % "0.11.0",
+
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.2",
 
