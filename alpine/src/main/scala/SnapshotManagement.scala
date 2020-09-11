@@ -53,13 +53,6 @@ trait SnapshotManagement { self: DeltaLog =>
     currentSnapshot
   }
 
-  def getSnapshotAt(
-    version: Long,
-    commitTimestamp: Option[Long] = None,
-    lastCheckpointHint: Option[CheckpointInstance] = None): Snapshot = {
-    null
-  }
-
   protected def getLogSegmentForVersion(startCheckpoint: Option[Long]): LogSegment = {
     val newFiles = store.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
       .filter { file => isCheckpointFile(file.getPath) || isDeltaFile(file.getPath) }
