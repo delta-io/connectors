@@ -21,7 +21,7 @@ import java.io.FileNotFoundException
 import scala.main.util.JsonUtils
 import scala.util.control.NonFatal
 
-import main.scala.storage.LogStore
+import main.scala.storage.ReadOnlyLogStore
 import main.scala.util.FileNames._
 import org.apache.hadoop.fs.Path
 
@@ -81,7 +81,7 @@ trait Checkpoints {
   def logPath: Path
   def dataPath: Path
   def snapshot: Snapshot
-  protected def store: LogStore
+  protected def store: ReadOnlyLogStore
 
   /** The path to the file that holds metadata about the most recent checkpoint. */
   val LAST_CHECKPOINT = new Path(logPath, "_last_checkpoint")

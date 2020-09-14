@@ -18,7 +18,7 @@ package main.scala
 
 import java.util.concurrent.locks.ReentrantLock
 
-import main.scala.storage.LogStoreProvider
+import main.scala.storage.ReadOnlyLogStoreProvider
 import main.scala.util.{Clock, SystemClock}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -36,7 +36,7 @@ class DeltaLog private(
     val dataPath: Path,
     val clock: Clock)
   extends Checkpoints
-  with LogStoreProvider
+  with ReadOnlyLogStoreProvider
   with SnapshotManagement {
 
   import DeltaLog._
