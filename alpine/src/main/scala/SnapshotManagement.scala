@@ -29,6 +29,7 @@ trait SnapshotManagement { self: DeltaLog =>
 
   def snapshot: Snapshot = currentSnapshot
 
+  // TODO: allow async update
   def update(): Snapshot = {
     lockInterruptibly {
       updateInternal()
@@ -47,7 +48,7 @@ trait SnapshotManagement { self: DeltaLog =>
         if (Option(e.getMessage).exists(_.contains("reconstruct state at version"))) {
           throw e
         }
-        currentSnapshot = new Snapshot(logPath, -1, LogSegment.empty(logPath), -1, this, -1)
+        currentSnapshot = new InitialSnapshot(logPath, this)
     }
     lastUpdateTimestamp = clock.getTimeMillis()
     currentSnapshot
@@ -135,11 +136,15 @@ trait SnapshotManagement { self: DeltaLog =>
   }
 
   protected def getSnapshotAtInit: Snapshot = {
-    val logSegment = getLogSegmentForVersion(lastCheckpoint.map(_.version))
-
-    lastUpdateTimestamp = clock.getTimeMillis()
-
-    createSnapshot(logSegment, logSegment.lastCommitTimestamp)
+    try {
+      val logSegment = getLogSegmentForVersion(lastCheckpoint.map(_.version))
+      val snapshot = createSnapshot(logSegment, logSegment.lastCommitTimestamp)
+      lastUpdateTimestamp = clock.getTimeMillis()
+      snapshot
+    } catch {
+      case _: FileNotFoundException =>
+        new InitialSnapshot(logPath, this)
+    }
   }
 
   protected def createSnapshot(segment: LogSegment, latestCommitTimestamp: Long): Snapshot = {

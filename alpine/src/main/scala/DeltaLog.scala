@@ -19,7 +19,7 @@ package main.scala
 import java.util.concurrent.locks.ReentrantLock
 
 import main.scala.storage.LogStoreProvider
-import main.scala.util.Clock
+import main.scala.util.{Clock, SystemClock}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -61,4 +61,27 @@ class DeltaLog private(
 
 object DeltaLog {
   val hadoopConf = new Configuration()
+  // TODO: more hadoopConf setup
+
+  def forTable(dataPath: String): DeltaLog = {
+    apply(new Path(dataPath, "_delta_log"))
+  }
+
+  // TODO: forTable w dataPath: File
+  // TODO: forTable w dataPath: Path
+  // TODO: forTable w dataPath: String & clock
+  // TODO: forTable w dataPath: File & clock
+  // TODO: forTable w dataPath: Path & clock
+  // TODO: forTable w tableName: TableIdentifier
+  // TODO: forTable w table: CatalogTable
+  // TODO: forTable w tableName: TableIdentifier & clock
+  // TODO: forTable w table: CatalogTable & clock
+  // TODO: forTable w deltaTable: DeltaTableIdentifier
+
+  def apply(rawPath: Path, clock: Clock = new SystemClock): DeltaLog = {
+    val fs = rawPath.getFileSystem(hadoopConf)
+    val path = fs.makeQualified(rawPath)
+
+    new DeltaLog(path, path.getParent, new SystemClock)
+  }
 }

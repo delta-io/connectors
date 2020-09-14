@@ -46,7 +46,7 @@ class Snapshot(
     }.toList
   }
 
-  lazy val state: State = {
+  protected lazy val state: State = {
     val logPathURI = path.toUri
     val replay = new InMemoryLogReplay(minFileRetentionTimestamp, DeltaLog.hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
@@ -115,5 +115,22 @@ object Snapshot {
       numOfProtocol: Long,
       numOfRemoves: Long,
       numOfSetTransactions: Long)
+}
 
+class InitialSnapshot(
+    val logPath: Path,
+    override val deltaLog: DeltaLog,
+    override val metadata: Metadata)
+  extends Snapshot(logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
+
+  def this(logPath: Path, deltaLog: DeltaLog) = this(
+    logPath,
+    deltaLog,
+    Metadata() // TODO: SparkSession.active.sessionState.conf ?
+  )
+
+  override protected lazy val state: Snapshot.State = {
+    val protocol = Protocol()
+    Snapshot.State(protocol, metadata, Nil, Map.empty[URI, AddFile], 0L, 0L, 1L, 1L, 0L, 0L)
+  }
 }
