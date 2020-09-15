@@ -32,14 +32,13 @@ import org.apache.hadoop.fs.Path
  * is guaranteed to see a consistent snapshot of the table.
  */
 class DeltaLog private(
+    val hadoopConf: Configuration,
     val logPath: Path,
     val dataPath: Path,
     val clock: Clock)
   extends Checkpoints
   with ReadOnlyLogStoreProvider
   with SnapshotManagement {
-
-  import DeltaLog._
 
   private def tombstoneRetentionMillis: Long = 100000000000000000L // TODO TOMBSTONE_RETENTION
 
@@ -60,11 +59,8 @@ class DeltaLog private(
 }
 
 object DeltaLog {
-  val hadoopConf = new Configuration()
-  // TODO: more hadoopConf setup
-
-  def forTable(dataPath: String): DeltaLog = {
-    apply(new Path(dataPath, "_delta_log"))
+  def forTable(hadoopConf: Configuration, dataPath: String): DeltaLog = {
+    apply(hadoopConf, new Path(dataPath, "_delta_log"))
   }
 
   // TODO: forTable w dataPath: File
@@ -78,10 +74,10 @@ object DeltaLog {
   // TODO: forTable w table: CatalogTable & clock
   // TODO: forTable w deltaTable: DeltaTableIdentifier
 
-  def apply(rawPath: Path, clock: Clock = new SystemClock): DeltaLog = {
+  def apply(hadoopConf: Configuration, rawPath: Path, clock: Clock = new SystemClock): DeltaLog = {
     val fs = rawPath.getFileSystem(hadoopConf)
     val path = fs.makeQualified(rawPath)
 
-    new DeltaLog(path, path.getParent, new SystemClock)
+    new DeltaLog(hadoopConf, path, path.getParent, new SystemClock)
   }
 }

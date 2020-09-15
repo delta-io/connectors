@@ -25,6 +25,8 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
+// TODO: create HadoopFileSystemLogStore ABC parent, so that we can create other children
+//       like AzureReadOnlyLogStore
 class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
 
   override def read(path: Path): Seq[String] = {

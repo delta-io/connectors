@@ -51,17 +51,6 @@ case class Protocol(
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
 }
 
-object Protocol {
-  // TODO: conf: apache.hadoop.conf.Configuration, requiredProtocol: Option[Protocol] ?
-  def apply(): Protocol = {
-    // TODO: use DELTA_PROTOCOL_DEFAULT_READER_VERSION) ?
-    // TODO: use DELTA_PROTOCOL_DEFAULT_WRITER_VERSION ?
-    Protocol(0, 0)
-  }
-
-  // TODO: forNewTable() ?
-}
-
 case class SetTransaction(
   appId: String,
   version: Long,

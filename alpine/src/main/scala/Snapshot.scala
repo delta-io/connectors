@@ -26,6 +26,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 class Snapshot(
+    val hadoopConf: Configuration,
     val path: Path,
     val version: Long,
     val logSegment: LogSegment,
@@ -48,7 +49,7 @@ class Snapshot(
 
   protected lazy val state: State = {
     val logPathURI = path.toUri
-    val replay = new InMemoryLogReplay(minFileRetentionTimestamp, DeltaLog.hadoopConf)
+    val replay = new InMemoryLogReplay(minFileRetentionTimestamp, hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
     // assertLogBelongsToTable
@@ -118,12 +119,14 @@ object Snapshot {
 }
 
 class InitialSnapshot(
+    override val hadoopConf: Configuration,
     val logPath: Path,
     override val deltaLog: DeltaLog,
     override val metadata: Metadata)
-  extends Snapshot(logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
+  extends Snapshot(hadoopConf, logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
 
-  def this(logPath: Path, deltaLog: DeltaLog) = this(
+  def this(hadoopConf: Configuration, logPath: Path, deltaLog: DeltaLog) = this(
+    hadoopConf,
     logPath,
     deltaLog,
     Metadata() // TODO: SparkSession.active.sessionState.conf ?

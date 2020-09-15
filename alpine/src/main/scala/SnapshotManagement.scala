@@ -49,7 +49,7 @@ trait SnapshotManagement { self: DeltaLog =>
         if (Option(e.getMessage).exists(_.contains("reconstruct state at version"))) {
           throw e
         }
-        currentSnapshot = new InitialSnapshot(logPath, this)
+        currentSnapshot = new InitialSnapshot(hadoopConf, logPath, this)
     }
     lastUpdateTimestamp = clock.getTimeMillis()
     currentSnapshot
@@ -144,12 +144,13 @@ trait SnapshotManagement { self: DeltaLog =>
       snapshot
     } catch {
       case _: FileNotFoundException =>
-        new InitialSnapshot(logPath, this)
+        new InitialSnapshot(hadoopConf, logPath, this)
     }
   }
 
   protected def createSnapshot(segment: LogSegment, latestCommitTimestamp: Long): Snapshot = {
     new Snapshot(
+      hadoopConf,
       logPath,
       segment.version,
       segment,
