@@ -22,63 +22,107 @@ import collection.JavaConverters._
 
 import io.delta.alpine.internal.actions.CommitMarker
 import io.delta.alpine.internal.exception.DeltaErrors
-import io.delta.alpine.internal.util.FileNames._
 import io.delta.alpine.ReadOnlyLogStore
+import io.delta.alpine.internal.exception.DeltaErrors.DeltaTimeTravelException
+import io.delta.alpine.internal.util.FileNames
 import org.apache.hadoop.fs.Path
 
 case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
   /** Check whether the given version can be recreated by replaying the DeltaLog. */
   def checkVersionExists(version: Long): Unit = {
-    val earliest = getEarliestDeltaFileVersion // TODO OSS uses getEarliestReproducibleCommit
-    val latest = deltaLog.update().version
-    if (version < earliest || version > latest) {
-      throw DeltaErrors.versionNotExistException(version, earliest, latest)
+    val earliestVersion = getEarliestReproducibleCommitVersion
+    val latestVersion = deltaLog.update().version
+    if (version < earliestVersion || version > latestVersion) {
+      throw DeltaErrors.versionNotExistException(version, earliestVersion, latestVersion)
     }
   }
 
-  def getActiveCommitAtTime(
-    timestamp: Timestamp
-    //      canReturnLastCommit: Boolean,
-    //      mustBeRecreatable: Boolean = true,
-    //      canReturnEarliestCommit: Boolean = false
-  ): Commit = {
+  /**
+   * @param timestamp The timestamp to search for
+   * @throws DeltaTimeTravelException if the state at the given commit in not recreatable
+   * @throws DeltaTimeTravelException if the provided timestamp is before the earliest commit
+   * @throws DeltaTimeTravelException if the provided timestamp is after the latest commit
+   */
+  def getActiveCommitAtTime(timestamp: Timestamp): Commit = {
     val time = timestamp.getTime
-    val earliest = getEarliestDeltaFileVersion
+    val earliestVersion = getEarliestReproducibleCommitVersion
     val latestVersion = deltaLog.update().version
 
     // Search for the commit
-    val commits = getCommits(deltaLog.store, deltaLog.logPath, earliest, Some(latestVersion + 1))
-    // If it returns empty, we will fail below with `timestampEarlierThanCommitRetention`.
+    val commits = getCommits(deltaLog.store, deltaLog.logPath, earliestVersion, latestVersion + 1)
+
+    // If it returns empty, we will fail below with `timestampEarlierThanTableFirstCommit`
     val commit = lastCommitBeforeTimestamp(commits, time).getOrElse(commits.head)
 
-    // TODO
     // Error handling
-    //    val commitTs = new Timestamp(commit.timestamp)
-    //    val timestampFormatter = TimestampFormatter(
-    //      DateTimeUtils.getTimeZone(SQLConf.get.sessionLocalTimeZone))
-    //    val tsString = DateTimeUtils.timestampToString(
-    //      timestampFormatter, DateTimeUtils.fromJavaTimestamp(commitTs))
-    //    if (commit.timestamp > time && !canReturnEarliestCommit) {
-    //      throw DeltaErrors.timestampEarlierThanCommitRetention(timestamp, commitTs, tsString)
-    //    } else if (commit.version == latestVersion && !canReturnLastCommit) {
-    //      if (commit.timestamp < time) {
-    //        throw
-    //        DeltaErrors.temporallyUnstableInput(timestamp, commitTs, tsString, commit.version)
-    //      }
-    //    }
+    val commitTs = new Timestamp(commit.timestamp)
+    if (commit.timestamp > time) {
+      throw DeltaErrors.timestampEarlierThanTableFirstCommit(timestamp, commitTs)
+    } else if (commit.timestamp < time && commit.version == latestVersion) {
+      throw DeltaErrors.timestampLaterThanTableLastCommit(timestamp, commitTs)
+    }
+
     commit
   }
 
-  private def getEarliestDeltaFileVersion: Long = {
-    val earliestVersionOpt = deltaLog.store.listFrom(deltaFile(deltaLog.logPath, 0))
-      .asScala
-      .filter(f => isDeltaFile(f.getPath))
-      .take(1).toArray.headOption
-    if (earliestVersionOpt.isEmpty) {
+  /**
+   * Get the earliest commit, which we can recreate. Note that this version isn't guaranteed to
+   * exist when performing an action as a concurrent operation can delete the file during cleanup.
+   * This value must be used as a lower bound.
+   *
+   * We search for the earliest checkpoint we have, or whether we have the 0th delta file, because
+   * that way we can reconstruct the entire history of the table. This method assumes that the
+   * commits are contiguous.
+   */
+  private def getEarliestReproducibleCommitVersion: Long = {
+    val files = deltaLog.store.listFrom(FileNames.deltaFile(deltaLog.logPath, 0)).asScala
+      .filter(f => FileNames.isDeltaFile(f.getPath) || FileNames.isCheckpointFile(f.getPath))
+
+    // A map of checkpoint version and number of parts, to number of parts observed
+    val checkpointMap = new scala.collection.mutable.HashMap[(Long, Int), Int]()
+    var smallestDeltaVersion = Long.MaxValue
+    var lastCompleteCheckpoint: Option[Long] = None
+
+    // Iterate through the log files - this will be in order starting from the lowest version.
+    // Checkpoint files come before deltas, so when we see a checkpoint, we remember it and
+    // return it once we detect that we've seen a smaller or equal delta version.
+    while (files.hasNext) {
+      val nextFilePath = files.next().getPath
+      if (FileNames.isDeltaFile(nextFilePath)) {
+        val version = FileNames.deltaVersion(nextFilePath)
+        if (version == 0L) return version
+        smallestDeltaVersion = math.min(version, smallestDeltaVersion)
+
+        // Note that we also check this condition at the end of the function - we check it
+        // here too to to try and avoid more file listing when it's unnecessary.
+        if (lastCompleteCheckpoint.exists(_ >= smallestDeltaVersion)) {
+          return lastCompleteCheckpoint.get
+        }
+      } else if (FileNames.isCheckpointFile(nextFilePath)) {
+        val checkpointVersion = FileNames.checkpointVersion(nextFilePath)
+        val parts = FileNames.numCheckpointParts(nextFilePath)
+        if (parts.isEmpty) {
+          lastCompleteCheckpoint = Some(checkpointVersion)
+        } else {
+          // if we have a multi-part checkpoint, we need to check that all parts exist
+          val numParts = parts.getOrElse(1)
+          val preCount = checkpointMap.getOrElse(checkpointVersion -> numParts, 0)
+          if (numParts == preCount + 1) {
+            lastCompleteCheckpoint = Some(checkpointVersion)
+          }
+          checkpointMap.put(checkpointVersion -> numParts, preCount + 1)
+        }
+      }
+    }
+
+    if (lastCompleteCheckpoint.exists(_ >= smallestDeltaVersion)) {
+      lastCompleteCheckpoint.get
+    } else if (smallestDeltaVersion < Long.MaxValue) {
+      throw DeltaErrors.noReproducibleHistoryFound(deltaLog.logPath)
+    } else {
       throw DeltaErrors.noHistoryFound(deltaLog.logPath)
     }
-    deltaVersion(earliestVersionOpt.get.getPath)
   }
 
   // TODO private[tahoe]
@@ -86,15 +130,14 @@ case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     logStore: ReadOnlyLogStore,
     logPath: Path,
     start: Long,
-    end: Option[Long] = None): Array[Commit] = {
-    val until = end.getOrElse(Long.MaxValue)
-    val commits = logStore.listFrom(deltaFile(logPath, start))
+    end: Long): Array[Commit] = {
+    val commits = logStore.listFrom(FileNames.deltaFile(logPath, start))
       .asScala
-      .filter(f => isDeltaFile(f.getPath))
+      .filter(f => FileNames.isDeltaFile(f.getPath))
       .map { fileStatus =>
-        Commit(deltaVersion(fileStatus.getPath), fileStatus.getModificationTime)
+        Commit(FileNames.deltaVersion(fileStatus.getPath), fileStatus.getModificationTime)
       }
-      .takeWhile(_.version < until)
+      .takeWhile(_.version < end)
 
     monotonizeCommitTimestamps(commits.toArray)
   }

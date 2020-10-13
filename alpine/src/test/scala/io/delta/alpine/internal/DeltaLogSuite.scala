@@ -19,6 +19,7 @@ package io.delta.alpine.internal
 import java.io.{File, FileNotFoundException}
 
 import io.delta.alpine.internal.exception.{DeltaErrors => DeltaErrorsAlpine}
+import io.delta.alpine.internal.util.ConversionUtils
 import io.delta.tables.DeltaTable
 import org.apache.hadoop.fs.Path
 

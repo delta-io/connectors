@@ -21,6 +21,7 @@ import java.io.File
 import collection.JavaConverters._
 
 import io.delta.alpine.internal.storage.ReadOnlyLogStoreProvider
+import io.delta.alpine.internal.util.ConversionUtils
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.sql.delta.storage.LogStore

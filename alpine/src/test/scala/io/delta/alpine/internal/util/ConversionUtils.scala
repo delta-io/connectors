@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package io.delta.alpine.internal
+package io.delta.alpine.internal.util
 
 import io.delta.alpine.internal
+import io.delta.alpine.internal.CheckpointMetaData
 import io.delta.alpine.internal.actions.{AddFile, Metadata, Protocol}
-
 import org.apache.spark.sql.delta.actions.{AddFile => AddFileOSS, Format => FormatOSS, Metadata => MetadataOSS, Protocol => ProtocolOSS}
 
 trait ConversionUtils {

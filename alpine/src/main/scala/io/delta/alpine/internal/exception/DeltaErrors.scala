@@ -20,7 +20,9 @@ import java.io.FileNotFoundException
 
 import org.apache.hadoop.fs.Path
 
-object DeltaErrors {
+private[internal] object DeltaErrors {
+
+  class DeltaTimeTravelException(message: String) extends Exception(message)
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
@@ -31,8 +33,8 @@ object DeltaErrors {
   }
 
   def logFileNotFoundException(
-    path: Path,
-    version: Long): Throwable = {
+      path: Path,
+      version: Long): Throwable = {
     // TODO: use DeltaConfigs.LOG_RETENTION, CHECKPOINT_RETENTION_DURATION for extra info
     new FileNotFoundException(s"$path: Unable to reconstruct state at version $version as the " +
       s"transaction log has been truncated due to manual deletion or the log retention policy ")
@@ -43,14 +45,34 @@ object DeltaErrors {
       s"Couldn't find all part files of the checkpoint version: $version", ae)
   }
 
+  def noReproducibleHistoryFound(logPath: Path): Throwable = {
+    new DeltaTimeTravelException(s"No reproducible commits found at $logPath")
+  }
+
+  def timestampEarlierThanTableFirstCommit(
+      userTimestamp: java.sql.Timestamp,
+      commitTs: java.sql.Timestamp): Throwable = {
+    new DeltaTimeTravelException(
+      s"""The provided timestamp ($userTimestamp) is before the earliest version available to this
+         |table ($commitTs). Please use a timestamp greater than or equal to $commitTs.
+       """.stripMargin)
+  }
+
+  def timestampLaterThanTableLastCommit(
+      userTimestamp: java.sql.Timestamp,
+      commitTs: java.sql.Timestamp): Throwable = {
+    new DeltaTimeTravelException(
+      s"""The provided timestamp ($userTimestamp) is after the latest version available to this
+         |table ($commitTs). Please use a timestamp less than or equal to $commitTs.
+       """.stripMargin)
+  }
+
   def noHistoryFound(logPath: Path): Throwable = {
-    // TODO more specific exception to throw?
-    new Exception(s"No commits found at $logPath")
+    new DeltaTimeTravelException(s"No commits found at $logPath")
   }
 
   def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
-    // TODO more specific exception to throw?
-    new Exception(s"Cannot time travel Delta table to version $userVersion. " +
+    new DeltaTimeTravelException(s"Cannot time travel Delta table to version $userVersion. " +
       s"Available versions: [$earliest, $latest].")
   }
 }
