@@ -17,8 +17,9 @@
 package io.delta.alpine.internal
 
 import collection.JavaConverters._
-
 import java.io.FileNotFoundException
+import java.sql.Timestamp
+
 import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.util.FileNames._
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -33,6 +34,18 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     lockInterruptibly {
       updateInternal()
     }
+  }
+
+  def getSnapshotForVersionAsOf(version: Long): SnapshotImpl = {
+    val historyManager = DeltaHistoryManager(self)
+    historyManager.checkVersionExists(version)
+    getSnapshotAt(version)
+  }
+
+  def getSnapshotForTimestampAsOf(timestamp: Long): SnapshotImpl = {
+    val historyManager = DeltaHistoryManager(self)
+    val latestCommit = historyManager.getActiveCommitAtTime(new Timestamp(timestamp))
+    getSnapshotAt(latestCommit.version)
   }
 
   private def updateInternal(): SnapshotImpl = {
@@ -53,11 +66,35 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     currentSnapshot
   }
 
-  private def getLogSegmentForVersion(startCheckpoint: Option[Long]): LogSegment = {
+  /**
+   * Get a list of files that can be used to compute a Snapshot at version `versionToLoad`, If
+   * `versionToLoad` is not provided, will generate the list of files that are needed to load the
+   * latest version of the Delta table. This method also performs checks to ensure that the delta
+   * files are contiguous.
+   *
+   * @param startCheckpoint A potential start version to perform the listing of the DeltaLog,
+   *                        typically that of a known checkpoint. If this version's not provided,
+   *                        we will start listing from version 0.
+   * @param versionToLoad A specific version to load. Typically used with time travel and the
+   *                      Delta streaming source. If not provided, we will try to load the latest
+   *                      version of the table.
+   * @return Some LogSegment to build a Snapshot if files do exist after the given
+   *         startCheckpoint. None, if there are no new files after `startCheckpoint`.
+   */
+  protected def getLogSegmentForVersion(
+    startCheckpoint: Option[Long],
+    versionToLoad: Option[Long] = None): LogSegment = {
+
+    // List from the starting checkpoint. If a checkpoint doesn't exist, this will still return
+    // deltaVersion=0.
     val newFiles = store.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
       .asScala
+      // Pick up all checkpoint and delta files
       .filter { file => isCheckpointFile(file.getPath) || isDeltaFile(file.getPath) }
+      // filter out files that aren't atomically visible. Checkpoint files of 0 size are invalid
       .filterNot { file => isCheckpointFile(file.getPath) && file.getLen == 0 }
+      // take files until the version we want to load
+      .takeWhile(f => versionToLoad.forall(v => getFileVersion(f.getPath) <= v))
       .toArray
 
     if (newFiles.isEmpty && startCheckpoint.isEmpty) {
@@ -65,14 +102,15 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     } else if (newFiles.isEmpty) {
       // The directory may be deleted and recreated and we may have stale state in our DeltaLog
       // singleton, so try listing from the first version
-      return getLogSegmentForVersion(None)
+      return getLogSegmentForVersion(None, versionToLoad)
     }
     val (checkpoints, deltas) = newFiles.partition(f => isCheckpointFile(f.getPath))
 
     // Find the latest checkpoint in the listing that is not older than the versionToLoad
-    val lastChkpoint = CheckpointInstance.MaxValue
+    val lastCheckpoint = versionToLoad.map(CheckpointInstance(_, None))
+      .getOrElse(CheckpointInstance.MaxValue)
     val checkpointFiles = checkpoints.map(f => CheckpointInstance(f.getPath))
-    val newCheckpoint = getLatestCompleteCheckpointFromList(checkpointFiles, lastChkpoint)
+    val newCheckpoint = getLatestCompleteCheckpointFromList(checkpointFiles, lastCheckpoint)
     if (newCheckpoint.isDefined) {
       // If there is a new checkpoint, start new lineage there.
       val newCheckpointVersion = newCheckpoint.get.version
@@ -88,6 +126,10 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
         verifyDeltaVersions(deltaVersions)
         require(deltaVersions.head == newCheckpointVersion + 1, "Did not get the first delta " +
           s"file version: ${newCheckpointVersion + 1} to compute Snapshot")
+        versionToLoad.foreach { version =>
+          require(deltaVersions.last == version,
+            s"Did not get the last delta file version: $version to compute Snapshot")
+        }
       }
       val newVersion = deltaVersions.lastOption.getOrElse(newCheckpoint.get.version)
       val newCheckpointFiles = checkpoints.filter(f => newCheckpointPaths.contains(f.getPath))
@@ -122,9 +164,12 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
         throw DeltaErrors.logFileNotFoundException(
           deltaFile(logPath, 0L), deltaVersions.last)
       }
+      versionToLoad.foreach { version =>
+        require(deltaVersions.last == version,
+          s"Did not get the last delta file version: $version to compute Snapshot")
+      }
 
       val latestCommit = deltas.last
-
       LogSegment(
         logPath,
         deltaVersion(latestCommit.getPath), // deltas is not empty, so can call .last
@@ -146,14 +191,26 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     }
   }
 
-  private def createSnapshot(segment: LogSegment, latestCommitTimestamp: Long): SnapshotImpl = {
+  private def getSnapshotAt(version: Long): SnapshotImpl = {
+    if (snapshot.version == version) return snapshot
+
+    val startingCheckpoint = findLastCompleteCheckpoint(CheckpointInstance(version, None))
+    val segment = getLogSegmentForVersion(startingCheckpoint.map(_.version), Some(version))
+
+    createSnapshot(
+      segment,
+      segment.lastCommitTimestamp
+    )
+  }
+
+  private def createSnapshot(segment: LogSegment, lastCommitTimestamp: Long): SnapshotImpl = {
     new SnapshotImpl(
       hadoopConf,
       logPath,
       segment.version,
       segment,
       this,
-      latestCommitTimestamp)
+      lastCommitTimestamp)
   }
 
   private def verifyDeltaVersions(versions: Array[Long]): Unit = {

@@ -119,7 +119,7 @@ private[internal] trait Checkpoints {
     CheckpointMetaData(cv.version, -1L, cv.numParts)
   }
 
-  private def findLastCompleteCheckpoint(cv: CheckpointInstance): Option[CheckpointInstance] = {
+  protected def findLastCompleteCheckpoint(cv: CheckpointInstance): Option[CheckpointInstance] = {
     var cur = math.max(cv.version, 0L)
     while (cur >= 0) {
       val checkpoints = store.listFrom(checkpointPrefix(logPath, math.max(0, cur - 1000)))

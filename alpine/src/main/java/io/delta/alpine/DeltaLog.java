@@ -9,8 +9,8 @@ import org.apache.hadoop.fs.Path;
 public interface DeltaLog {
     Snapshot snapshot();
     Snapshot update();
-//    Snapshot getSnapshotForVersionAsOf(long version);
-//    Snapshot getSnapshotForTimestampAsOf(long epochMillis);
+    Snapshot getSnapshotForVersionAsOf(long version);
+    Snapshot getSnapshotForTimestampAsOf(long timestamp);
     Configuration getHadoopConf();
     Path getLogPath();
     Path getDataPath();

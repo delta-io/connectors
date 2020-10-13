@@ -49,4 +49,23 @@ object FileNames {
   def isDeltaFile(path: Path): Boolean = deltaFilePattern.matcher(path.getName).matches()
 
   def checkpointVersion(path: Path): Long = path.getName.split("\\.")(0).toLong
+
+  /**
+   * Get the version of the checkpoint, checksum or delta file. Throws an error if an unexpected
+   * file type is seen. These unexpected files should be filtered out to ensure forward
+   * compatibility in cases where new file types are added, but without an explicit protocol
+   * upgrade.
+   */
+  def getFileVersion(path: Path): Long = {
+    if (isCheckpointFile(path)) {
+      checkpointVersion(path)
+    } else if (isDeltaFile(path)) {
+      deltaVersion(path)
+    } else {
+      // scalastyle:off throwerror
+      throw new AssertionError(
+        s"Unexpected file type found in transaction log: $path")
+      // scalastyle:on throwerror
+    }
+  }
 }

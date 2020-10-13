@@ -42,4 +42,15 @@ object DeltaErrors {
     new IllegalStateException(
       s"Couldn't find all part files of the checkpoint version: $version", ae)
   }
+
+  def noHistoryFound(logPath: Path): Throwable = {
+    // TODO more specific exception to throw?
+    new Exception(s"No commits found at $logPath")
+  }
+
+  def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
+    // TODO more specific exception to throw?
+    new Exception(s"Cannot time travel Delta table to version $userVersion. " +
+      s"Available versions: [$earliest, $latest].")
+  }
 }
