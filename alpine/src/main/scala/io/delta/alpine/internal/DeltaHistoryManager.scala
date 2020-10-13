@@ -71,7 +71,7 @@ case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   }
 
   private def getEarliestDeltaFileVersion: Long = {
-    val earliestVersionOpt = deltaLog.store.listFrom(deltaLog.logPath)
+    val earliestVersionOpt = deltaLog.store.listFrom(deltaFile(deltaLog.logPath, 0))
       .asScala
       .filter(f => isDeltaFile(f.getPath))
       .take(1).toArray.headOption
