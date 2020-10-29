@@ -31,6 +31,9 @@ import org.apache.tez.test.MiniTezCluster
 
 class HiveTezSuite extends HiveConnectorTest {
 
+  // scalastyle:off
+  println("====> " + classOf[org.apache.parquet.schema.GroupType].getResource("GroupType.class"))
+
   override val engine: String = "tez"
 
   private var tezConf: Configuration = _

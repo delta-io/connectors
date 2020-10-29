@@ -24,7 +24,7 @@ crossScalaVersions := Seq("2.12.8", "2.11.12")
 
 val sparkVersion = "2.4.3"
 val hadoopVersion = "2.7.2"
-val hiveVersion = "2.3.3"
+val hiveVersion = "2.3.6"
 val deltaVersion = "0.5.0"
 
 lazy val commonSettings = Seq(
@@ -57,12 +57,13 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   // any runtime dependencies.
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
+    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided",
     "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
@@ -110,19 +111,20 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   name := "hive-tez",
   commonSettings,
   libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided"  excludeAll (
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
       ),
     "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
       ExclusionRule("org.apache.hadoop", "hadoop-client")
       ),
     "com.google.protobuf" % "protobuf-java" % "2.5.0",
-    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
+    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided",
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
     "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier "tests",
