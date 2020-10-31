@@ -9,3 +9,4 @@ jobs:
           name: Run tests 
           command: |
             build/sbt "++ 2.12.8 hiveTez/test"
+            build/sbt "++ 2.11.12 hiveTez/test"
