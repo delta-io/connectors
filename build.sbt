@@ -149,22 +149,8 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     ),
     "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersion % "test",
-    "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test"  excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "org.apache.hive"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
-    "org.apache.tez" % "tez-dag" % "0.8.4" % "test"  excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "org.apache.hive"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
+    "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test",
+    "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
     "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
     // TODO Figure out how this fixes some bad dependency
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
