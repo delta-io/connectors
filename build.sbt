@@ -63,14 +63,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
-    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided"  excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule("org.apache.hive", "hive-exec"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided",
     "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
@@ -81,14 +74,10 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
     ),
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.delta" %% "delta-core" % deltaVersion % "test",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" excludeAll(
-      ExclusionRule(organization = "org.apache.hive")
-    ),
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
     "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests" excludeAll (
-      ExclusionRule(organization = "org.apache.hive")
-      )
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
   )
 )
 
@@ -137,14 +126,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.jodd" % "jodd-core" % "3.5.2",
-    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided" excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule("org.apache.hive", "hive-exec"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided",
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
     "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier "tests",
@@ -159,22 +141,8 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     ),
     "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersion % "test",
-    "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test"  excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "org.apache.hive"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
-    "org.apache.tez" % "tez-dag" % "0.8.4" % "test"  excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "org.apache.hive"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
+    "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test",
+    "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
     "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
     // TODO Figure out how this fixes some bad dependency
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
@@ -189,18 +157,14 @@ lazy val standalone = (project in file("standalone")) settings (
   unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
-      ExclusionRule("org.apache.hadoop", "hadoop-client")
-      ),
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
-      ExclusionRule("org.apache.parquet", "parquet-hadoop")
-      ),
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1"% "provided",
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
     "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
       ExclusionRule("com.fasterxml.jackson.core"),
       ExclusionRule("com.fasterxml.jackson.module")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 
