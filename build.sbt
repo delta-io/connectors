@@ -189,18 +189,14 @@ lazy val standalone = (project in file("standalone")) settings (
   unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
-      ExclusionRule("org.apache.hadoop", "hadoop-client")
-      ),
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
-      ExclusionRule("org.apache.parquet", "parquet-hadoop")
-      ),
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
     "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
       ExclusionRule("com.fasterxml.jackson.core"),
       ExclusionRule("com.fasterxml.jackson.module")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 
