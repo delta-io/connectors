@@ -133,7 +133,11 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.jodd" % "jodd-core" % "3.5.2",
-    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided",
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule("org.apache.hive", "hive-exec")
+    ),
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
     "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier "tests",
