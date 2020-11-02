@@ -66,10 +66,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
     "org.apache.hive" % "hive-metastore" % hiveVersion % "provided"  excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule("org.apache.hive", "hive-exec"),
-      ExclusionRule(organization = "com.google.protobuf")
+      ExclusionRule("org.apache.hive", "hive-exec")
     ),
     "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
