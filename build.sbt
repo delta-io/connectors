@@ -57,6 +57,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   // any runtime dependencies.
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
@@ -166,7 +167,10 @@ lazy val standalone = (project in file("standalone")) settings (
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
     "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1",
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll (
+      ExclusionRule("org.slf4j", "slf4j-api"),
+      ExclusionRule("org.apache.parquet", "parquet-hadoop")
+    ),
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
     "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
       ExclusionRule("com.fasterxml.jackson.core"),
