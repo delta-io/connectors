@@ -81,14 +81,10 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
     ),
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.delta" %% "delta-core" % deltaVersion % "test",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" excludeAll(
-      ExclusionRule(organization = "org.apache.hive")
-    ),
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
     "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests" excludeAll (
-      ExclusionRule(organization = "org.apache.hive")
-      )
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
   )
 )
 
