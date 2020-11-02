@@ -24,7 +24,7 @@ crossScalaVersions := Seq("2.12.8", "2.11.12")
 
 val sparkVersion = "2.4.3"
 val hadoopVersion = "2.7.2"
-val hiveVersion = "2.3.6"
+val hiveVersion = "2.3.7"
 val deltaVersion = "0.5.0"
 
 lazy val commonSettings = Seq(
@@ -142,8 +142,16 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersion % "test",
     "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test",
-    "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
-    "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
+    "org.apache.tez" % "tez-dag" % "0.8.4" % "test" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule(organization = "org.apache.hive")
+    ),
+    "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule(organization = "org.apache.hive")
+    ),
     // TODO Figure out how this fixes some bad dependency
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
