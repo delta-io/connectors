@@ -277,7 +277,8 @@ lazy val standalone = (project in file("standalone"))
     // default merge strategy
     assemblyShadeRules in assembly := Seq(
       /* No classpath conflicts found so far */
-      ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll
+      ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll,
+      ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
     )
   )
 
