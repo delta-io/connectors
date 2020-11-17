@@ -276,7 +276,6 @@ lazy val standalone = (project in file("standalone"))
     assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
     // default merge strategy
     assemblyShadeRules in assembly := Seq(
-      /* No classpath conflicts found so far */
       ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll,
       ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
     )
