@@ -282,6 +282,35 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
+  test("read a partitioned table with a partition filter") {
+    // Create a Delta table
+    withTable("deltaPartitionTbl") {
+      withTempDir { dir =>
+        val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData.toDS.toDF("c1", "c2").write.format("delta")
+            .partitionBy("c2").save(dir.getCanonicalPath)
+        }
+
+        runQuery(
+          s"""
+             |create external table deltaPartitionTbl(c1 int, c2 string)
+             |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+         """.stripMargin
+        )
+
+        // Delete the partition not needed in the below query to verify the partition pruning works
+        JavaUtils.deleteRecursively(new File(dir, "c2=foo1"))
+        assert(dir.listFiles.map(_.getName).sorted === Seq("_delta_log", "c2=foo0").sorted)
+        checkAnswer(
+          "select * from deltaPartitionTbl where c2 = 'foo0'",
+          testData.filter(_._2 == "foo0"))
+      }
+    }
+  }
+
   test("partition prune") {
     withTable("deltaPartitionTbl") {
       withTempDir { dir =>
