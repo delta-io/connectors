@@ -10,6 +10,8 @@ import java.util.Optional;
  * Holds provenance information about changes to the table. This CommitInfo
  * is not stored in the checkpoint and has reduced compatibility guarantees.
  * Information stored in it is best effort (i.e. can be falsified by a writer).
+ *
+ * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
 public class CommitInfo {
     private final Optional<Long> version;
@@ -136,7 +138,7 @@ public class CommitInfo {
     }
 
     /**
-     * @return any operation metrics calculcated
+     * @return any operation metrics calculated
      */
     public Optional<Map<String, String>> getOperationMetrics() {
         if (operationMetrics.isPresent()) {
@@ -146,7 +148,7 @@ public class CommitInfo {
     }
 
     /**
-     * @return any aditional user metadata
+     * @return any additional user metadata
      */
     public Optional<String> getUserMetadata() {
         return userMetadata;

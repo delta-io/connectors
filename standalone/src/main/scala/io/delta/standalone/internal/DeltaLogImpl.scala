@@ -46,9 +46,7 @@ private[internal] class DeltaLogImpl private(
   /** Delta History Manager containing version and commit history. */
   protected lazy val history = DeltaHistoryManager(this)
 
-  override def getLogPath: Path = logPath
-
-  override def getDataPath: Path = dataPath
+  override def getPath: Path = dataPath
 
   override def getCommitInfoAt(version: Long): CommitInfoJ = {
     history.checkVersionExists(version)
@@ -69,7 +67,7 @@ private[internal] class DeltaLogImpl private(
   }
 }
 
-private[standalone] object DeltaLogImpl {
+private[internal] object DeltaLogImpl {
   def forTable(hadoopConf: Configuration, dataPath: String): DeltaLogImpl = {
     apply(hadoopConf, new Path(dataPath, "_delta_log"))
   }

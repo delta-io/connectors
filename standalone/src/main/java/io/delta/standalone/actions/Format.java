@@ -6,6 +6,8 @@ import java.util.Objects;
 
 /**
  * A specification of the encoding for the files stored in a table.
+ *
+ * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
 public final class Format {
     private final String provider;
