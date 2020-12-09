@@ -76,7 +76,7 @@ public interface DeltaLog {
     Path getPath();
 
     /**
-     * Create a {@link DeltaLog} instance representing the table located at the provide {@code path}.
+     * Create a {@link DeltaLog} instance representing the table located at the provided {@code path}.
      *
      * @param hadoopConf  Hadoop {@code Configuration} to use when accessing the Delta table
      * @param path  the path to the Delta table

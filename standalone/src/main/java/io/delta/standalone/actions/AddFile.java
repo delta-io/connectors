@@ -53,7 +53,7 @@ public final class AddFile {
 
     /**
      * @return the relative path or the absolute path that should be added to the table. If it's a
-     *         relate path, it's relative to the root of the table. Note: the path is encoded and
+     *         relative path, it's relative to the root of the table. Note: the path is encoded and
      *         should be decoded by {@code new java.net.URI(path)} when using it.
      */
     public String getPath() {

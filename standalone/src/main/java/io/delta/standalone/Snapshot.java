@@ -47,8 +47,8 @@ public interface Snapshot {
     long getVersion();
 
     /**
-     * Creates a {@link CloseableIterator} which can iterate over data belonging to the version of
-     * this snapshot. It provides no iteration ordering guarantee among data.
+     * Creates a {@link CloseableIterator} which can iterate over data belonging to this snapshot.
+     * It provides no iteration ordering guarantee among data.
      *
      * @return a {@link CloseableIterator} to iterate over data
      */
