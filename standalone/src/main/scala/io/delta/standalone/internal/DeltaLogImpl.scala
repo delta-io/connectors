@@ -58,8 +58,8 @@ private[internal] class DeltaLogImpl private(
    * interrupted when waiting for the lock.
    */
   protected def lockInterruptibly[T](body: => T): T = {
-    deltaLogLock.lockInterruptibly()
     try {
+      deltaLogLock.lockInterruptibly()
       body
     } finally {
       deltaLogLock.unlock()
