@@ -22,13 +22,14 @@ import java.util.{TimeZone, List => JList, Map => JMap}
 import java.util.Arrays.{asList => asJList}
 
 import scala.collection.JavaConverters._
-
 import io.delta.standalone.data.{RowRecord => JRowRecord}
 import io.delta.standalone.DeltaLog
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.types.{DateType, StructField, StructType, TimestampType}
 import org.apache.hadoop.conf.Configuration
+
+import scala.collection.mutable.ListBuffer
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
 
@@ -157,10 +158,10 @@ class DeltaDataReaderSuite extends FunSuite {
         val i = row.getInt("i")
         assert(
           row.getList[JList[JList[Int]]]("3d_int_list") ==
-          asJList(
-            asJList(asJList(i, i, i), asJList(i, i, i)),
-            asJList(asJList(i, i, i), asJList(i, i, i))
-          )
+            asJList(
+              asJList(asJList(i, i, i), asJList(i, i, i)),
+              asJList(asJList(i, i, i), asJList(i, i, i))
+            )
         )
 
         assert(
@@ -179,10 +180,10 @@ class DeltaDataReaderSuite extends FunSuite {
 
         assert(
           row.getList[JMap[String, Long]]("list_of_maps") ==
-          asJList(
-            Map[String, Long](i.toString -> i.toLong).asJava,
-            Map[String, Long](i.toString -> i.toLong).asJava
-          )
+            asJList(
+              Map[String, Long](i.toString -> i.toLong).asJava,
+              Map[String, Long](i.toString -> i.toLong).asJava
+            )
         )
 
         val recordList = row.getList[JRowRecord]("list_of_records")
@@ -299,5 +300,34 @@ class DeltaDataReaderSuite extends FunSuite {
 
       assert(row.getSchema == expectedSchema)
     }
+  }
+
+  test("Read only the partition data") {
+    withLogForGoldenTable("snapshot-partition-data") { log =>
+      val par1 = ("partition", "1")
+      val par2 = ("partition", "2")
+
+      def readWithPartition(partition: (String, String)*): List[JRowRecord] = {
+        val recordIter = log.snapshot().open(partition: _*)
+        val rows: ListBuffer[JRowRecord] = ListBuffer.empty
+        while (recordIter.hasNext) {
+          rows.append(recordIter.next())
+        }
+        rows.toList
+      }
+
+      // Reading data from partition=1
+      val firstPartitionData = readWithPartition(par1)
+      assert(firstPartitionData.size === 1)
+
+      // Reading data from partition=2
+      val secondPartitionData = readWithPartition(par2)
+      assert(secondPartitionData.size === 1)
+
+      // Reading all data
+      val allData = readWithPartition()
+      assert(allData.size === 2)
+    }
+
   }
 }

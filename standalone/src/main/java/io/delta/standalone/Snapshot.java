@@ -21,11 +21,12 @@ import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.data.RowRecord;
+import scala.Tuple2;
 
 /**
  * {@link Snapshot} provides APIs to access the Delta table state (such as table metadata, active
  * files) at some version.
- *
+ * <p>
  * See <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  * for more details about the transaction logs.
  */
@@ -53,4 +54,25 @@ public interface Snapshot {
      * @return a {@link CloseableIterator} to iterate over data
      */
     CloseableIterator<RowRecord> open();
+
+    /**
+     * Creates a {@link CloseableIterator} which can iterate over data belonging to this snapshot
+     * with the related partition.
+     * It provides no iteration ordering guarantee among data.
+     *
+     * Example:
+     * file:/tmp/delta_table/partitionX=1/partitionY=1
+     * file:/tmp/delta_table/partitionX=1/partitionY=2
+     *
+     * val data = snapshot.open(("partitionX","1"),("partitionY","2"))
+     * data will contain only the data related to partitionX=1 and partitionY=2
+     *
+     * Each open() will return data of only 1 partition (nested partitions allow),
+     * This method not supporting in reading multiple partitions
+     *
+     * @param partition key value of partition name and partition value, if specified will only
+     *                   return the data related to the specified partition
+     * @return
+     */
+    CloseableIterator<RowRecord> open(Tuple2<String, String>... partition);
 }
