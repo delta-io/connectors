@@ -70,9 +70,9 @@ public interface Snapshot {
      * Each open() will return data of only 1 partition (nested partitions allow),
      * This method not supporting in reading multiple partitions
      *
-     * @param partition key value of partition name and partition value, if specified will only
+     * @param nestedPartition key value of partition name and partition value, if specified will only
      *                   return the data related to the specified partition
      * @return
      */
-    CloseableIterator<RowRecord> open(Tuple2<String, String>... partition);
+    CloseableIterator<RowRecord> open(Tuple2<String, String>... nestedPartition);
 }
