@@ -17,9 +17,7 @@
 package io.delta.standalone.internal
 
 import java.net.URI
-import java.util
 import java.util.TimeZone
-import java.util.concurrent.ForkJoinPool
 
 import com.github.mjakubowski84.parquet4s.ParquetReader.Options
 
@@ -38,6 +36,7 @@ import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 import io.delta.standalone.types.StructType
 
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.forkjoin.ForkJoinPool
 
 /**
  * Scala implementation of Java interface [[Snapshot]].
