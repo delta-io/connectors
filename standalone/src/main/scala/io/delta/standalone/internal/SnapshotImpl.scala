@@ -17,21 +17,27 @@
 package io.delta.standalone.internal
 
 import java.net.URI
+import java.util
+import java.util.TimeZone
+import java.util.concurrent.ForkJoinPool
+
+import com.github.mjakubowski84.parquet4s.ParquetReader.Options
 
 import scala.collection.JavaConverters._
-
-import com.github.mjakubowski84.parquet4s.ParquetReader
+import com.github.mjakubowski84.parquet4s.{ParquetReader, RowParquetRecord}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-
 import io.delta.standalone.{DeltaLog, Snapshot}
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Protocol, SingleAction}
-import io.delta.standalone.internal.data.CloseableParquetDataIterator
+import io.delta.standalone.internal.data.{CloseableParquetDataIterator, RowParquetRecordImpl}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
+import io.delta.standalone.types.StructType
+
+import scala.collection.parallel.ForkJoinTaskSupport
 
 /**
  * Scala implementation of Java interface [[Snapshot]].
@@ -69,6 +75,28 @@ private[internal] class SnapshotImpl(
       // the time zone ID if it exists, else null
       hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
+  override def getAllData(parallelism: Int = 1): util.List[RowParquetRecordJ] = {
+    val timeZone = Option(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
+      .map(TimeZone.getTimeZone)
+      .getOrElse(TimeZone.getDefault)
+
+    val forkJoin = new ForkJoinPool(parallelism)
+    val taskSupport = new ForkJoinTaskSupport(forkJoin)
+
+    val filesParIterator = allFilesScala
+      .map(_.path)
+      .map(FileNames.absolutePath(deltaLog.dataPath, _).toString)
+      .par
+
+    filesParIterator.tasksupport = taskSupport
+
+    val data = filesParIterator.flatMap(path => loadData(path, getMetadata.getSchema, timeZone))
+      .toList
+
+    forkJoin.shutdown()
+    data.asJava
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -87,6 +115,12 @@ private[internal] class SnapshotImpl(
         ParquetReader.read[SingleAction](path).toSeq
       } else Seq.empty[SingleAction]
     }.toList
+  }
+
+  private def loadData(path: String, schema: StructType,
+                       readTimeZone: TimeZone) : List[RowParquetRecordJ] = {
+    ParquetReader.read[RowParquetRecord](path, Options(readTimeZone))
+      .map(row => RowParquetRecordImpl(row, schema, readTimeZone)).toList
   }
 
   /**
