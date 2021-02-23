@@ -74,7 +74,7 @@ private[internal] class SnapshotImpl(
       // the time zone ID if it exists, else null
       hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
-  override def getAllData(parallelism: Int = 1): util.List[RowParquetRecordJ] = {
+  override def getAllData(parallelism: Int = 1): java.util.List[RowParquetRecordJ] = {
     val timeZone = Option(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
       .map(TimeZone.getTimeZone)
       .getOrElse(TimeZone.getDefault)
