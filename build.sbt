@@ -27,6 +27,7 @@ val sparkVersion = "2.4.3"
 val hadoopVersion = "2.7.2"
 val hiveVersion = "2.3.7"
 val deltaVersion = "0.5.0"
+val prestoHiveVersion = "3.0.0-3"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -172,6 +173,29 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
      */
     ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
     )
+)
+
+lazy val presto = (project in file("presto")) dependsOn(hive) settings (
+  name := "delta-presto",
+  commonSettings,
+  releaseSettings,
+
+  // Minimal dependencies to compile the codes. This project doesn't run any tests so we don't need
+  // any runtime dependencies.
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "com.facebook.presto.hive" % "hive-apache" % prestoHiveVersion % "provided",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.9.8",
+    "commons-io" % "commons-io" % "2.4"
+  ),
+  /** Presto assembly jar. Build with `assembly` command */
+  logLevel in assembly := Level.Info,
+  test in assembly := {},
+  assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
+  // default merge strategy
+  assemblyShadeRules in assembly := Seq(
+    ShadeRule.rename("org.apache.parquet.hadoop.**" -> "parquet.hadoop.@1").inAll
+  )
 )
 
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (

@@ -32,6 +32,8 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
 import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.exec.{ExprNodeEvaluatorFactory, SerializationUtilities}
+import org.apache.hadoop.hive.ql.io.IOConstants
+import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.hive.ql.plan.{ExprNodeGenericFuncDesc, TableScanDesc}
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory
 import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspector, ObjectInspectorConverters, ObjectInspectorFactory, PrimitiveObjectInspector}
@@ -57,8 +59,12 @@ object DeltaHelper {
     val rootPath = fs.makeQualified(nonNormalizedPath)
     val snapshotToUse = loadDeltaLatestSnapshot(job, rootPath)
 
-    val hiveSchema = TypeInfoUtils.getTypeInfoFromTypeString(
-      job.get(DeltaStorageHandler.DELTA_TABLE_SCHEMA)).asInstanceOf[StructTypeInfo]
+    val columnNames =
+      DataWritableReadSupport.getColumnNames(job.get(IOConstants.COLUMNS))
+    val columnTypes =
+      DataWritableReadSupport.getColumnTypes(job.get(IOConstants.COLUMNS_TYPES))
+    val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
+      .asInstanceOf[StructTypeInfo]
     DeltaHelper.checkTableSchema(snapshotToUse.getMetadata.getSchema, hiveSchema)
 
     // The default value 128M is the same as the default value of
