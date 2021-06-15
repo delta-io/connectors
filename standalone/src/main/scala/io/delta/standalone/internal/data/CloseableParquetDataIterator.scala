@@ -115,6 +115,6 @@ private[internal] case class CloseableParquetDataIterator(
    */
   private def readNextFile: ParquetIterable[RowParquetRecord] = {
     ParquetReader.read[RowParquetRecord](
-      dataFilePathsIter.next(), Options(readTimeZone, hadoopConf = hadoopConf))
+      dataFilePathsIter.next(), Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
   }
 }
