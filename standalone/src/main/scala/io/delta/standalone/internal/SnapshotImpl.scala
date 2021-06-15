@@ -95,7 +95,7 @@ private[internal] class SnapshotImpl(
           JsonUtils.mapper.readValue[SingleAction](line)
         }
       } else if (path.endsWith("parquet")) {
-        ParquetReader.read[SingleAction](path, ParquetReader.Options(hadoopConf = hadoopConf)).toSeq
+        ParquetReader.read[SingleAction](path, ParquetReader.Options(timeZone = readTimeZone, hadoopConf = hadoopConf)).toSeq
       } else Seq.empty[SingleAction]
     }.toList
   }
