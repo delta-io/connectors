@@ -268,7 +268,18 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("com.fasterxml.jackson.module")
       ),
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-    ))
+    ),
+
+    /** Standalone assembly jar. Build with `assembly` command */
+    logLevel in assembly := Level.Info,
+    test in assembly := {},
+    assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
+    // default merge strategy
+    assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll,
+      ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
+    )
+  )
 
   /**
    * Unidoc settings
