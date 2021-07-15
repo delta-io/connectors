@@ -53,4 +53,10 @@ public interface Snapshot {
      * @return a {@link CloseableIterator} to iterate over data
      */
     CloseableIterator<RowRecord> open();
+
+    /**
+     * @param parallelism The number of threads to use for reading the files
+     * @return All the data belonging to this snapshot
+     */
+    List<RowRecord> getAllData(int parallelism);
 }
