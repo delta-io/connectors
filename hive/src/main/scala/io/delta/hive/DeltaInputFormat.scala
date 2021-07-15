@@ -88,7 +88,8 @@ class DeltaInputFormat(realInput: ParquetInputFormat[ArrayWritable])
   @throws(classOf[IOException])
   override def listStatus(job: JobConf): Array[FileStatus] = {
     checkHiveConf(job)
-    val deltaRootPath = new Path(job.get(DeltaStorageHandler.DELTA_TABLE_PATH))
+    val deltaRootPath = new Path(job.get(org.apache.hadoop.mapreduce.lib.input.
+      FileInputFormat.INPUT_DIR))
     TokenCache.obtainTokensForNamenodes(job.getCredentials(), Array(deltaRootPath), job)
     val (files, partitions) =
       try {
@@ -104,7 +105,7 @@ class DeltaInputFormat(realInput: ParquetInputFormat[ArrayWritable])
     files
   }
 
-  private def checkHiveConf(job: JobConf): Unit = {
+  def checkHiveConf(job: JobConf): Unit = {
     val engine = HiveConf.getVar(job, HiveConf.ConfVars.HIVE_EXECUTION_ENGINE)
     val deltaFormat = classOf[HiveInputFormat].getName
     engine match {
