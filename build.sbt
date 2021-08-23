@@ -145,11 +145,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
-    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
+    "io.delta" %% "delta-core" % hiveDeltaVersion % "test"
   ),
 
   /** Hive assembly jar. Build with `assembly` command */
@@ -171,6 +167,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
   name := "hive-mr",
   commonSettings,
   skipReleaseSettings,
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
@@ -188,8 +185,6 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    // TODO Figure out how this fixes some bad dependency
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
@@ -199,6 +194,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   name := "hive-tez",
   commonSettings,
   skipReleaseSettings,
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
@@ -236,8 +232,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test",
     "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
     "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
-    // TODO Figure out how this fixes some bad dependency
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+    "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
