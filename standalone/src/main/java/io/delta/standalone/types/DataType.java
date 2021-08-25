@@ -79,7 +79,7 @@ public abstract class DataType {
     /**
      * @return a JSON (@code String} representation of the type
      */
-    public String toJson() { return DataTypeParser.toJson(this); }
+    public String getJson() { return DataTypeParser.toJson(this); }
 
     /**
      * Builds a readable {@code String} representation of the {@code ArrayType}
