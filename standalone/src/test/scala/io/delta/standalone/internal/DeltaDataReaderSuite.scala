@@ -304,14 +304,14 @@ class DeltaDataReaderSuite extends FunSuite {
 
   def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {
     test(s"DataType to Json and from Json - $dataType") {
-      assert(DataTypeParser.fromJson(dataType.getJson()) === dataType)
+      assert(DataTypeParser.fromJson(dataType.toJson()) === dataType)
     }
 
     test(s"DataType inside StructType to Json and from Json - $dataType") {
       val field1 = new StructField("foo", dataType, true)
       val field2 = new StructField("bar", dataType, true)
       val struct = new StructType(Array(field1, field2))
-      assert(DataTypeParser.fromJson(struct.getJson()) === struct)
+      assert(DataTypeParser.fromJson(struct.toJson()) === struct)
     }
   }
 
