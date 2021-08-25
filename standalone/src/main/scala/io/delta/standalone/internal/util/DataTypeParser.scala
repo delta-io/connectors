@@ -45,7 +45,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
 import org.json4s.JsonAST.JValue
 
-object DataTypeParser {
+private[standalone] object DataTypeParser {
 
   private val FIXED_DECIMAL = """decimal\(\s*(\d+)\s*,\s*(\-?\d+)\s*\)""".r
 
