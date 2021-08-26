@@ -6,7 +6,6 @@ import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.hive.serde2.typeinfo.{StructTypeInfo, TypeInfoFactory}
 
-// scalastyle:off funsuite
 import org.scalatest.FunSuite
 
 class DeltaHelperTest extends FunSuite {

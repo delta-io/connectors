@@ -29,7 +29,7 @@ import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.types.{DateType, StructField, StructType, TimestampType}
 import org.apache.hadoop.conf.Configuration
-// scalastyle:off funsuite
+
 import org.scalatest.FunSuite
 
 /**

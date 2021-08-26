@@ -173,6 +173,60 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
+//  test("detect schema changes outside Hive") {
+//    withTable("deltaTbl") {
+//      withTempDir { dir =>
+//        val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
+//
+//        withSparkSession { spark =>
+//          import spark.implicits._
+//          testData.toDF("a", "b").write.format("delta").save(dir.getCanonicalPath)
+//        }
+//
+//        runQuery(
+//          s"""
+//             |CREATE EXTERNAL TABLE deltaTbl(a INT, b STRING)
+//             |STORED BY 'io.delta.hive.DeltaStorageHandler'
+//             |LOCATION '${dir.getCanonicalPath}'""".stripMargin
+//        )
+//
+//        checkAnswer("SELECT * FROM deltaTbl", testData)
+//
+//        // Change the underlying Delta table to a different schema
+//        val testData2 = testData.map(_.swap)
+//
+//        withSparkSession { spark =>
+//          import spark.implicits._
+//          testData2.toDF("a", "b")
+//            .write
+//            .format("delta")
+//            .mode("overwrite")
+//            .option("overwriteSchema", "true")
+//            .save(dir.getCanonicalPath)
+//        }
+//
+//        // Should detect the underlying schema change and fail the query
+//        val e = intercept[Exception] {
+//          runQuery("SELECT * FROM deltaTbl")
+//        }
+//        assert(e.getMessage.contains(s"schema is not the same"))
+//
+//        // Re-create the table because Hive doesn't allow `ALTER TABLE` on a non-native table.
+//        // TODO Investigate whether there is a more convenient way to update the table schema.
+//        runQuery("DROP TABLE deltaTbl")
+//        runQuery(
+//          s"""
+//             |CREATE EXTERNAL TABLE deltaTbl(a STRING, b INT)
+//             |STORED BY 'io.delta.hive.DeltaStorageHandler'
+//             |LOCATION '${dir.getCanonicalPath}'""".stripMargin
+//        )
+//
+//        // After fixing the schema, the query should work again.
+//        checkAnswer("SELECT * FROM deltaTbl", testData2)
+//      }
+//    }
+//  }
+
   test("read a non-partitioned table") {
     // Create a Delta table
     withTable("deltaNonPartitionTbl") {
@@ -320,6 +374,48 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
+//  test("auto-detected delta partition change") {
+//    withTable("deltaPartitionTbl") {
+//      withTempDir { dir =>
+//        val testData1 = Seq(
+//          ("hz", "20180520", "Jim", 3),
+//          ("hz", "20180718", "Jone", 7)
+//        )
+//
+//        withSparkSession { spark =>
+//          import spark.implicits._
+//          testData1.toDS.toDF("city", "date", "name", "cnt").write.format("delta")
+//            .partitionBy("date", "city").save(dir.getCanonicalPath)
+//
+//          runQuery(
+//            s"""
+//               |create external table deltaPartitionTbl(
+//               |  city string,
+//               |  `date` string,
+//               |  name string,
+//               |  cnt int)
+//               |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+//         """.stripMargin
+//          )
+//
+//          checkAnswer("select * from deltaPartitionTbl", testData1)
+//
+//          // insert another partition data
+//          val testData2 = Seq(("bj", "20180520", "Trump", 1))
+//          testData2.toDS.toDF("city", "date", "name", "cnt").write.mode("append").format("delta")
+//            .partitionBy("date", "city").save(dir.getCanonicalPath)
+//          val testData = testData1 ++ testData2
+//          checkAnswer("select * from deltaPartitionTbl", testData)
+//
+//          // delete one partition
+//          val deltaTable = DeltaTable.forPath(spark, dir.getCanonicalPath)
+//          deltaTable.delete("city='hz'")
+//          checkAnswer("select * from deltaPartitionTbl", testData.filterNot(_._1 == "hz"))
+//        }
+//      }
+//    }
+//  }
+
   test("read a partitioned table that contains special chars in a partition column") {
     withTable("deltaPartitionTbl") {
       withHiveGoldenTable("deltatbl-special-chars-in-partition-column") { tablePath =>
@@ -340,26 +436,6 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
   test("map Spark types to Hive types correctly") {
     withTable("deltaTbl") {
       withHiveGoldenTable("deltatbl-map-types-correctly") { tablePath =>
-        val testData = Seq(
-          TestClass(
-            97.toByte,
-            Array(98.toByte, 99.toByte),
-            true,
-            4,
-            5L,
-            "foo",
-            6.0f,
-            7.0,
-            8.toShort,
-            new java.sql.Date(60000000L),
-            new java.sql.Timestamp(60000000L),
-            new java.math.BigDecimal(12345.6789),
-            Array("foo", "bar"),
-            Map("foo" -> 123L),
-            TestStruct("foo", 456L)
-          )
-        )
-
         runQuery(
           s"""
              |create external table deltaTbl(
@@ -485,26 +561,5 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 }
-
-case class TestStruct(f1: String, f2: Long)
-
-/** A special test class that covers all Spark types we support in the Hive connector. */
-case class TestClass(
-  c1: Byte,
-  c2: Array[Byte],
-  c3: Boolean,
-  c4: Int,
-  c5: Long,
-  c6: String,
-  c7: Float,
-  c8: Double,
-  c9: Short,
-  c10: java.sql.Date,
-  c11: java.sql.Timestamp,
-  c12: BigDecimal,
-  c13: Array[String],
-  c14: Map[String, Long],
-  c15: TestStruct
-)
 
 case class OneItem[T](t: T)

@@ -144,8 +144,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule("org.apache.hive", "hive-exec"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test"
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ),
 
   /** Hive assembly jar. Build with `assembly` command */
@@ -185,8 +184,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 
@@ -233,8 +231,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
     "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
     "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 

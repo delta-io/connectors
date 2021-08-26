@@ -32,7 +32,6 @@ import org.apache.hadoop.hive.ql.Driver
 import org.apache.hadoop.hive.ql.metadata.Hive
 import org.apache.hadoop.hive.ql.session.SessionState
 
-// scalastyle:off funsuite
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 // TODO Yarn is using log4j2. Disable its verbose logs.
