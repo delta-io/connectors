@@ -49,6 +49,16 @@ public final class AddFile implements FileAction {
         this.tags = tags;
     }
 
+    private AddFile(AddFileBuilder builder) {
+        this.path = builder.path;
+        this.partitionValues = builder.partitionValues;
+        this.size = builder.size;
+        this.modificationTime = builder.modificationTime;
+        this.dataChange = builder.dataChange;
+        this.stats = builder.stats;
+        this.tags = builder.tags;
+    }
+
     /**
      * @return the relative path or the absolute path that should be added to the table. If it's a
      *         relative path, it's relative to the root of the table. Note: the path is encoded and
@@ -126,5 +136,40 @@ public final class AddFile implements FileAction {
     @Override
     public int hashCode() {
         return Objects.hash(path, partitionValues, size, modificationTime, dataChange, stats, tags);
+    }
+
+    public static class AddFileBuilder {
+        // add default values here, or in the constructor (values besides null)
+        private final String path;
+        private final Map<String, String> partitionValues;
+        private final long size;
+        private final long modificationTime;
+        private final boolean dataChange;
+        private String stats;
+        private Map<String, String> tags;
+
+        public AddFileBuilder(String path, Map<String, String> partitionValues, long size,
+                              long modificationTime, boolean dataChange) {
+            this.path = path;
+            this.partitionValues = partitionValues;
+            this.size = size;
+            this.modificationTime = modificationTime;
+            this.dataChange = dataChange;
+        }
+
+        public AddFileBuilder stats(String stats) {
+            this.stats = stats;
+            return this;
+        }
+
+        public AddFileBuilder tags(Map<String, String> tags) {
+            this.tags = tags;
+            return this;
+        }
+
+        public AddFile build() {
+            AddFile addFile = new AddFile(this);
+            return addFile;
+        }
     }
 }
