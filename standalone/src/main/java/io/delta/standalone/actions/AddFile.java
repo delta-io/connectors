@@ -138,6 +138,9 @@ public final class AddFile implements FileAction {
         return Objects.hash(path, partitionValues, size, modificationTime, dataChange, stats, tags);
     }
 
+    /**
+     * Builder class for AddFile. Enables construction of AddFile object with default values.
+     */
     public static class AddFileBuilder {
         // add default values here, or in the constructor (values besides null)
         private final String path;
