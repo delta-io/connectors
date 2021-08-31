@@ -68,6 +68,23 @@ public class CommitInfo implements Action {
         this.userMetadata = userMetadata;
     }
 
+    public CommitInfo(CommitInfoBuilder builder) {
+        this.version = builder.version;
+        this.timestamp = builder.timestamp;
+        this.userId = builder.userId;
+        this.userName = builder.userName;
+        this.operation = builder.operation;
+        this.operationParameters = builder.operationParameters;
+        this.jobInfo = builder.jobInfo;
+        this.notebookInfo = builder.notebookInfo;
+        this.clusterId = builder.clusterId;
+        this.readVersion = builder.readVersion;
+        this.isolationLevel = builder.isolationLevel;
+        this.isBlindAppend = builder.isBlindAppend;
+        this.operationMetrics = builder.operationMetrics;
+        this.userMetadata = builder.userMetadata;
+    }
+
     /**
      * @return the log version for this commit
      */
@@ -195,5 +212,58 @@ public class CommitInfo implements Action {
         return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
                 jobInfo, notebookInfo, clusterId, readVersion, isolationLevel, isBlindAppend,
                 operationMetrics, userMetadata);
+    }
+
+    /**
+     * Builder class for CommitInfo. Enables construction of RemoveFile object with default values.
+     */
+    public static class CommitInfoBuilder {
+        // TODO
+        private final Optional<Long> version;
+        private final Timestamp timestamp;
+        private final Optional<String> userId;
+        private final Optional<String> userName;
+        private final String operation;
+        private final Map<String, String> operationParameters;
+        private final Optional<JobInfo> jobInfo;
+        private final Optional<NotebookInfo> notebookInfo;
+        private final Optional<String> clusterId;
+        private final Optional<Long> readVersion;
+        private final Optional<String> isolationLevel;
+        private final Optional<Boolean> isBlindAppend;
+        private final Optional<Map<String, String>> operationMetrics;
+        private final Optional<String> userMetadata;
+
+        public CommitInfoBuilder(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
+                                 Optional<String> userName, String operation,
+                                 Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
+                                 Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
+                                 Optional<Long> readVersion, Optional<String> isolationLevel,
+                                 Optional<Boolean> isBlindAppend,
+                                 Optional<Map<String, String>> operationMetrics,
+                                 Optional<String> userMetadata) {
+            this.version = version;
+            this.timestamp = timestamp;
+            this.userId = userId;
+            this.userName = userName;
+            this.operation = operation;
+            this.operationParameters = operationParameters;
+            this.jobInfo = jobInfo;
+            this.notebookInfo = notebookInfo;
+            this.clusterId = clusterId;
+            this.readVersion = readVersion;
+            this.isolationLevel = isolationLevel;
+            this.isBlindAppend = isBlindAppend;
+            this.operationMetrics = operationMetrics;
+            this.userMetadata = userMetadata;
+        }
+
+        /**
+         * @return a new {@code CommitInfo} with the same properties as {@code this}
+         */
+        public CommitInfo build() {
+            CommitInfo commitInfo = new CommitInfo(this);
+            return commitInfo;
+        }
     }
 }

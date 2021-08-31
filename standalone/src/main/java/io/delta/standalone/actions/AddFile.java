@@ -170,6 +170,9 @@ public final class AddFile implements FileAction {
             return this;
         }
 
+        /**
+         * @return a new {@code AddFile} with the same properties as {@code this}
+         */
         public AddFile build() {
             AddFile addFile = new AddFile(this);
             return addFile;

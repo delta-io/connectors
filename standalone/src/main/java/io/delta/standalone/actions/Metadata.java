@@ -197,6 +197,9 @@ public final class Metadata implements Action {
             return this;
         }
 
+        /**
+         * @return a new {@code Metadata} with the same properties as {@code this}
+         */
         public Metadata build() {
             Metadata metadata = new Metadata(this);
             return metadata;

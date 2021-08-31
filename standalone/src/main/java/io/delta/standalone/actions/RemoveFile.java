@@ -107,6 +107,9 @@ public class RemoveFile implements FileAction {
             return this;
         }
 
+        /**
+         * @return a new {@code RemoveFile} with the same properties as {@code this}
+         */
         public RemoveFile build() {
             RemoveFile removeFile = new RemoveFile(this);
             return removeFile;

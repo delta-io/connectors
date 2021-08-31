@@ -33,6 +33,14 @@ public class JobInfo implements Action {
         this.triggerType = triggerType;
     }
 
+    public JobInfo(JobInfoBuilder builder) {
+        this.jobId = builder.jobId;
+        this.jobName = builder.jobName;
+        this.runId = builder.runId;
+        this.jobOwnerId = builder.jobOwnerId;
+        this.triggerType = builder.triggerType;
+    }
+
     public String getJobId() {
         return jobId;
     }
@@ -68,5 +76,48 @@ public class JobInfo implements Action {
     @Override
     public int hashCode() {
         return Objects.hash(jobId, jobName, runId, jobOwnerId, triggerType);
+    }
+
+    /**
+     * Builder class for JobInfo. Enables construction of RemoveFile object with default values.
+     */
+    public static class JobInfoBuilder {
+        private final String jobId;
+        private String jobName;
+        private String runId;
+        private String jobOwnerId;
+        private String triggerType;
+
+        public JobInfoBuilder(String jobId) {
+            this.jobId = jobId;
+        }
+
+        public JobInfoBuilder jobName(String jobName) {
+            this.jobName = jobName;
+            return this;
+        }
+
+        public JobInfoBuilder runId(String runId) {
+            this.runId = runId;
+            return this;
+        }
+
+        public JobInfoBuilder jobOwnerId(String jobOwnerId) {
+            this.jobOwnerId = jobOwnerId;
+            return this;
+        }
+
+        public JobInfoBuilder triggerType(String triggerType) {
+            this.triggerType = triggerType;
+            return this;
+        }
+
+        /**
+         * @return a new {@code JobInfo} with the same properties as {@code this}
+         */
+        public JobInfo build() {
+            JobInfo jobInfo = new JobInfo(this);
+            return jobInfo;
+        }
     }
 }
