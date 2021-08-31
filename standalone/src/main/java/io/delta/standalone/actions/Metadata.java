@@ -52,6 +52,18 @@ public final class Metadata implements Action {
         this.schema = schema;
     }
 
+    public Metadata(MetadataBuilder builder) {
+        this.id = builder.id;
+        this.name = builder.name;
+        this.description = builder.description;
+        this.format = builder.format;
+        this.partitionColumns = builder.partitionColumns;
+        this.configuration = builder.configuration;
+        this.createdTime = builder.createdTime;
+        this.schema = builder.schema;
+    }
+
+
     /**
      * @return the unique identifier for this table
      */
@@ -130,5 +142,64 @@ public final class Metadata implements Action {
     public int hashCode() {
         return Objects.hash(id, name, description, format, partitionColumns,
                 configuration, createdTime, schema);
+    }
+
+    /**
+     * Builder class for Metadata. Enables construction of Metadata object with default values.
+     */
+    public static class MetadataBuilder {
+        private String id = java.util.UUID.randomUUID().toString();
+        private String name;
+        private String description;
+        private Format format = new Format("parquet", Collections.emptyMap());
+        private List<String> partitionColumns = Collections.emptyList();
+        private Map<String, String> configuration = Collections.emptyMap();
+        private Optional<Long> createdTime = Optional.of(System.currentTimeMillis());
+        private StructType schema;
+
+        public MetadataBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public MetadataBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public MetadataBuilder description(String description) {
+            this.description = description;
+            return this;
+        }
+
+        public MetadataBuilder format(Format format) {
+            this.format = format;
+            return this;
+        }
+
+        public MetadataBuilder partitionColumns(List<String> partitionColumns) {
+            this.partitionColumns = partitionColumns;
+            return this;
+        }
+
+        public MetadataBuilder configuration(Map<String, String> configuration) {
+            this.configuration = configuration;
+            return this;
+        }
+
+        public MetadataBuilder createdTime(Optional<Long> createdTime) {
+            this.createdTime = createdTime;
+            return this;
+        }
+
+        public MetadataBuilder schema(StructType schema) {
+            this.schema = schema;
+            return this;
+        }
+
+        public Metadata build() {
+            Metadata metadata = new Metadata(this);
+            return metadata;
+        }
     }
 }
