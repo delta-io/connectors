@@ -218,44 +218,89 @@ public class CommitInfo implements Action {
      * Builder class for CommitInfo. Enables construction of RemoveFile object with default values.
      */
     public static class CommitInfoBuilder {
-        // TODO
-        private final Optional<Long> version;
-        private final Timestamp timestamp;
-        private final Optional<String> userId;
-        private final Optional<String> userName;
-        private final String operation;
-        private final Map<String, String> operationParameters;
-        private final Optional<JobInfo> jobInfo;
-        private final Optional<NotebookInfo> notebookInfo;
-        private final Optional<String> clusterId;
-        private final Optional<Long> readVersion;
-        private final Optional<String> isolationLevel;
-        private final Optional<Boolean> isBlindAppend;
-        private final Optional<Map<String, String>> operationMetrics;
-        private final Optional<String> userMetadata;
+        private Optional<Long> version = Optional.empty();
+        private Timestamp timestamp;
+        private Optional<String> userId = Optional.empty();
+        private Optional<String> userName = Optional.empty();
+        private String operation;
+        private Map<String, String> operationParameters;
+        private Optional<JobInfo> jobInfo = Optional.empty();
+        private Optional<NotebookInfo> notebookInfo = Optional.empty();
+        private Optional<String> clusterId = Optional.empty();
+        private Optional<Long> readVersion = Optional.empty();
+        private Optional<String> isolationLevel = Optional.empty();
+        private Optional<Boolean> isBlindAppend = Optional.empty();
+        private Optional<Map<String, String>> operationMetrics = Optional.empty();
+        private Optional<String> userMetadata = Optional.empty();
 
-        public CommitInfoBuilder(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
-                                 Optional<String> userName, String operation,
-                                 Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
-                                 Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
-                                 Optional<Long> readVersion, Optional<String> isolationLevel,
-                                 Optional<Boolean> isBlindAppend,
-                                 Optional<Map<String, String>> operationMetrics,
-                                 Optional<String> userMetadata) {
+        public CommitInfoBuilder version(Optional<Long> version) {
             this.version = version;
+            return this;
+        }
+
+        public CommitInfoBuilder timestamp(Timestamp timestamp) {
             this.timestamp = timestamp;
+            return this;
+        }
+
+        public CommitInfoBuilder userId(Optional<String> userId) {
             this.userId = userId;
+            return this;
+        }
+
+        public CommitInfoBuilder userName(Optional<String> userName) {
             this.userName = userName;
+            return this;
+        }
+
+        public CommitInfoBuilder operation(String operation) {
             this.operation = operation;
+            return this;
+        }
+
+        public CommitInfoBuilder operationParameters(Map<String, String> operationParameters) {
             this.operationParameters = operationParameters;
+            return this;
+        }
+
+        public CommitInfoBuilder jobInfo(Optional<JobInfo> jobInfo) {
             this.jobInfo = jobInfo;
+            return this;
+        }
+
+        public CommitInfoBuilder notebookInfo(Optional<NotebookInfo> notebookInfo ) {
             this.notebookInfo = notebookInfo;
+            return this;
+        }
+
+        public CommitInfoBuilder clusterId(Optional<String> clusterId) {
             this.clusterId = clusterId;
+            return this;
+        }
+
+        public CommitInfoBuilder readVersion(Optional<Long> readVersion) {
             this.readVersion = readVersion;
+            return this;
+        }
+
+        public CommitInfoBuilder isolationLevel(Optional<String> isolationLevel) {
             this.isolationLevel = isolationLevel;
+            return this;
+        }
+
+        public CommitInfoBuilder isBlindAppend(Optional<Boolean> isBlindAppend) {
             this.isBlindAppend = isBlindAppend;
+            return this;
+        }
+
+        public CommitInfoBuilder operationMetrics(Optional<Map<String, String>> operationMetrics) {
             this.operationMetrics = operationMetrics;
+            return this;
+        }
+
+        public CommitInfoBuilder userMetadata(Optional<String> userMetadata) {
             this.userMetadata = userMetadata;
+            return this;
         }
 
         /**
