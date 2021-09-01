@@ -187,8 +187,8 @@ public final class Metadata implements Action {
             return this;
         }
 
-        public MetadataBuilder createdTime(Optional<Long> createdTime) {
-            this.createdTime = createdTime;
+        public MetadataBuilder createdTime(Long createdTime) {
+            this.createdTime = Optional.of(createdTime);
             return this;
         }
 

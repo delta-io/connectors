@@ -233,8 +233,8 @@ public class CommitInfo implements Action {
         private Optional<Map<String, String>> operationMetrics = Optional.empty();
         private Optional<String> userMetadata = Optional.empty();
 
-        public CommitInfoBuilder version(Optional<Long> version) {
-            this.version = version;
+        public CommitInfoBuilder version(Long version) {
+            this.version = Optional.of(version);
             return this;
         }
 
@@ -243,13 +243,13 @@ public class CommitInfo implements Action {
             return this;
         }
 
-        public CommitInfoBuilder userId(Optional<String> userId) {
-            this.userId = userId;
+        public CommitInfoBuilder userId(String userId) {
+            this.userId = Optional.of(userId);
             return this;
         }
 
-        public CommitInfoBuilder userName(Optional<String> userName) {
-            this.userName = userName;
+        public CommitInfoBuilder userName(String userName) {
+            this.userName = Optional.of(userName);
             return this;
         }
 
@@ -263,43 +263,43 @@ public class CommitInfo implements Action {
             return this;
         }
 
-        public CommitInfoBuilder jobInfo(Optional<JobInfo> jobInfo) {
-            this.jobInfo = jobInfo;
+        public CommitInfoBuilder jobInfo(JobInfo jobInfo) {
+            this.jobInfo = Optional.of(jobInfo);
             return this;
         }
 
-        public CommitInfoBuilder notebookInfo(Optional<NotebookInfo> notebookInfo ) {
-            this.notebookInfo = notebookInfo;
+        public CommitInfoBuilder notebookInfo(NotebookInfo notebookInfo ) {
+            this.notebookInfo = Optional.of(notebookInfo);
             return this;
         }
 
-        public CommitInfoBuilder clusterId(Optional<String> clusterId) {
-            this.clusterId = clusterId;
+        public CommitInfoBuilder clusterId(String clusterId) {
+            this.clusterId = Optional.of(clusterId);
             return this;
         }
 
-        public CommitInfoBuilder readVersion(Optional<Long> readVersion) {
-            this.readVersion = readVersion;
+        public CommitInfoBuilder readVersion(Long readVersion) {
+            this.readVersion = Optional.of(readVersion);
             return this;
         }
 
-        public CommitInfoBuilder isolationLevel(Optional<String> isolationLevel) {
-            this.isolationLevel = isolationLevel;
+        public CommitInfoBuilder isolationLevel(String isolationLevel) {
+            this.isolationLevel = Optional.of(isolationLevel);
             return this;
         }
 
-        public CommitInfoBuilder isBlindAppend(Optional<Boolean> isBlindAppend) {
-            this.isBlindAppend = isBlindAppend;
+        public CommitInfoBuilder isBlindAppend(Boolean isBlindAppend) {
+            this.isBlindAppend = Optional.of(isBlindAppend);
             return this;
         }
 
-        public CommitInfoBuilder operationMetrics(Optional<Map<String, String>> operationMetrics) {
-            this.operationMetrics = operationMetrics;
+        public CommitInfoBuilder operationMetrics(Map<String, String> operationMetrics) {
+            this.operationMetrics = Optional.of(operationMetrics);
             return this;
         }
 
-        public CommitInfoBuilder userMetadata(Optional<String> userMetadata) {
-            this.userMetadata = userMetadata;
+        public CommitInfoBuilder userMetadata(String userMetadata) {
+            this.userMetadata = Optional.of(userMetadata);
             return this;
         }
 

@@ -70,16 +70,20 @@ public class RemoveFile implements FileAction {
      */
     public static class RemoveFileBuilder {
         private final String path;
-        private final Optional<Long> deletionTimestamp;
+        private Optional<Long> deletionTimestamp = Optional.empty();
         private boolean dataChange = true;
         private boolean extendedFileMetadata = false;
         private Map<String, String> partitionValues;
         private long size = 0;
         private Map<String, String> tags;
 
-        public RemoveFileBuilder(String path, Optional<Long> deletionTimestamp) {
+        public RemoveFileBuilder(String path) {
             this.path = path;
-            this.deletionTimestamp = deletionTimestamp;
+        }
+
+        public RemoveFileBuilder deletionTimestamp(Long deletionTimestamp) {
+            this.deletionTimestamp = Optional.of(deletionTimestamp);
+            return this;
         }
 
         public RemoveFileBuilder dataChange(boolean dataChange) {
