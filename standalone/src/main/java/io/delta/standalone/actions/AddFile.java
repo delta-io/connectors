@@ -49,16 +49,6 @@ public final class AddFile implements FileAction {
         this.tags = tags;
     }
 
-    private AddFile(AddFileBuilder builder) {
-        this.path = builder.path;
-        this.partitionValues = builder.partitionValues;
-        this.size = builder.size;
-        this.modificationTime = builder.modificationTime;
-        this.dataChange = builder.dataChange;
-        this.stats = builder.stats;
-        this.tags = builder.tags;
-    }
-
     /**
      * @return the relative path or the absolute path that should be added to the table. If it's a
      *         relative path, it's relative to the root of the table. Note: the path is encoded and
@@ -139,19 +129,28 @@ public final class AddFile implements FileAction {
     }
 
     /**
+     * @return a new {@code AddFile.Builder}
+     */
+    public static Builder builder(String path, Map<String, String> partitionValues, long size,
+                                  long modificationTime, boolean dataChange) {
+        return new Builder(path, partitionValues, size, modificationTime, dataChange);
+    }
+
+    /**
      * Builder class for AddFile. Enables construction of AddFile object with default values.
      */
-    public static class AddFileBuilder {
-        // add default values here, or in the constructor (values besides null)
+    public static class Builder {
+        // required AddFile fields
         private final String path;
         private final Map<String, String> partitionValues;
         private final long size;
         private final long modificationTime;
         private final boolean dataChange;
+        //  optional AddFile fields
         private String stats;
         private Map<String, String> tags;
 
-        public AddFileBuilder(String path, Map<String, String> partitionValues, long size,
+        public Builder(String path, Map<String, String> partitionValues, long size,
                               long modificationTime, boolean dataChange) {
             this.path = path;
             this.partitionValues = partitionValues;
@@ -160,12 +159,12 @@ public final class AddFile implements FileAction {
             this.dataChange = dataChange;
         }
 
-        public AddFileBuilder stats(String stats) {
+        public Builder stats(String stats) {
             this.stats = stats;
             return this;
         }
 
-        public AddFileBuilder tags(Map<String, String> tags) {
+        public Builder tags(Map<String, String> tags) {
             this.tags = tags;
             return this;
         }
@@ -174,7 +173,8 @@ public final class AddFile implements FileAction {
          * @return a new {@code AddFile} with the same properties as {@code this}
          */
         public AddFile build() {
-            AddFile addFile = new AddFile(this);
+            AddFile addFile = new AddFile(this.path, this.partitionValues, this.size,
+                    this.modificationTime, this.dataChange, this.stats, this.tags);
             return addFile;
         }
     }

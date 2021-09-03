@@ -25,16 +25,6 @@ public class RemoveFile implements FileAction {
         this.tags = tags;
     }
 
-    public RemoveFile(RemoveFileBuilder builder) {
-        this.path = builder.path;
-        this.deletionTimestamp = builder.deletionTimestamp;
-        this.dataChange = builder.dataChange;
-        this.extendedFileMetadata = builder.extendedFileMetadata;
-        this.partitionValues = builder.partitionValues;
-        this.size = builder.size;
-        this.tags = builder.tags;
-    }
-
     @Override
     public String getPath() {
         return path;
@@ -66,10 +56,19 @@ public class RemoveFile implements FileAction {
     }
 
     /**
+     * @return a new {@code RemoveFile.Builder}
+     */
+    public static Builder builder(String path) {
+        return new Builder(path);
+    }
+
+    /**
      * Builder class for RemoveFile. Enables construction of RemoveFile object with default values.
      */
-    public static class RemoveFileBuilder {
+    public static class Builder {
+        // required RemoveFile fields
         private final String path;
+        // optional RemoveFile fields
         private Optional<Long> deletionTimestamp = Optional.empty();
         private boolean dataChange = true;
         private boolean extendedFileMetadata = false;
@@ -77,36 +76,36 @@ public class RemoveFile implements FileAction {
         private long size = 0;
         private Map<String, String> tags;
 
-        public RemoveFileBuilder(String path) {
+        public Builder(String path) {
             this.path = path;
         }
 
-        public RemoveFileBuilder deletionTimestamp(Long deletionTimestamp) {
+        public Builder deletionTimestamp(Long deletionTimestamp) {
             this.deletionTimestamp = Optional.of(deletionTimestamp);
             return this;
         }
 
-        public RemoveFileBuilder dataChange(boolean dataChange) {
+        public Builder dataChange(boolean dataChange) {
             this.dataChange = dataChange;
             return this;
         }
 
-        public RemoveFileBuilder extendedFileMetadata(boolean extendedFileMetadata) {
+        public Builder extendedFileMetadata(boolean extendedFileMetadata) {
             this.extendedFileMetadata = extendedFileMetadata;
             return this;
         }
 
-        public RemoveFileBuilder partitionValues(Map<String, String> partitionValues) {
+        public Builder partitionValues(Map<String, String> partitionValues) {
             this.partitionValues = partitionValues;
             return this;
         }
 
-        public RemoveFileBuilder size(long size) {
+        public Builder size(long size) {
             this.size = size;
             return this;
         }
 
-        public RemoveFileBuilder tags(Map<String, String> tags) {
+        public Builder tags(Map<String, String> tags) {
             this.tags = tags;
             return this;
         }
@@ -115,7 +114,14 @@ public class RemoveFile implements FileAction {
          * @return a new {@code RemoveFile} with the same properties as {@code this}
          */
         public RemoveFile build() {
-            RemoveFile removeFile = new RemoveFile(this);
+            RemoveFile removeFile = new RemoveFile(
+                    this.path,
+                    this.deletionTimestamp,
+                    this.dataChange,
+                    this.extendedFileMetadata,
+                    this.partitionValues,
+                    this.size,
+                    this.tags);
             return removeFile;
         }
     }

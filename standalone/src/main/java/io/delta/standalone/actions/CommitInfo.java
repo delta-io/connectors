@@ -68,23 +68,6 @@ public class CommitInfo implements Action {
         this.userMetadata = userMetadata;
     }
 
-    public CommitInfo(CommitInfoBuilder builder) {
-        this.version = builder.version;
-        this.timestamp = builder.timestamp;
-        this.userId = builder.userId;
-        this.userName = builder.userName;
-        this.operation = builder.operation;
-        this.operationParameters = builder.operationParameters;
-        this.jobInfo = builder.jobInfo;
-        this.notebookInfo = builder.notebookInfo;
-        this.clusterId = builder.clusterId;
-        this.readVersion = builder.readVersion;
-        this.isolationLevel = builder.isolationLevel;
-        this.isBlindAppend = builder.isBlindAppend;
-        this.operationMetrics = builder.operationMetrics;
-        this.userMetadata = builder.userMetadata;
-    }
-
     /**
      * @return the log version for this commit
      */
@@ -215,9 +198,17 @@ public class CommitInfo implements Action {
     }
 
     /**
-     * Builder class for CommitInfo. Enables construction of RemoveFile object with default values.
+     * @return a new {@code CommitInfo.Builder}
      */
-    public static class CommitInfoBuilder {
+    public static Builder builder() {
+        return new Builder();
+    }
+
+
+    /**
+     * Builder class for CommitInfo. Enables construction of CommitInfo object with default values.
+     */
+    public static class Builder {
         private Optional<Long> version = Optional.empty();
         private Timestamp timestamp;
         private Optional<String> userId = Optional.empty();
@@ -233,72 +224,72 @@ public class CommitInfo implements Action {
         private Optional<Map<String, String>> operationMetrics = Optional.empty();
         private Optional<String> userMetadata = Optional.empty();
 
-        public CommitInfoBuilder version(Long version) {
+        public Builder version(Long version) {
             this.version = Optional.of(version);
             return this;
         }
 
-        public CommitInfoBuilder timestamp(Timestamp timestamp) {
+        public Builder timestamp(Timestamp timestamp) {
             this.timestamp = timestamp;
             return this;
         }
 
-        public CommitInfoBuilder userId(String userId) {
+        public Builder userId(String userId) {
             this.userId = Optional.of(userId);
             return this;
         }
 
-        public CommitInfoBuilder userName(String userName) {
+        public Builder userName(String userName) {
             this.userName = Optional.of(userName);
             return this;
         }
 
-        public CommitInfoBuilder operation(String operation) {
+        public Builder operation(String operation) {
             this.operation = operation;
             return this;
         }
 
-        public CommitInfoBuilder operationParameters(Map<String, String> operationParameters) {
+        public Builder operationParameters(Map<String, String> operationParameters) {
             this.operationParameters = operationParameters;
             return this;
         }
 
-        public CommitInfoBuilder jobInfo(JobInfo jobInfo) {
+        public Builder jobInfo(JobInfo jobInfo) {
             this.jobInfo = Optional.of(jobInfo);
             return this;
         }
 
-        public CommitInfoBuilder notebookInfo(NotebookInfo notebookInfo ) {
+        public Builder notebookInfo(NotebookInfo notebookInfo ) {
             this.notebookInfo = Optional.of(notebookInfo);
             return this;
         }
 
-        public CommitInfoBuilder clusterId(String clusterId) {
+        public Builder clusterId(String clusterId) {
             this.clusterId = Optional.of(clusterId);
             return this;
         }
 
-        public CommitInfoBuilder readVersion(Long readVersion) {
+        public Builder readVersion(Long readVersion) {
             this.readVersion = Optional.of(readVersion);
             return this;
         }
 
-        public CommitInfoBuilder isolationLevel(String isolationLevel) {
+        public Builder isolationLevel(String isolationLevel) {
             this.isolationLevel = Optional.of(isolationLevel);
             return this;
         }
 
-        public CommitInfoBuilder isBlindAppend(Boolean isBlindAppend) {
+        public Builder isBlindAppend(Boolean isBlindAppend) {
             this.isBlindAppend = Optional.of(isBlindAppend);
             return this;
         }
 
-        public CommitInfoBuilder operationMetrics(Map<String, String> operationMetrics) {
+        public Builder operationMetrics(Map<String, String> operationMetrics) {
             this.operationMetrics = Optional.of(operationMetrics);
             return this;
         }
 
-        public CommitInfoBuilder userMetadata(String userMetadata) {
+        public Builder userMetadata(String userMetadata) {
             this.userMetadata = Optional.of(userMetadata);
             return this;
         }
@@ -307,7 +298,10 @@ public class CommitInfo implements Action {
          * @return a new {@code CommitInfo} with the same properties as {@code this}
          */
         public CommitInfo build() {
-            CommitInfo commitInfo = new CommitInfo(this);
+            CommitInfo commitInfo = new CommitInfo(this.version, this.timestamp, this.userId,
+                    this.userName, this.operation, this.operationParameters, this.jobInfo,
+                    this.notebookInfo, this.clusterId, this.readVersion, this.isolationLevel,
+                    this.isBlindAppend, this.operationMetrics, this.userMetadata);
             return commitInfo;
         }
     }

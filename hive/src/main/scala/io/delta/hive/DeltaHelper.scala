@@ -80,7 +80,7 @@ object DeltaHelper {
         snapshotToUse.getAllFiles.asScala
       ).map { addF =>
         // Drop unused potential huge fields
-        val f = new AddFile.AddFileBuilder(
+        val f = AddFile.builder(
           addF.getPath,
           addF.getPartitionValues,
           addF.getSize,

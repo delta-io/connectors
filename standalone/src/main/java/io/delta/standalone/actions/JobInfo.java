@@ -33,14 +33,6 @@ public class JobInfo implements Action {
         this.triggerType = triggerType;
     }
 
-    public JobInfo(JobInfoBuilder builder) {
-        this.jobId = builder.jobId;
-        this.jobName = builder.jobName;
-        this.runId = builder.runId;
-        this.jobOwnerId = builder.jobOwnerId;
-        this.triggerType = builder.triggerType;
-    }
-
     public String getJobId() {
         return jobId;
     }
@@ -79,35 +71,44 @@ public class JobInfo implements Action {
     }
 
     /**
-     * Builder class for JobInfo. Enables construction of RemoveFile object with default values.
+     * @return a new {@code JobInfo.Builder}
      */
-    public static class JobInfoBuilder {
+    public static Builder builder(String jobId) {
+        return new Builder(jobId);
+    }
+
+    /**
+     * Builder class for JobInfo. Enables construction of JobInfo object with default values.
+     */
+    public static class Builder {
+        // required JobInfo fields
         private final String jobId;
+        // optional JobInfo fields
         private String jobName;
         private String runId;
         private String jobOwnerId;
         private String triggerType;
 
-        public JobInfoBuilder(String jobId) {
+        public Builder(String jobId) {
             this.jobId = jobId;
         }
 
-        public JobInfoBuilder jobName(String jobName) {
+        public Builder jobName(String jobName) {
             this.jobName = jobName;
             return this;
         }
 
-        public JobInfoBuilder runId(String runId) {
+        public Builder runId(String runId) {
             this.runId = runId;
             return this;
         }
 
-        public JobInfoBuilder jobOwnerId(String jobOwnerId) {
+        public Builder jobOwnerId(String jobOwnerId) {
             this.jobOwnerId = jobOwnerId;
             return this;
         }
 
-        public JobInfoBuilder triggerType(String triggerType) {
+        public Builder triggerType(String triggerType) {
             this.triggerType = triggerType;
             return this;
         }
@@ -116,7 +117,8 @@ public class JobInfo implements Action {
          * @return a new {@code JobInfo} with the same properties as {@code this}
          */
         public JobInfo build() {
-            JobInfo jobInfo = new JobInfo(this);
+            JobInfo jobInfo = new JobInfo(this.jobId, this.jobName, this.runId, this.jobOwnerId,
+                    this.triggerType);
             return jobInfo;
         }
     }
