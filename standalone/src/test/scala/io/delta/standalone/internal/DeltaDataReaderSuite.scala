@@ -302,6 +302,18 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
+  test("get partition") {
+    withLogForGoldenTable("From_Deltalake_Partition") { log =>
+      val recordIter = log.snapshot().open()
+      if (!recordIter.hasNext) fail(s"No row record")
+      val row = recordIter.next()
+      // seems not count the partition field, right? TODO
+      assert(row.getLength == 4)
+
+      assert(row.getString("outofdate") != null)
+    }
+  }
+
   def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {
     test(s"DataType to Json and from Json - $dataType") {
       assert(DataTypeParser.fromJson(dataType.toJson()) === dataType)

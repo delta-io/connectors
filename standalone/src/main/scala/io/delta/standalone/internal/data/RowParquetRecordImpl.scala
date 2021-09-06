@@ -69,7 +69,8 @@ import io.delta.standalone.types._
 private[internal] case class RowParquetRecordImpl(
     private val record: RowParquetRecord,
     private val schema: StructType,
-    private val timeZone: TimeZone) extends RowParquetRecordJ {
+    private val timeZone: TimeZone,
+    private val pv: Map[String, Any]) extends RowParquetRecordJ {
 
   /**
    * Needed to decode values. Constructed with the `timeZone` to properly decode time-based data.
@@ -84,7 +85,17 @@ private[internal] case class RowParquetRecordImpl(
 
   override def getLength: Int = record.length
 
-  override def isNullAt(fieldName: String): Boolean = record.get(fieldName) == NullValue
+  override def isNullAt(fieldName: String): Boolean = {
+    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Partition-Value-Serialization
+    if (pv.contains(fieldName)) {// is partition field
+        if (pv(fieldName) == null) {
+            return true
+        }
+        return false
+    }
+
+    return record.get(fieldName) == NullValue
+  }
 
   override def getInt(fieldName: String): Int = getAs[Int](fieldName)
 
@@ -133,6 +144,11 @@ private[internal] case class RowParquetRecordImpl(
    */
   private def getAs[T](fieldName: String): T = {
     val schemaField = schema.get(fieldName)
+
+    if (pv.contains(fieldName)) {// partition field
+      if (pv(fieldName) == null) return null.asInstanceOf[T]
+      return pv(fieldName).asInstanceOf[T]
+    }
     val parquetVal = record.get(fieldName)
 
     if (parquetVal == NullValue && !schemaField.isNullable) {
@@ -144,7 +160,7 @@ private[internal] case class RowParquetRecordImpl(
       throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
     }
 
-    decode(schemaField.getDataType, parquetVal).asInstanceOf[T]
+    return decode(schemaField.getDataType, parquetVal).asInstanceOf[T]
   }
 
   /**
@@ -163,7 +179,7 @@ private[internal] case class RowParquetRecordImpl(
     (elemType, parquetVal) match {
       case (x: ArrayType, y: ListParquetRecord) => decodeList(x.getElementType, y)
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
-      case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
+      case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone, pv)
       case _ =>
         throw new RuntimeException(s"Unknown non-primitive decode type $elemTypeName, $parquetVal")
     }
@@ -193,7 +209,7 @@ private[internal] case class RowParquetRecordImpl(
         }.asJava
       case x: StructType =>
         // List of records
-        listVal.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
+        listVal.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone, pv) }.asJava
       case _ => throw new RuntimeException(s"Unknown non-primitive list decode type $elemTypeName")
     }
   }

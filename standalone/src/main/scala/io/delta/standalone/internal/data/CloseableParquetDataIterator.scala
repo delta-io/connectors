@@ -23,7 +23,7 @@ import com.github.mjakubowski84.parquet4s.ParquetReader.Options
 import org.apache.hadoop.conf.Configuration
 
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
-import io.delta.standalone.types.StructType
+import io.delta.standalone.types._
 
 /**
  * A [[CloseableIterator]] over [[RowParquetRecordJ]]s.
@@ -35,7 +35,7 @@ import io.delta.standalone.types.StructType
  *                   decoding
  */
 private[internal] case class CloseableParquetDataIterator(
-    dataFilePaths: Seq[String],
+    dataFilePaths: Seq[(String, Map[String, String])],
     schema: StructType,
     readTimeZone: TimeZone,
     hadoopConf: Configuration) extends CloseableIterator[RowParquetRecordJ] {
@@ -48,6 +48,8 @@ private[internal] case class CloseableParquetDataIterator(
    * Must be closed.
    */
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
+
+  private var partitionValues: Map[String, Any] = _;
 
   /**
    * Actual iterator over the parquet rows.
@@ -93,7 +95,7 @@ private[internal] case class CloseableParquetDataIterator(
   override def next(): RowParquetRecordJ = {
     if (!hasNext) throw new NoSuchElementException
     val row = parquetRowsIter.next()
-    RowParquetRecordImpl(row, schema, readTimeZone)
+    RowParquetRecordImpl(row, schema, readTimeZone, partitionValues)
   }
 
   /**
@@ -114,7 +116,48 @@ private[internal] case class CloseableParquetDataIterator(
    * @return the iterable for the next data file in `dataFilePathsIter`, not null
    */
   private def readNextFile: ParquetIterable[RowParquetRecord] = {
+    val v = dataFilePathsIter.next();
+
+    partitionValues = Map()
+
+    if(v._2 != null) {
+      v._2.foreach(row => {
+        val fieldName = row._1
+        val value = row._2
+        if (value == null || "null" == value) {
+          partitionValues += (fieldName -> null)
+        } else {
+          val schemaField = schema.get(fieldName)
+          if(schemaField !=null) {
+            val fieldValue = decodePartition(schemaField.getDataType, value)
+            partitionValues += (fieldName -> fieldValue)
+          }
+        }
+      })
+    }
+
     ParquetReader.read[RowParquetRecord](
-      dataFilePathsIter.next(), Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
+      v._1, Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
+  }
+
+  private def decodePartition(elemType: DataType, partitionVal: String): Any = {
+    val elemTypeName = elemType.getTypeName
+
+    elemType match {
+      case _: StringType => partitionVal
+      case _: TimestampType => java.sql.Timestamp.valueOf(partitionVal)
+      case _: DateType => java.sql.Date.valueOf(partitionVal)
+      case _: IntegerType => partitionVal.toInt
+      case _: LongType => partitionVal.toLong
+      case _: ByteType => partitionVal.toByte
+      case _: ShortType => partitionVal.toShort
+      case _: BooleanType => partitionVal.toBoolean
+      case _: FloatType => partitionVal.toFloat
+      case _: DoubleType => partitionVal.toDouble
+      case _: DecimalType => new java.math.BigDecimal(partitionVal)
+      case _: BinaryType => partitionVal.getBytes("UTF-8")
+      case _ =>
+        throw new RuntimeException(s"Unknown decode type $elemTypeName, $partitionVal")
+    }
   }
 }
