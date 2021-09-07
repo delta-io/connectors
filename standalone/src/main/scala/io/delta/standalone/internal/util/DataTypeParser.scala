@@ -44,6 +44,7 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
 import org.json4s.JsonAST.JValue
+import scala.collection.JavaConverters._
 
 private[standalone] object DataTypeParser {
 
@@ -111,10 +112,14 @@ private[standalone] object DataTypeParser {
     val name = field.getName()
     val dataType = field.getDataType()
     val nullable = field.isNullable()
+    val metadata = field.getMetadata()
 
     ("name" -> name) ~
       ("type" -> dataTypeToJValue(dataType)) ~
-      ("nullable" -> nullable)
+      ("nullable" -> nullable) ~
+      ("metadata" -> JObject(
+        metadata.asScala.toList.
+          map{case (k, v) => JField(k, v.asInstanceOf[JValue])}))
   }
 
   /** Given the string representation of a type, return its DataType */
@@ -131,11 +136,12 @@ private[standalone] object DataTypeParser {
 
   private def parseStructField(json: JValue): StructField = json match {
     case JSortedObject(
-    ("metadata", _: JObject),
+    ("metadata", metadata: JObject),
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
     ("type", dataType: JValue)) =>
-      new StructField(name, parseDataType(dataType), nullable)
+      new StructField(name, parseDataType(dataType), nullable,
+         metadata.obj.toMap[String, AnyRef].asJava)
     case JSortedObject(
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
