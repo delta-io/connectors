@@ -336,4 +336,15 @@ class DeltaDataReaderSuite extends FunSuite {
       new IntegerType,
       new ArrayType(new DoubleType, true),
       false))
+
+  test("toJson fromJson with metadata") {
+    val schema_str =
+      """{"type":"struct",
+        |"fields":[
+        |{"name":"a","type":"integer","nullable":true,"metadata":{"test":"foo"}},
+        |{"name":"b","type":"timestamp","nullable":true,"metadata":{"test1":1, "test2":2.0}},
+        |{"name":"c","type":"string","nullable":true,"metadata":{"test3":true,"test4":[1,2,3,4]}}
+        |]}""".stripMargin.replaceAll("\\s", "")
+    assert(DataTypeParser.toJson(DataTypeParser.fromJson(schema_str)) == schema_str)
+  }
 }
