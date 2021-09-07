@@ -204,7 +204,6 @@ public class CommitInfo implements Action {
         return new Builder();
     }
 
-
     /**
      * Builder class for CommitInfo. Enables construction of CommitInfo object with default values.
      */
