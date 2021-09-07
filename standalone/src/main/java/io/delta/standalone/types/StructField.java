@@ -68,7 +68,7 @@ public final class StructField {
      * @param name  the name of this field
      * @param dataType  the data type of this field
      * @param nullable  indicates if values of this field can be {@code null} values
-     * @param metadata metadata for this field
+     * @param metadata  metadata for this field
      */
     public StructField(String name, DataType dataType, boolean nullable, Map<String, Object> metadata) {
         this.name = name;
