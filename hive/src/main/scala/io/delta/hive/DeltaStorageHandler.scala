@@ -71,7 +71,16 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
       DataWritableReadSupport.getColumnNames(tableProps.getProperty(IOConstants.COLUMNS))
     val columnTypes =
       DataWritableReadSupport.getColumnTypes(tableProps.getProperty(IOConstants.COLUMNS_TYPES))
-    val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
+    val partitionColumnNames =
+      DataWritableReadSupport.getColumnNames(tableProps.getProperty("partition_columns"))
+    val partitionColumnTypes = if (partitionColumnNames.isEmpty) {
+      new JArrayList[TypeInfo]()
+    } else {
+      DataWritableReadSupport.getColumnTypes(tableProps.getProperty("partition_columns.types"))
+    }
+    val allColumnNames = columnNames.asScala ++ partitionColumnNames.asScala
+    val allColumnTypes = columnTypes.asScala ++ partitionColumnTypes.asScala
+    val hiveSchema = TypeInfoFactory.getStructTypeInfo(allColumnNames.asJava, allColumnTypes.asJava)
       .asInstanceOf[StructTypeInfo]
     val rootPath = tableProps.getProperty(META_TABLE_LOCATION)
     val snapshot = DeltaHelper.loadDeltaLatestSnapshot(getConf, new Path(rootPath))
@@ -176,13 +185,6 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
           "Only external Delta tables can be read in Hive right now")
     }
 
-    if (tbl.getPartitionKeysSize > 0) {
-      throw new MetaException(
-        s"Found partition columns " +
-          s"(${tbl.getPartitionKeys.asScala.map(_.getName).mkString(",")}) in table " +
-          s"${tbl.getDbName}:${tbl.getTableName}. The partition columns in a Delta table " +
-          s"will be read from its own metadata and should not be set manually.")    }
-
     val deltaRootString = tbl.getSd.getLocation
     if (deltaRootString == null || deltaRootString.trim.isEmpty) {
       throw new MetaException("table location should be set when creating a Delta table")
@@ -193,15 +195,26 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Extract the table schema in Hive to compare it with the latest table schema in Delta logs,
     // and fail the query if it was changed.
     val cols = tbl.getSd.getCols
-    val columnNames = new JArrayList[String](cols.size)
-    val columnTypes = new JArrayList[TypeInfo](cols.size)
+    val ptCols = tbl.getPartitionKeys
+    val columnNames = new JArrayList[String](cols.size + ptCols.size)
+    val columnTypes = new JArrayList[TypeInfo](cols.size + ptCols.size)
     cols.asScala.foreach { col =>
+      columnNames.add(col.getName)
+      columnTypes.add(TypeInfoUtils.getTypeInfoFromTypeString(col.getType))
+    }
+    ptCols.asScala.foreach { col =>
       columnNames.add(col.getName)
       columnTypes.add(TypeInfoUtils.getTypeInfoFromTypeString(col.getType))
     }
     val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
       .asInstanceOf[StructTypeInfo]
     DeltaHelper.checkTableSchema(snapshot.getMetadata.getSchema, hiveSchema)
+    if (!ptCols.isEmpty) {
+      LOG.warn(s"If you specify partition columns to create external table," +
+        s" you need to run `msck repair table ${tbl.getDbName}.${tbl.getTableName}`" +
+        s" to synchronize partition infos to metastore in time," +
+        s" so that you can read delta table correctly.")
+    }
     tbl.getParameters.put("spark.sql.sources.provider", "DELTA")
     tbl.getSd.getSerdeInfo.getParameters.put("path", deltaRootString)
   }
