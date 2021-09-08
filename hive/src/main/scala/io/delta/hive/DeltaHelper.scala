@@ -23,13 +23,13 @@ import java.util.concurrent.{Callable, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
-
 import com.google.common.cache.{Cache, CacheBuilder}
 import io.delta.standalone.actions.AddFile
 import io.delta.standalone.types._
 import io.delta.standalone.{DeltaLog, Snapshot}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
+import org.apache.hadoop.hive.metastore.Warehouse
 import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.exec.{ExprNodeEvaluatorFactory, SerializationUtilities}
 import org.apache.hadoop.hive.ql.plan.{ExprNodeGenericFuncDesc, TableScanDesc}
@@ -37,6 +37,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspector, ObjectInspectorConverters, ObjectInspectorFactory, PrimitiveObjectInspector}
 import org.apache.hadoop.hive.serde2.typeinfo._
 import org.apache.hadoop.mapred.JobConf
+import org.apache.hadoop.util.StringUtils
 import org.slf4j.LoggerFactory
 
 object DeltaHelper {
@@ -74,11 +75,30 @@ object DeltaHelper {
         partitionColumns.contains(t.getName)
       }.sortBy(_._2)
 
-    val files = prunePartitions(
+    // For table created by specify partition columns, while set hive.(tez.)input.format to
+    // io.delta.hive.HiveInputFormat, query multiple partition will call listStatus multiply.
+    // So only return the files belonging to this partition involved for each of call.
+    // Extract relative paths of partitions involved.
+    val relativePartitionPaths = getInputPaths(job).map { path =>
+      new URI(rootPath.toString).relativize(new URI(fs.makeQualified(path).toString)).toString
+    }.filter(_.nonEmpty)
+
+    val addFiles = if (relativePartitionPaths.isEmpty) {
+      prunePartitions(
         job.get(TableScanDesc.FILTER_EXPR_CONF_STR),
         partitionColumnWithIndex.map(_._1),
         snapshotToUse.getAllFiles.asScala
-      ).map { addF =>
+      )
+    } else {
+      // Filter files of partitions involved by relative partition path .
+      snapshotToUse.getAllFiles.asScala.groupBy { addFile =>
+        Warehouse.makePartName(addFile.getPartitionValues, false)
+      }.filterKeys { partitionPath =>
+        relativePartitionPaths.contains(partitionPath)
+      }.values.flatten.toSeq
+    }
+
+    val files = addFiles.map { addF =>
         // Drop unused potential huge fields
         val f = new AddFile(addF.getPath, addF.getPartitionValues, addF.getSize,
           addF.getModificationTime, addF.isDataChange, null, null)
@@ -380,5 +400,13 @@ object DeltaHelper {
       LOG.debug(s"$filterExprDesc on partition $partitionValues returned $result")
     }
     java.lang.Boolean.TRUE == result
+  }
+
+  def getInputPaths(conf: JobConf): Array[Path] = {
+    val inputDir = conf.get("mapred.input.dir", "")
+    val dirs = StringUtils.split(inputDir)
+    dirs.map { dir =>
+      new Path(StringUtils.unEscapeString(dir))
+    }
   }
 }

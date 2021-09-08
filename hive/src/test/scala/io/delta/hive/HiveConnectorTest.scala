@@ -63,21 +63,6 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
-  test("should not allow to specify partition columns") {
-    withTempDir { dir =>
-      val e = intercept[Exception] {
-        runQuery(
-          s"""
-             |CREATE EXTERNAL TABLE deltaTbl(a STRING, b INT)
-             |PARTITIONED BY(c STRING)
-             |STORED BY 'io.delta.hive.DeltaStorageHandler'
-             |LOCATION '${dir.getCanonicalPath}' """.stripMargin)
-      }
-      assert(e.getMessage != null && e.getMessage.matches(
-        "(?s).*partition columns.*should not be set manually.*"))
-    }
-  }
-
   test("should not allow to write to a Delta table") {
     withTable("deltaTbl") {
       withHiveGoldenTable("deltatbl-not-allow-write") { tablePath =>
@@ -245,7 +230,7 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
-  test("read a partitioned table") {
+  test("read a partitioned table by not specifying partition columns") {
     // Create a Delta table
     withTable("deltaPartitionTbl") {
       withHiveGoldenTable("deltatbl-partitioned") { tablePath =>
@@ -257,6 +242,34 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
              |stored by 'io.delta.hive.DeltaStorageHandler' location '${tablePath}'
          """.stripMargin
         )
+
+        checkAnswer("select * from deltaPartitionTbl", testData)
+
+        // select partition column order change
+        checkAnswer("select c2, c1 from deltaPartitionTbl", testData.map(_.swap))
+
+        checkAnswer(
+          "select c2, c1, c2 as c3 from deltaPartitionTbl",
+          testData.map(r => (r._2, r._1, r._2)))
+      }
+    }
+  }
+
+  test("read a partitioned table by specifying partition columns") {
+    // Create a Delta table
+    withTable("deltaPartitionTbl") {
+      withHiveGoldenTable("deltatbl-partitioned") { tablePath =>
+        val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
+
+        runQuery(
+          s"""
+             |create external table deltaPartitionTbl(c1 int)
+             |partitioned by (c2 string)
+             |stored by 'io.delta.hive.DeltaStorageHandler' location '${tablePath}'
+         """.stripMargin
+        )
+
+        runQuery("msck repair table deltaPartitionTbl")
 
         checkAnswer("select * from deltaPartitionTbl", testData)
 
