@@ -19,12 +19,16 @@ package io.delta.standalone.internal
 import java.io.File
 import java.nio.file.Files
 import java.sql.Timestamp
+import java.util.Collections
+import java.util.Optional
 import java.util.UUID
 
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog, Snapshot}
-import io.delta.standalone.actions.{JobInfo => JobInfoJ, NotebookInfo => NotebookInfoJ}
+import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ,
+  Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ,
+ RemoveFile => RemoveFileJ}
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.GoldenTableUtils._
@@ -347,4 +351,46 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
+  // should we be testing these with specific values? (besides the defaults?)
+  test("builder action class constructor for Metadata") {
+    val metadataFromBuilder = MetadataJ.builder().id("test").name("test_name")
+      .description("test description").createdTime(0.asInstanceOf[Long]).build()
+    val metadataFromConstructor = new MetadataJ("test", "test_name",
+      "test description", new FormatJ("parquet", Collections.emptyMap()),
+      Collections.emptyList(), Collections.emptyMap(), Optional.of(0.asInstanceOf[Long]), null)
+    assert(metadataFromBuilder == metadataFromConstructor)
+  }
+
+  test("builder action class constructor for AddFile") {
+    val addFileFromBuilder = AddFileJ.builder("/test", Collections.emptyMap(),
+      0.asInstanceOf[Long], 0.asInstanceOf[Long], true).build()
+    val addFileFromConstructor = new AddFileJ("/test", Collections.emptyMap(),
+      0.asInstanceOf[Long], 0.asInstanceOf[Long], true, null, null)
+    assert(addFileFromBuilder == addFileFromConstructor)
+  }
+
+  test("builder action class constructor for JobInfo") {
+    val jobInfoJFromBuilder = JobInfoJ.builder("test").jobName("test_name")
+      .runId("test_id").build()
+    val jobInfoJFromConstructor = new JobInfoJ("test", "test_name", "test_id",
+      null, null)
+    assert(jobInfoJFromBuilder == jobInfoJFromConstructor)
+  }
+
+  test("builder action class constructor for RemoveFile") {
+    val removeFileJFromBuilder = RemoveFileJ.builder("/test").build()
+    val removeFileJFromConstructor = new RemoveFileJ("/test", Optional.empty(), true,
+      false, null, 0.asInstanceOf[Long], null)
+    assert(removeFileJFromBuilder == removeFileJFromConstructor)
+  }
+
+  test("builder action class constructor for CommitInfo") {
+    val commitInfoJFromBuilder = CommitInfoJ.builder().version(1.asInstanceOf[Long]).userId("test")
+      .isBlindAppend(true).build()
+    val commitInfoJFromConstructor = new CommitInfoJ(Optional.of(1.asInstanceOf[Long]), null,
+      Optional.of("test"), Optional.empty(), null, null, Optional.empty(),
+      Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(true),
+      Optional.empty(), Optional.empty())
+    assert(commitInfoJFromBuilder == commitInfoJFromConstructor)
+  }
 }
