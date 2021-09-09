@@ -2,6 +2,7 @@ package io.delta.standalone.actions;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class RemoveFile implements FileAction {
@@ -53,6 +54,26 @@ public class RemoveFile implements FileAction {
 
     public Map<String, String> getTags() {
         return Collections.unmodifiableMap(tags);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RemoveFile removeFile = (RemoveFile) o;
+        return Objects.equals(path, removeFile.path) &&
+                Objects.equals(deletionTimestamp, removeFile.deletionTimestamp) &&
+                Objects.equals(dataChange, removeFile.dataChange) &&
+                Objects.equals(extendedFileMetadata, removeFile.extendedFileMetadata) &&
+                Objects.equals(partitionValues, removeFile.partitionValues) &&
+                Objects.equals(size, removeFile.size) &&
+                Objects.equals(tags, removeFile.tags);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(path, deletionTimestamp, dataChange, extendedFileMetadata,
+                partitionValues, size, tags);
     }
 
     /**
