@@ -39,7 +39,6 @@
 package io.delta.standalone.internal.util
 
 import io.delta.standalone.types._
-
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
@@ -118,8 +117,10 @@ private[standalone] object DataTypeParser {
       ("type" -> dataTypeToJValue(dataType)) ~
       ("nullable" -> nullable) ~
       ("metadata" -> JObject(
-        metadata.asScala.toList.
-          map{case (k, v) => JField(k, v.asInstanceOf[JValue])}))
+        fieldMetadataToJValue(metadata)))
+  }
+
+  def fieldMetadataToJValue(metadata: FieldMetadata): JValue = {
   }
 
   /** Given the string representation of a type, return its DataType */
@@ -140,8 +141,7 @@ private[standalone] object DataTypeParser {
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
     ("type", dataType: JValue)) =>
-      new StructField(name, parseDataType(dataType), nullable,
-         metadata.obj.toMap[String, AnyRef].asJava)
+      new StructField(name, parseDataType(dataType), nullable, parseMetadata(metadata))
     case JSortedObject(
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
@@ -150,6 +150,55 @@ private[standalone] object DataTypeParser {
     case other =>
       throw new IllegalArgumentException(
         s"Failed to convert the JSON string '${compact(render(other))}' to a field.")
+  }
+
+  private def parseMetadata(metadata: JObject): FieldMetadata = {
+    val builder = FieldMetadata.builder()
+    metadata.obj.foreach {
+      case (key, JInt(value)) =>
+        builder.putLong(key, value.toLong)
+      case(key, JDouble(value)) =>
+        builder.putDouble(key, value)
+      case (key, JBool(value)) =>
+        builder.putBoolean(key, value)
+      case (key, JString(value)) =>
+        builder.putString(key, value)
+      case (key, o: JObject) =>
+        builder.putMetadata(key, parseMetadata(o))
+      case (key, JArray(value)) =>
+        if (value.isEmpty) {
+          // If it is an empty array, we cannot infer its element type. We put an empty Array[Long].
+          builder.putLongArray(key, Array.empty)
+        } else {
+          value.head match {
+            case _: JInt =>
+              builder.putLongArray(key,
+                value.asInstanceOf[List[JInt]].map(_.num.toLong).toArray[java.lang.Long])
+            case _: JDouble =>
+              builder.putDoubleArray(key,
+                value.asInstanceOf[List[JDouble]].map(_.num).toArray[java.lang.Double])
+            case _: JBool =>
+              builder.putBooleanArray(key,
+                value.asInstanceOf[List[JBool]].map(_.value).toArray[java.lang.Boolean])
+            case _: JString =>
+              builder.putStringArray(key, value.asInstanceOf[List[JString]].map(_.s).toArray)
+            case _: JObject =>
+              builder.putMetadataArray(
+                key, value.asInstanceOf[List[JObject]].map(parseMetadata).toArray)
+            case other =>
+              // TODO throw QueryExecutionErrors.unsupportedArrayTypeError(other.getClass)
+          }
+        }
+      case (key, JNull) =>
+        builder.putNull(key)
+      case (key, other) =>
+        // TODO throw QueryExecutionErrors.unsupportedJavaTypeError(other.getClass)
+    }
+    builder.build()
+  }
+
+
+
   }
 
   private object JSortedObject {

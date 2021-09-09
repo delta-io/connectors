@@ -50,7 +50,7 @@ public final class StructField {
     private final String name;
     private final DataType dataType;
     private final boolean nullable;
-    private final Map<String, Object> metadata;
+    private final FieldMetadata metadata;
 
     /**
      * @param name  the name of this field
@@ -61,7 +61,7 @@ public final class StructField {
         this.name = name;
         this.dataType = dataType;
         this.nullable = nullable;
-        this.metadata = Collections.emptyMap();
+        this.metadata = FieldMetadata.builder().build();
     }
 
     /**
@@ -70,7 +70,7 @@ public final class StructField {
      * @param nullable  indicates if values of this field can be {@code null} values
      * @param metadata  metadata for this field
      */
-    public StructField(String name, DataType dataType, boolean nullable, Map<String, Object> metadata) {
+    public StructField(String name, DataType dataType, boolean nullable, FieldMetadata metadata) {
         this.name = name;
         this.dataType = dataType;
         this.nullable = nullable;
@@ -111,7 +111,7 @@ public final class StructField {
     /**
      * @return the metadata for this field
      */
-    public Map<String, Object> getMetadata() {
+    public FieldMetadata getMetadata() {
         return metadata;
     }
 
@@ -121,9 +121,7 @@ public final class StructField {
     protected void buildFormattedString(String prefix, StringBuilder builder) {
         final String nextPrefix = prefix + "    |";
         builder.append(String.format("%s-- %s: %s (nullable = %b) (metadata =%s)\n",
-                prefix, name, dataType.getTypeName(), nullable,
-                metadata.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue())
-                        .collect(Collectors.joining(", ", "{", "}"))));
+                prefix, name, dataType.getTypeName(), nullable, metadata.toString()));
         DataType.buildFormattedString(dataType, nextPrefix, builder);
     }
 
