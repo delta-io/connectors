@@ -351,7 +351,6 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // should we be testing these with specific values? (besides the defaults?)
   test("builder action class constructor for Metadata") {
     val metadataFromBuilder = MetadataJ.builder().id("test").name("test_name")
       .description("test description").createdTime(0.asInstanceOf[Long]).build()
