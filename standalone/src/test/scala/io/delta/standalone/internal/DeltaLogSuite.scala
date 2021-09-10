@@ -368,8 +368,8 @@ class DeltaLogSuite extends FunSuite {
     val metadataFromBuilder = MetadataJ.builder().id("test_id").name("test_name")
       .description("test_description").format(new FormatJ("csv", Collections.emptyMap()))
       .partitionColumns(List("id", "name").asJava).configuration(Map("test"->"foo").asJava)
-      .createdTime(0L).schema(new StructTypeJ(Array(new StructFieldJ("test_field", new IntegerType()))))
-      .build()
+      .createdTime(0L)
+      .schema(new StructTypeJ(Array(new StructFieldJ("test_field", new IntegerType())))).build()
     val metadataFromConstructor = new MetadataJ(
       "test_id",
       "test_name",
@@ -484,9 +484,10 @@ class DeltaLogSuite extends FunSuite {
 
     val commitInfoFromBuilder = CommitInfoJ.builder().version(0L)
       .timestamp(new Timestamp(1540415658000L)).userId("test_id").userName("test_name")
-      .operation("test_op").operationParameters(Map("test"->"op").asJava).jobInfo(JobInfoJ.builder("test").build())
-      .notebookInfo(new NotebookInfoJ("test")).clusterId("test_clusterId").readVersion(0L)
-      .isolationLevel("test_level").isBlindAppend(true).operationMetrics(Map("test"->"metric").asJava)
+      .operation("test_op").operationParameters(Map("test"->"op").asJava)
+      .jobInfo(JobInfoJ.builder("test").build()).notebookInfo(new NotebookInfoJ("test"))
+      .clusterId("test_clusterId").readVersion(0L).isolationLevel("test_level")
+      .isBlindAppend(true).operationMetrics(Map("test"->"metric").asJava)
       .userMetadata("user_metadata").build()
     val commitInfoFromConstructor = new CommitInfoJ(
       Optional.of(0L),
