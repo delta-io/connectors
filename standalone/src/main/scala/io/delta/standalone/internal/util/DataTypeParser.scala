@@ -116,11 +116,30 @@ private[standalone] object DataTypeParser {
     ("name" -> name) ~
       ("type" -> dataTypeToJValue(dataType)) ~
       ("nullable" -> nullable) ~
-      ("metadata" -> JObject(
-        fieldMetadataToJValue(metadata)))
+      ("metadata" -> metadataValueToJValue(metadata))
   }
 
-  def fieldMetadataToJValue(metadata: FieldMetadata): JValue = {
+  def metadataValueToJValue(value: Any): JValue = {
+    value match {
+      case metadata: FieldMetadata =>
+        JObject(metadata.getEntries().asScala.map(e =>
+          (e.getKey(), metadataValueToJValue(e.getValue()))).toList)
+      case arr: Array[Object] =>
+        JArray(arr.toList.map(metadataValueToJValue))
+      case x: Long =>
+        JInt(x)
+      case x: Double =>
+        JDouble(x)
+      case x: Boolean =>
+        JBool(x)
+      case x: String =>
+        JString(x)
+      case null =>
+        JNull
+      case other =>
+        throw new IllegalArgumentException(
+          s"Failed to convert ${value.getClass()} instance to JValue.")
+    }
   }
 
   /** Given the string representation of a type, return its DataType */
@@ -141,7 +160,7 @@ private[standalone] object DataTypeParser {
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
     ("type", dataType: JValue)) =>
-      new StructField(name, parseDataType(dataType), nullable, parseMetadata(metadata))
+      new StructField(name, parseDataType(dataType), nullable, parseFieldMetadata(metadata))
     case JSortedObject(
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
@@ -152,7 +171,7 @@ private[standalone] object DataTypeParser {
         s"Failed to convert the JSON string '${compact(render(other))}' to a field.")
   }
 
-  private def parseMetadata(metadata: JObject): FieldMetadata = {
+  private def parseFieldMetadata(metadata: JObject): FieldMetadata = {
     val builder = FieldMetadata.builder()
     metadata.obj.foreach {
       case (key, JInt(value)) =>
@@ -164,7 +183,7 @@ private[standalone] object DataTypeParser {
       case (key, JString(value)) =>
         builder.putString(key, value)
       case (key, o: JObject) =>
-        builder.putMetadata(key, parseMetadata(o))
+        builder.putMetadata(key, parseFieldMetadata(o))
       case (key, JArray(value)) =>
         if (value.isEmpty) {
           // If it is an empty array, we cannot infer its element type. We put an empty Array[Long].
@@ -172,33 +191,32 @@ private[standalone] object DataTypeParser {
         } else {
           value.head match {
             case _: JInt =>
-              builder.putLongArray(key,
-                value.asInstanceOf[List[JInt]].map(_.num.toLong).toArray[java.lang.Long])
+              builder.putLongArray(key, value.map(_.asInstanceOf[JInt].num.toLong
+                .asInstanceOf[java.lang.Long]).toArray)
             case _: JDouble =>
               builder.putDoubleArray(key,
-                value.asInstanceOf[List[JDouble]].map(_.num).toArray[java.lang.Double])
+                value.asInstanceOf[List[JDouble]].map(_.num.asInstanceOf[java.lang.Double]).toArray)
             case _: JBool =>
               builder.putBooleanArray(key,
-                value.asInstanceOf[List[JBool]].map(_.value).toArray[java.lang.Boolean])
+                value.asInstanceOf[List[JBool]].map(_.value.asInstanceOf[java.lang.Boolean])
+                  .toArray)
             case _: JString =>
               builder.putStringArray(key, value.asInstanceOf[List[JString]].map(_.s).toArray)
             case _: JObject =>
               builder.putMetadataArray(
-                key, value.asInstanceOf[List[JObject]].map(parseMetadata).toArray)
+                key, value.asInstanceOf[List[JObject]].map(parseFieldMetadata).toArray)
             case other =>
-              // TODO throw QueryExecutionErrors.unsupportedArrayTypeError(other.getClass)
+              throw new IllegalArgumentException(
+                s"Unsupported ${value.head.getClass()} Array as metadata value.")
           }
         }
       case (key, JNull) =>
         builder.putNull(key)
       case (key, other) =>
-        // TODO throw QueryExecutionErrors.unsupportedJavaTypeError(other.getClass)
+        throw new IllegalArgumentException(
+          s"Unsupported ${other.getClass()} instance as metadata value.")
     }
     builder.build()
-  }
-
-
-
   }
 
   private object JSortedObject {

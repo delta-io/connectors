@@ -38,39 +38,53 @@
 
 package io.delta.standalone.types;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
+
 /**
- * todo
+ * The metadata for a given {@link StructField}.
  */
 public final class FieldMetadata {
+    // TODO: should this be an immutable map created via the builder?
     private final Map<String, Object> metadata;
 
-
-    /**
-     * todo
-     * @param metadata
-     */
     private FieldMetadata(Map<String, Object> metadata) {
         this.metadata = metadata;
     }
 
-    // getters
+    /**
+     * @return list of the key-value pairs in {@code this}.
+     */
+    public ArrayList<Map.Entry<String, Object>> getEntries() {
+        return new ArrayList<Map.Entry<String, Object>>(metadata.entrySet());
+    }
 
-    // TODO is this acceptable to do? it's more of a "pretty" string?
-    @Override
-    public String toString(){
+    /**
+     * @param key the key to check for
+     * @return True if {@code this} contains a mapping for the given key, False otherwise
+     */
+    public Boolean contains(String key) {
+        return metadata.containsKey(key);
+    }
+
+    /**
+     * @param key the key to check for
+     * @return the value to which the specified key is mapped, or null if there is no mapping for
+     * the given key
+     */
+    public Object get(String key) {
+        return metadata.get(key);
+    }
+
+    public String formattedString(){
         return metadata.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.toString())
                 .collect(Collectors.joining(", ", "{", "}"));
     }
 
-    private static Boolean valueEquals(Object v1, Object v2) {
-    }
-
-    // TODO test this!!
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -79,26 +93,26 @@ public final class FieldMetadata {
         if (this.metadata.size() != that.metadata.size()) return false;
         return this.metadata.entrySet().stream().allMatch(e ->
                 e.getValue().equals(that.metadata.get(e.getKey())) ||
-                        (// TODO array equals????);
+                        (e.getValue().getClass().isArray() &&
+                                that.metadata.get(e.getKey()).getClass().isArray() &&
+                                Arrays.equals((Object[]) e.getValue(),
+                                        (Object[]) that.metadata.get(e.getKey()))));
     }
 
+    @Override
+    public int hashCode() { return metadata.hashCode(); }
 
-
-//    @Override
-//    public boolean equals(Object o){
-//        // todo
-//    }
-
-    // contains
-    // getters!
-    //  hashcode
-    // toJsonValue??
-
+    /**
+     * @return a new {@code FieldMetadata.Builder}
+     */
     public static Builder builder() {
         return new Builder();
     }
 
-    private static class Builder {
+    /**
+     * Builder class for FieldMetadata.
+     */
+    public static class Builder {
         private Map<String, Object> metadata =new HashMap<String, Object>();
 
         public Builder putNull(String key) {
@@ -156,6 +170,9 @@ public final class FieldMetadata {
             return this;
         }
 
+        /**
+         * @return a new {@code FieldMetadata} with the same mappings as {@code this}
+         */
         public FieldMetadata build() {
             return new FieldMetadata(this.metadata);
         }

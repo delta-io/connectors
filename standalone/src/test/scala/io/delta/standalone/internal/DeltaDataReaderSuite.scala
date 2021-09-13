@@ -337,15 +337,29 @@ class DeltaDataReaderSuite extends FunSuite {
       new ArrayType(new DoubleType, true),
       false))
 
-  test("toJson fromJson with metadata") {
-    val schemaStr =
-      """{"type":"struct",
-        |"fields":[
-        |{"name":"a","type":"integer","nullable":true,"metadata":{"test":"foo"}},
-        |{"name":"b","type":"timestamp","nullable":true,"metadata":{"test1":1, "test2":2.0}},
-        |{"name":"c","type":"string","nullable":true,"metadata":{"test3":true,"test4":[1,2,3,4]}},
-        |{"name":"d","type":"string","nullable":false,"metadata":{}}
-        |]}""".stripMargin.replaceAll("\\s", "")
-    assert(DataTypeParser.toJson(DataTypeParser.fromJson(schemaStr)) == schemaStr)
+  test("toJson fromJson for field metadata") {
+    val emptyMetadata = FieldMetadata.builder().build()
+    val singleStringMetadata = FieldMetadata.builder().putString("test", "test_value").build()
+    val singleBooleanMetadata = FieldMetadata.builder().putBoolean("test", true).build()
+    val singleIntegerMetadata = FieldMetadata.builder().putLong("test", 2L).build()
+    val singleDoubleMetadata = FieldMetadata.builder().putDouble("test", 2.0).build()
+    val singleMapMetadata = FieldMetadata.builder().putMetadata("test_outside",
+      FieldMetadata.builder().putString("test_inside", "test_inside_value").build()).build()
+    val singleListMetadata = FieldMetadata.builder().putLongArray("test", Array(0L, 1L, 2L)).build()
+    val multipleEntriesMetadata = FieldMetadata.builder().putString("test", "test_value")
+      .putDouble("test", 2.0).putLongArray("test", Array(0L, 1L, 2L)).build()
+
+    val field_array = Array(
+      new StructField("emptyMetadata", new BooleanType, true, emptyMetadata),
+      new StructField("singleStringMetadata", new BooleanType, true, singleStringMetadata),
+      new StructField("singleBooleanMetadata", new BooleanType, true, singleBooleanMetadata),
+      new StructField("singleIntegerMetadata", new BooleanType, true, singleIntegerMetadata),
+      new StructField("singleDoubleMetadata", new BooleanType, true, singleDoubleMetadata),
+      new StructField("singleMapMetadata", new BooleanType, true, singleMapMetadata),
+      new StructField("singleListMetadata", new BooleanType, true, singleListMetadata),
+      new StructField("multipleEntriesMetadata", new BooleanType, true, multipleEntriesMetadata))
+    val struct = new StructType(field_array)
+    assert(struct == DataTypeParser.fromJson(struct.toJson()))
   }
 }
+
