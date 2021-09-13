@@ -191,8 +191,8 @@ private[standalone] object DataTypeParser {
         } else {
           value.head match {
             case _: JInt =>
-              builder.putLongArray(key, value.map(_.asInstanceOf[JInt].num.toLong
-                .asInstanceOf[java.lang.Long]).toArray)
+              builder.putLongArray(key,
+                value.map(_.asInstanceOf[JInt].num.toLong.asInstanceOf[java.lang.Long]).toArray)
             case _: JDouble =>
               builder.putDoubleArray(key,
                 value.asInstanceOf[List[JDouble]].map(_.num.asInstanceOf[java.lang.Double]).toArray)
@@ -203,8 +203,8 @@ private[standalone] object DataTypeParser {
             case _: JString =>
               builder.putStringArray(key, value.asInstanceOf[List[JString]].map(_.s).toArray)
             case _: JObject =>
-              builder.putMetadataArray(
-                key, value.asInstanceOf[List[JObject]].map(parseFieldMetadata).toArray)
+              builder.putMetadataArray(key,
+                value.asInstanceOf[List[JObject]].map(parseFieldMetadata).toArray)
             case other =>
               throw new IllegalArgumentException(
                 s"Unsupported ${value.head.getClass()} Array as metadata value.")

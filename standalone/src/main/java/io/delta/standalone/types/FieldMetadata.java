@@ -79,7 +79,7 @@ public final class FieldMetadata {
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         return metadata.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.toString())
                 .collect(Collectors.joining(", ", "{", "}"));
     }
