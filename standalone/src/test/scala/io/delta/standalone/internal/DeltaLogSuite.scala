@@ -365,11 +365,16 @@ class DeltaLogSuite extends FunSuite {
       null);
     assert(metadataFromBuilderDefaults == metadataFromConstructorDefaults)
 
-    val metadataFromBuilder = MetadataJ.builder().id("test_id").name("test_name")
-      .description("test_description").format(new FormatJ("csv", Collections.emptyMap()))
-      .partitionColumns(List("id", "name").asJava).configuration(Map("test"->"foo").asJava)
+    val metadataFromBuilder = MetadataJ.builder()
+      .id("test_id")
+      .name("test_name")
+      .description("test_description")
+      .format(new FormatJ("csv", Collections.emptyMap()))
+      .partitionColumns(List("id", "name").asJava)
+      .configuration(Map("test"->"foo").asJava)
       .createdTime(0L)
-      .schema(new StructTypeJ(Array(new StructFieldJ("test_field", new IntegerType())))).build()
+      .schema(new StructTypeJ(Array(new StructFieldJ("test_field", new IntegerType()))))
+      .build()
     val metadataFromConstructor = new MetadataJ(
       "test_id",
       "test_name",
@@ -404,7 +409,10 @@ class DeltaLogSuite extends FunSuite {
       Collections.emptyMap(),
       0L,
       0L,
-      true).stats("test_stats").tags(Map("test"->"foo").asJava).build()
+      true)
+      .stats("test_stats")
+      .tags(Map("test"->"foo").asJava)
+      .build()
     val addFileFromConstructor = new AddFileJ(
       "/test",
       Collections.emptyMap(),
@@ -426,8 +434,12 @@ class DeltaLogSuite extends FunSuite {
       null)
     assert(jobInfoFromBuilderDefaults == jobInfoFromConstructorDefaults)
 
-    val jobInfoFromBuilder = JobInfoJ.builder("test").jobName("test_name").runId("test_id")
-      .jobOwnerId("test_job_id").triggerType("test_trigger_type").build()
+    val jobInfoFromBuilder = JobInfoJ.builder("test")
+      .jobName("test_name")
+      .runId("test_id")
+      .jobOwnerId("test_job_id")
+      .triggerType("test_trigger_type")
+      .build()
     val jobInfoFromConstructor = new JobInfoJ(
       "test",
       "test_name",
@@ -449,9 +461,14 @@ class DeltaLogSuite extends FunSuite {
       null)
     assert(removeFileJFromBuilderDefaults == removeFileJFromConstructorDefaults)
 
-    val removeFileJFromBuilder = RemoveFileJ.builder("/test").deletionTimestamp(0L)
-        .dataChange(false).extendedFileMetadata(true).partitionValues(Map("test"->"foo").asJava)
-        .size(1L).tags(Map("tag"->"foo").asJava).build()
+    val removeFileJFromBuilder = RemoveFileJ.builder("/test")
+      .deletionTimestamp(0L)
+      .dataChange(false)
+      .extendedFileMetadata(true)
+      .partitionValues(Map("test"->"foo").asJava)
+      .size(1L)
+      .tags(Map("tag"->"foo").asJava)
+      .build()
     val removeFileJFromConstructor = new RemoveFileJ(
       "/test",
       Optional.of(0L),
@@ -482,13 +499,22 @@ class DeltaLogSuite extends FunSuite {
       Optional.empty())
     assert(commitInfoFromBuilderDefaults == commitInfoFromConstructorDefaults)
 
-    val commitInfoFromBuilder = CommitInfoJ.builder().version(0L)
-      .timestamp(new Timestamp(1540415658000L)).userId("test_id").userName("test_name")
-      .operation("test_op").operationParameters(Map("test"->"op").asJava)
-      .jobInfo(JobInfoJ.builder("test").build()).notebookInfo(new NotebookInfoJ("test"))
-      .clusterId("test_clusterId").readVersion(0L).isolationLevel("test_level")
-      .isBlindAppend(true).operationMetrics(Map("test"->"metric").asJava)
-      .userMetadata("user_metadata").build()
+    val commitInfoFromBuilder = CommitInfoJ.builder()
+      .version(0L)
+      .timestamp(new Timestamp(1540415658000L))
+      .userId("test_id")
+      .userName("test_name")
+      .operation("test_op")
+      .operationParameters(Map("test"->"op").asJava)
+      .jobInfo(JobInfoJ.builder("test").build())
+      .notebookInfo(new NotebookInfoJ("test"))
+      .clusterId("test_clusterId")
+      .readVersion(0L)
+      .isolationLevel("test_level")
+      .isBlindAppend(true)
+      .operationMetrics(Map("test"->"metric").asJava)
+      .userMetadata("user_metadata")
+      .build()
     val commitInfoFromConstructor = new CommitInfoJ(
       Optional.of(0L),
       new Timestamp(1540415658000L),
