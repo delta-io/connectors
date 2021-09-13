@@ -130,7 +130,7 @@ private[internal] case class CloseableParquetDataIterator(
           val schemaField = schema.get(fieldName)
           if (schemaField != null) {
             val decodedFieldValue = decodePartition(schemaField.getDataType, value)
-            partitionValues += (fieldName -> value)
+            partitionValues += (fieldName -> decodedFieldValue)
           }
         }
       }

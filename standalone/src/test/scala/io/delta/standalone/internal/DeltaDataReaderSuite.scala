@@ -306,11 +306,35 @@ class DeltaDataReaderSuite extends FunSuite {
     withLogForGoldenTable("data-reader-partition-values") { log =>
       val recordIter = log.snapshot().open()
       if (!recordIter.hasNext) fail(s"No row record")
-      val row = recordIter.next()
-      assert(row.getLength == 5)
+      while(recordIter.hasNext()) {
+        val row = recordIter.next()
+        assert(row.getLength == 12)
 
-      assert(row.getString("outofdate") != null)
+        assert(row.getString("value") != null)
+
+        if(row.getString("value") == "2") { // null partition columns
+          for (fieldName <- row.getSchema().getFieldNames().filterNot("value".equals(_))) {
+            assert(row.isNullAt(fieldName))
+          }
+        } else {
+          doMatch(row, row.getString("value").toInt);
+        }
+      }
     }
+  }
+
+  def doMatch(row: JRowRecord, i: Int): Unit = {
+    assert(row.getInt("as_int") == i)
+    assert(row.getLong("as_long") == i.longValue)
+    assert(row.getByte("as_byte") == i.toByte)
+    assert(row.getShort("as_short") == i.shortValue)
+    assert(row.getBoolean("as_boolean") == (i % 2 == 0))
+    assert(row.getFloat("as_float") == i.floatValue)
+    assert(row.getDouble("as_double") == i.doubleValue)
+    assert(row.getString("as_string") == i.toString)
+    assert(row.getDate("as_date") == java.sql.Date.valueOf("2021-09-08"))
+    assert(row.getTimestamp("as_timestamp") == java.sql.Timestamp.valueOf("2021-09-08 11:11:11"))
+    assert(row.getBigDecimal("as_big_decimal") == new JBigDecimal(i))
   }
 
   def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {

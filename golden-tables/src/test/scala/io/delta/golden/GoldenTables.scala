@@ -531,6 +531,45 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     writeDataWithSchema(tablePath, data, schema)
   }
 
+  /**
+  TEST: DeltaDataReaderSuite > data reader can read partition values
+  seems some issue happen when write binary column as partition column, so now ignore binary type now,
+  TODO fix it
+  */
+  generateGoldenTable("data-reader-partition-values") { tablePath =>
+    def createRow(i: Int): Row = {
+      Row(i, i.longValue, i.toByte, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
+        i.toString, java.sql.Date.valueOf("2021-09-08"), java.sql.Timestamp.valueOf("2021-09-08 11:11:11"),
+        new JBigDecimal(i), i.toString)
+    }
+
+    def createRowWithNullValues(): Row = {
+      Row(null, null, null, null, null, null, null, null, null, null, null, "2")
+    }
+
+    val schema = new StructType()
+      .add("as_int", IntegerType)
+      .add("as_long", LongType)
+      .add("as_byte", ByteType)
+      .add("as_short", ShortType)
+      .add("as_boolean", BooleanType)
+      .add("as_float", FloatType)
+      .add("as_double", DoubleType)
+      .add("as_string", StringType)
+      .add("as_date", DateType)
+      .add("as_timestamp", TimestampType)
+      .add("as_big_decimal", DecimalType(1, 0))
+      .add("value", StringType)
+
+    val data = createRowWithNullValues() +: (0 until 2).map(createRow)
+
+    val df = spark.createDataFrame(spark.sparkContext.parallelize(data), schema)
+    df.write.format("delta")
+    .partitionBy("as_int","as_long", "as_byte", "as_short", "as_boolean", "as_float", "as_double",
+        "as_string", "as_date", "as_timestamp", "as_big_decimal")
+    .save(tablePath)
+  }
+
   /** TEST: DeltaDataReaderSuite > read - date types */
   Seq("UTC", "Iceland", "PST", "America/Los_Angeles", "Etc/GMT+9", "Asia/Beirut",
     "JST").foreach { timeZoneId =>
