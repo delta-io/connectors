@@ -44,12 +44,10 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
-
 /**
  * The metadata for a given {@link StructField}.
  */
 public final class FieldMetadata {
-    // TODO: should this be an immutable map created via the builder?
     private final Map<String, Object> metadata;
 
     private FieldMetadata(Map<String, Object> metadata) {
@@ -64,7 +62,7 @@ public final class FieldMetadata {
     }
 
     /**
-     * @param key the key to check for
+     * @param key  the key to check for
      * @return True if {@code this} contains a mapping for the given key, False otherwise
      */
     public Boolean contains(String key) {
@@ -72,7 +70,7 @@ public final class FieldMetadata {
     }
 
     /**
-     * @param key the key to check for
+     * @param key  the key to check for
      * @return the value to which the specified key is mapped, or null if there is no mapping for
      * the given key
      */
@@ -80,7 +78,8 @@ public final class FieldMetadata {
         return metadata.get(key);
     }
 
-    public String formattedString(){
+    @Override
+    public String toString(){
         return metadata.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.toString())
                 .collect(Collectors.joining(", ", "{", "}"));
     }
@@ -95,7 +94,8 @@ public final class FieldMetadata {
                 e.getValue().equals(that.metadata.get(e.getKey())) ||
                         (e.getValue().getClass().isArray() &&
                                 that.metadata.get(e.getKey()).getClass().isArray() &&
-                                Arrays.equals((Object[]) e.getValue(),
+                                Arrays.equals(
+                                        (Object[]) e.getValue(),
                                         (Object[]) that.metadata.get(e.getKey()))));
     }
 

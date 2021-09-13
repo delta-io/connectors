@@ -121,7 +121,7 @@ public final class StructField {
     protected void buildFormattedString(String prefix, StringBuilder builder) {
         final String nextPrefix = prefix + "    |";
         builder.append(String.format("%s-- %s: %s (nullable = %b) (metadata =%s)\n",
-                prefix, name, dataType.getTypeName(), nullable, metadata.formattedString()));
+                prefix, name, dataType.getTypeName(), nullable, metadata.toString()));
         DataType.buildFormattedString(dataType, nextPrefix, builder);
     }
 
