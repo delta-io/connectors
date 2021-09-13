@@ -302,13 +302,12 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
-  test("get partition") {
-    withLogForGoldenTable("From_Deltalake_Partition") { log =>
+  test("data reader can read partition values") {
+    withLogForGoldenTable("data-reader-partition-values") { log =>
       val recordIter = log.snapshot().open()
       if (!recordIter.hasNext) fail(s"No row record")
       val row = recordIter.next()
-      // seems not count the partition field, right? TODO
-      assert(row.getLength == 4)
+      assert(row.getLength == 5)
 
       assert(row.getString("outofdate") != null)
     }
