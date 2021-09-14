@@ -145,7 +145,7 @@ private[internal] case class RowParquetRecordImpl(
   private def getAs[T](fieldName: String): T = {
     val schemaField = schema.get(fieldName)
 
-    if (partitionValues.contains(fieldName)) {// partition field
+    if (partitionValues.contains(fieldName)) { // partition field
       if (partitionValues(fieldName) == null) return null.asInstanceOf[T]
       return partitionValues(fieldName).asInstanceOf[T]
     }
