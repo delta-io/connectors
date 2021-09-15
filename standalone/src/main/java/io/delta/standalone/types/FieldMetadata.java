@@ -65,7 +65,7 @@ public final class FieldMetadata {
      * @param key  the key to check for
      * @return True if {@code this} contains a mapping for the given key, False otherwise
      */
-    public Boolean contains(String key) {
+    public boolean contains(String key) {
         return metadata.containsKey(key);
     }
 
@@ -80,7 +80,9 @@ public final class FieldMetadata {
 
     @Override
     public String toString() {
-        return metadata.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.toString())
+        return metadata.entrySet()
+                .stream()
+                .map(entry -> entry.getKey() + "=" + entry.toString())
                 .collect(Collectors.joining(", ", "{", "}"));
     }
 
@@ -113,24 +115,24 @@ public final class FieldMetadata {
      * Builder class for FieldMetadata.
      */
     public static class Builder {
-        private Map<String, Object> metadata =new HashMap<String, Object>();
+        private Map<String, Object> metadata = new HashMap<String, Object>();
 
         public Builder putNull(String key) {
             metadata.put(key, null);
             return this;
         }
 
-        public Builder putLong(String key, Long value) {
+        public Builder putLong(String key, long value) {
             metadata.put(key, value);
             return this;
         }
 
-        public Builder putDouble(String key, Double value) {
+        public Builder putDouble(String key, double value) {
             metadata.put(key, value);
             return this;
         }
 
-        public Builder putBoolean(String key, Boolean value) {
+        public Builder putBoolean(String key, boolean value) {
             metadata.put(key, value);
             return this;
         }

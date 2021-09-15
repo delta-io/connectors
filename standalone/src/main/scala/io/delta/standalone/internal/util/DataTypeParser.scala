@@ -57,7 +57,7 @@ private[standalone] object DataTypeParser {
 
   def fromJson(json: String): DataType = parseDataType(parse(json))
 
-  def parseDataType(json: JValue): DataType = json match {
+  private def parseDataType(json: JValue): DataType = json match {
     case JString(name) =>
       nameToType(name)
 
@@ -88,7 +88,7 @@ private[standalone] object DataTypeParser {
     compact(render(dataTypeToJValue(value)))
   }
 
-  def dataTypeToJValue(dataType: DataType): JValue = dataType match {
+  private def dataTypeToJValue(dataType: DataType): JValue = dataType match {
     case array: ArrayType =>
       ("type" -> "array") ~
         ("elementType" -> dataTypeToJValue(array.getElementType)) ~
@@ -107,7 +107,7 @@ private[standalone] object DataTypeParser {
       dataType.getTypeName()
   }
 
-  def structFieldToJValue(field: StructField): JValue = {
+  private def structFieldToJValue(field: StructField): JValue = {
     val name = field.getName()
     val dataType = field.getDataType()
     val nullable = field.isNullable()
@@ -119,7 +119,7 @@ private[standalone] object DataTypeParser {
       ("metadata" -> metadataValueToJValue(metadata))
   }
 
-  def metadataValueToJValue(value: Any): JValue = {
+  private def metadataValueToJValue(value: Any): JValue = {
     value match {
       case metadata: FieldMetadata =>
         JObject(metadata.getEntries().asScala.map(e =>
