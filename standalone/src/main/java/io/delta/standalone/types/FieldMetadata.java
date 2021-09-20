@@ -108,11 +108,11 @@ public final class FieldMetadata {
     public int hashCode() {
             return metadata.entrySet()
                     .stream()
-                    .map( entry -> (entry.getValue().getClass().isArray() ?
+                    .mapToInt( entry -> (entry.getValue().getClass().isArray() ?
                             (entry.getKey() == null ? 0 : entry.getKey().hashCode())^
                             Arrays.hashCode((Object[]) entry.getValue()) :
                             entry.hashCode()
-                    )).mapToInt(i -> i.intValue()).sum();
+                    )).sum();
         }
 
     /**
