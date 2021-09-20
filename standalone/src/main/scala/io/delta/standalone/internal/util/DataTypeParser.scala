@@ -122,7 +122,7 @@ private[standalone] object DataTypeParser {
   private def metadataValueToJValue(value: Any): JValue = {
     value match {
       case metadata: FieldMetadata =>
-        JObject(metadata.getEntries().asScala.map(e =>
+        JObject(metadata.getEntries().entrySet().asScala.map(e =>
           (e.getKey(), metadataValueToJValue(e.getValue()))).toList)
       case arr: Array[Object] =>
         JArray(arr.toList.map(metadataValueToJValue))

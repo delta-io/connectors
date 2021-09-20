@@ -38,8 +38,8 @@
 
 package io.delta.standalone.types;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
@@ -57,8 +57,8 @@ public final class FieldMetadata {
     /**
      * @return list of the key-value pairs in {@code this}.
      */
-    public ArrayList<Map.Entry<String, Object>> getEntries() {
-        return new ArrayList<Map.Entry<String, Object>>(metadata.entrySet());
+    public Map<String, Object> getEntries() {
+        return Collections.unmodifiableMap(metadata);
     }
 
     /**
@@ -82,7 +82,10 @@ public final class FieldMetadata {
     public String toString() {
         return metadata.entrySet()
                 .stream()
-                .map(entry -> entry.getKey() + "=" + entry.toString())
+                .map(entry -> entry.getKey() + "=" +
+                        (entry.getValue().getClass().isArray() ?
+                                Arrays.toString((Object[]) entry.getValue()) :
+                                entry.getValue().toString()))
                 .collect(Collectors.joining(", ", "{", "}"));
     }
 
@@ -102,7 +105,15 @@ public final class FieldMetadata {
     }
 
     @Override
-    public int hashCode() { return metadata.hashCode(); }
+    public int hashCode() {
+            return metadata.entrySet()
+                    .stream()
+                    .map( entry -> (entry.getValue().getClass().isArray() ?
+                            (entry.getKey()==null   ? 0 : entry.getKey().hashCode())^
+                            Arrays.hashCode((Object[]) entry.getValue()) :
+                            entry.hashCode()
+                    )).mapToInt(i -> i.intValue()).sum();
+        }
 
     /**
      * @return a new {@code FieldMetadata.Builder}
