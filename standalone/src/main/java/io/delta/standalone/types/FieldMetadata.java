@@ -106,13 +106,13 @@ public final class FieldMetadata {
 
     @Override
     public int hashCode() {
-            return metadata.entrySet()
-                    .stream()
-                    .mapToInt( entry -> (entry.getValue().getClass().isArray() ?
-                            (entry.getKey() == null ? 0 : entry.getKey().hashCode())^
-                            Arrays.hashCode((Object[]) entry.getValue()) :
-                            entry.hashCode()
-                    )).sum();
+        return metadata.entrySet()
+                .stream()
+                .mapToInt( entry -> (entry.getValue().getClass().isArray() ?
+                        (entry.getKey() == null ? 0 : entry.getKey().hashCode())^
+                                Arrays.hashCode((Object[]) entry.getValue()) :
+                        entry.hashCode())
+                ).sum();
         }
 
     /**
