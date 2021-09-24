@@ -531,12 +531,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     writeDataWithSchema(tablePath, data, schema)
   }
 
-  /**
-  TEST: DeltaDataReaderSuite > data reader can read partition values
-  seems some issue happen when write binary column as partition column,
-  so now ignore binary type now,
-  TODO fix it
-  */
+  /** TEST: DeltaDataReaderSuite > data reader can read partition values */
   generateGoldenTable("data-reader-partition-values") { tablePath =>
     def createRow(i: Int): Row = {
       Row(i, i.longValue, i.toByte, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,

@@ -211,8 +211,8 @@ private[internal] case class RowParquetRecordImpl(
       case x: StructType =>
         // List of records
         listVal.map {
-                case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone, partitionValues)
-            }.asJava
+          case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone, partitionValues)
+        }.asJava
       case _ => throw new RuntimeException(s"Unknown non-primitive list decode type $elemTypeName")
     }
   }
