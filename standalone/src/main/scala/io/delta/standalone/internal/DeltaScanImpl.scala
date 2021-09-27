@@ -22,7 +22,6 @@ import io.delta.standalone.DeltaScan
 import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.expressions.Expression
-import io.delta.standalone.internal.util.PredicateUtils
 
 /**
  * Scala implementation of Java interface [[DeltaScan]].
@@ -37,11 +36,7 @@ final class DeltaScanImpl(
     expr: Option[Expression] = None,
     partitionColumns: Seq[String] = Nil) extends DeltaScan {
 
-  val (metadataConjunction, dataConjunction) = if (expr.isDefined) {
-    PredicateUtils.splitMetadataAndDataPredicates(expr.get, partitionColumns)
-  } else {
-    (None, None)
-  }
+  val (metadataConjunction, dataConjunction) = (Option.empty[Expression], Option.empty[Expression])
 
   override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
     private val iter = files.iterator
