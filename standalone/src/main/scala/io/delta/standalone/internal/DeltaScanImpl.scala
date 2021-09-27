@@ -33,10 +33,7 @@ import io.delta.standalone.expressions.Expression
  */
 final class DeltaScanImpl(
     files: java.util.List[AddFileJ],
-    expr: Option[Expression] = None,
-    partitionColumns: Seq[String] = Nil) extends DeltaScan {
-
-  val (metadataConjunction, dataConjunction) = (Option.empty[Expression], Option.empty[Expression])
+    expr: Option[Expression] = None) extends DeltaScan {
 
   override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
     private val iter = files.iterator
@@ -48,16 +45,8 @@ final class DeltaScanImpl(
     override def close(): Unit = { }
   }
 
-  override def getPushedPredicate: Optional[Expression] = if (metadataConjunction.isDefined) {
-    Optional.of(metadataConjunction.get)
-  } else {
-    Optional.empty()
-  }
+  override def getPushedPredicate: Optional[Expression] = Optional.empty()
 
-  override def getResidualPredicate: Optional[Expression] = if (dataConjunction.isDefined) {
-    Optional.of(dataConjunction.get)
-  } else {
-    Optional.empty()
-  }
+  override def getResidualPredicate: Optional[Expression] = Optional.ofNullable(expr.orNull)
 
 }
