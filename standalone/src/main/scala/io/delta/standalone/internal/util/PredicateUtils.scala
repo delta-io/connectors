@@ -18,7 +18,7 @@ package io.delta.standalone.internal.util
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.expressions.{And, Expression, Literal}
+import io.delta.standalone.expressions.Expression
 
 object PredicateUtils {
 
@@ -31,22 +31,23 @@ object PredicateUtils {
   def splitMetadataAndDataPredicates(
       condition: Expression,
       partitionColumns: Seq[String]): (Option[Expression], Option[Expression]) = {
-    val (metadataPredicates, dataPredicates) =
-      splitConjunctivePredicates(condition).partition(isPredicateMetadataOnly(_, partitionColumns))
-
-    val metadataConjunction = if (metadataPredicates.isEmpty) {
-      None
-    } else {
-      Some(metadataPredicates.reduceLeftOption(new And(_, _)).getOrElse(Literal.True))
-    }
-
-    val dataConjunction = if (dataPredicates.isEmpty) {
-      None
-    } else {
-      Some(dataPredicates.reduceLeftOption(new And(_, _)).getOrElse(Literal.True))
-    }
-
-    (metadataConjunction, dataConjunction)
+//    val (metadataPredicates, dataPredicates) = splitConjunctivePredicates(condition)
+//      .partition(isPredicateMetadataOnly(_, partitionColumns))
+//
+//    val metadataConjunction = if (metadataPredicates.isEmpty) {
+//      None
+//    } else {
+//      Some(metadataPredicates.reduceLeftOption(new And(_, _)).getOrElse(Literal.True))
+//    }
+//
+//    val dataConjunction = if (dataPredicates.isEmpty) {
+//      None
+//    } else {
+//      Some(dataPredicates.reduceLeftOption(new And(_, _)).getOrElse(Literal.True))
+//    }
+//
+//    (metadataConjunction, dataConjunction)
+    (None, None)
   }
 
   /**
@@ -58,10 +59,11 @@ object PredicateUtils {
   }
 
   private def splitConjunctivePredicates(condition: Expression): Seq[Expression] = {
-    condition match {
-      case a: And => splitConjunctivePredicates(a.left) ++ splitConjunctivePredicates(a.right)
-      case other => other :: Nil
-    }
+//    condition match {
+//      case a: And => splitConjunctivePredicates(a.left) ++ splitConjunctivePredicates(a.right)
+//      case other => other :: Nil
+//    }
+    Nil
   }
 
 }
