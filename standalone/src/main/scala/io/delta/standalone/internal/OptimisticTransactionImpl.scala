@@ -259,7 +259,7 @@ private[internal] class OptimisticTransactionImpl(
   protected def doCommitRetryIteratively(
       attemptVersion: Long,
       actions: Seq[Action],
-      isolationLevel: IsolationLevel): Long = lockCommitIfEnabled {
+      isolationLevel: IsolationLevel): Long = deltaLog.lockInterruptibly {
     var tryCommit = true
     var commitVersion = attemptVersion
     var attemptNumber = 0
@@ -297,21 +297,22 @@ private[internal] class OptimisticTransactionImpl(
    * @throws IllegalStateException if the attempted commit version is ahead of the current delta log
    *                               version
    */
-  private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long = lockCommitIfEnabled {
-    deltaLog.store.write(
-      FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-      actions.map(_.json).toIterator
-    )
+  private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long =
+    deltaLog.lockInterruptibly {
+      deltaLog.store.write(
+        FileNames.deltaFile(deltaLog.logPath, attemptVersion),
+        actions.map(_.json).toIterator
+      )
 
-    val postCommitSnapshot = deltaLog.update()
-    if (postCommitSnapshot.version < attemptVersion) {
-      throw new IllegalStateException(
-        s"The committed version is $attemptVersion " +
-          s"but the current version is ${postCommitSnapshot.version}.")
+      val postCommitSnapshot = deltaLog.update()
+      if (postCommitSnapshot.version < attemptVersion) {
+        throw new IllegalStateException(
+          s"The committed version is $attemptVersion " +
+            s"but the current version is ${postCommitSnapshot.version}.")
+      }
+
+      attemptVersion
     }
-
-    attemptVersion
-  }
 
   /**
    * Perform post-commit operations
@@ -374,18 +375,6 @@ private[internal] class OptimisticTransactionImpl(
     }
 
     Protocol.checkMetadataProtocolProperties(metadata, protocol)
-  }
-
-  private def isCommitLockEnabled: Boolean = {
-    deltaLog.store.isPartialWriteVisible(deltaLog.logPath)
-  }
-
-  private def lockCommitIfEnabled[T](body: => T): T = {
-    if (isCommitLockEnabled) {
-      deltaLog.lockInterruptibly(body)
-    } else {
-      body
-    }
   }
 
   /**
