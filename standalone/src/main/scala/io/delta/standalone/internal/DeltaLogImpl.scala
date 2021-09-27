@@ -85,8 +85,6 @@ private[internal] class DeltaLogImpl private(
 
   override def getPath: Path = dataPath
 
-  override def getLogPath: Path = logPath
-
   override def getCommitInfoAt(version: Long): CommitInfoJ = {
     history.checkVersionExists(version)
     ConversionUtils.convertCommitInfo(history.getCommitInfo(version))

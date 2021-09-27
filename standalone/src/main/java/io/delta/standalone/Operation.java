@@ -18,23 +18,35 @@ public final class Operation {
      */
     public enum Name {
         /** Recorded during batch inserts. */
-        WRITE,
+        WRITE("WRITE"),
 
         /** Recorded during streaming inserts. */
-        STREAMING_UPDATE,
+        STREAMING_UPDATE("STREAMING UPDATE"),
 
         /** Recorded while deleting certain partitions. */
-        DELETE,
+        DELETE("DELETE"),
 
         /** Recorded when truncating the table. */
-        TRUNCATE,
+        TRUNCATE("TRUNCATE"),
 
         /** Recorded when converting a table into a Delta table. */
-        CONVERT,
+        CONVERT("CONVERT"),
 
         // TODO: the rest
 
-        MANUAL_UPDATE
+        MANUAL_UPDATE("Manual Update");
+
+        /** Actual value that will be recorded in the transaction log */
+        private final String logStr;
+
+        Name(String logStr) {
+            this.logStr = logStr;
+        }
+
+        @Override
+        public String toString() {
+            return logStr;
+        }
     }
 
     private final Name name;
@@ -63,16 +75,14 @@ public final class Operation {
     }
 
     /**
-     * TODO
-     * @return
+     * @return operation name
      */
     public Name getName() {
         return name;
     }
 
     /**
-     * TODO
-     * @return
+     * @return operation parameters
      */
     public Map<String, Object> getParameters() {
         // TODO: be consistent with AddFile getter ternary
@@ -80,16 +90,14 @@ public final class Operation {
     }
 
     /**
-     * TODO
-     * @return
+     * @return operation metrics
      */
     public Map<String, String> getOperationMetrics() {
         return null == operationMetrics ? null : Collections.unmodifiableMap(operationMetrics);
     }
 
     /**
-     * TODO
-     * @return
+     * @return user metadata for this operation
      */
     public Optional<String> getUserMetadata() {
         return null == userMetadata ? Optional.empty() : userMetadata;

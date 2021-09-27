@@ -273,7 +273,7 @@ private[internal] object CommitInfo {
       isBlindAppend: Option[Boolean],
       operationMetrics: Option[Map[String, String]],
       userMetadata: Option[String],
-      writerId: Option[String]): CommitInfo = {
+      engineInfo: Option[String]): CommitInfo = {
     val getUserName = commandContext.get("user").flatMap {
       case "unknown" => None
       case other => Option(other)
@@ -294,7 +294,7 @@ private[internal] object CommitInfo {
       isBlindAppend,
       operationMetrics,
       userMetadata,
-      writerId
+      engineInfo
     )
   }
 }

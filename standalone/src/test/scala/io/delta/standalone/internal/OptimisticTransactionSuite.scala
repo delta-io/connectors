@@ -26,7 +26,9 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.types.{StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -182,7 +184,9 @@ class OptimisticTransactionSuite extends FunSuite {
       val e = intercept[java.io.IOException] {
         txn.commit(Metadata() :: Nil, manualUpdate, writerId)
       }
-      assert(e.getMessage == s"Cannot create ${log.getLogPath.toString}")
+
+      val logPath = new Path(log.getPath, "_delta_log")
+      assert(e.getMessage == s"Cannot create ${logPath.toString}")
     }
   }
 
@@ -237,11 +241,6 @@ class OptimisticTransactionSuite extends FunSuite {
       }
     }
   }
-
-  // TODO: test deltaLog.assertProtocolWrite.
-  // - using DeltaOSS, create a table with protocol > (1, 2)
-  // - the try and commit to that table (just a standard, normal Metadata() commit)
-  // - deltaLog.assertProtocolWrite should throw
 
   test("can't remove from an append-only table") {
     withTempDir { dir =>
