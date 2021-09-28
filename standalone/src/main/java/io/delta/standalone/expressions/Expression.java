@@ -13,8 +13,8 @@ import java.util.Set;
 public interface Expression {
 
     /**
-     * @param record  the input record to evaluate
-     * @return the result of evaluating this expression on a given input RowRecord.
+     * @param record  the input record to evaluate.
+     * @return the result of evaluating this expression on the given input {@link RowRecord}.
      */
     Object eval(RowRecord record);
 
@@ -29,7 +29,7 @@ public interface Expression {
     String toString();
 
     /**
-     * @return the names of columns referenced by this expressions
+     * @return the names of columns referenced by this expression.
      */
     default Set<String> references() {
         Set<String> result = new HashSet<>();
@@ -38,7 +38,7 @@ public interface Expression {
     }
 
     /**
-     * @return a List of the children of this node. Children should not change.
+     * @return a {@link List} of the children of this node. Children should not change.
      */
     List<Expression> children();
 }
