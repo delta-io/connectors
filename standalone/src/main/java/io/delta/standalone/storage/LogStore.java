@@ -83,6 +83,10 @@ public abstract class LogStore {
      */
     public abstract CloseableIterator<String> read(Path path, Configuration hadoopConf);
 
+    public final CloseableIterator<String> read(String path, Configuration hadoopConf) {
+        return read(new Path(path), hadoopConf);
+    }
+
     /**
      * :: DeveloperApi ::
      *

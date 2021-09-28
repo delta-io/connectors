@@ -30,7 +30,7 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 /**
  * Default implementation of [[LogStore]] for Hadoop [[FileSystem]] implementations.
  */
-abstract class HadoopFileSystemLogStore(initHadoopConf: Configuration)
+abstract class HadoopFileSystemLogStore(override val initHadoopConf: Configuration)
   extends LogStore(initHadoopConf) {
 
   override def read(path: Path, hadoopConf: Configuration): CloseableIterator[String] = {
@@ -62,8 +62,8 @@ abstract class HadoopFileSystemLogStore(initHadoopConf: Configuration)
   protected def writeWithRename(
       path: Path,
       actions: Iterator[String],
-      hadoopConf: Configuration,
-      overwrite: Boolean = false): Unit = {
+      overwrite: Boolean,
+      hadoopConf: Configuration): Unit = {
     val fs = path.getFileSystem(hadoopConf)
 
     if (!fs.exists(path.getParent)) {

@@ -39,7 +39,7 @@ import org.apache.hadoop.fs.Options.{ChecksumOpt, CreateOpts}
  *
  * 2. Consistent file listing: HDFS file listing is consistent.
  */
-private[internal] class HDFSLogStore(initHadoopConf: Configuration)
+private[internal] class HDFSLogStore(override val initHadoopConf: Configuration)
   extends HadoopFileSystemLogStore(initHadoopConf) {
 
   val noAbstractFileSystemExceptionMessage = "No AbstractFileSystem"
