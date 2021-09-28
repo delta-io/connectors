@@ -19,7 +19,7 @@ package io.delta.standalone.internal.storage
 import java.io.IOException
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.FileAlreadyExistsException
-import java.util.{EnumSet, UUID}
+import java.util.EnumSet
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -112,10 +112,6 @@ private[internal] class HDFSLogStore(override val initHadoopConf: Configuration)
         fc.delete(tempPath, false)
       }
     }
-  }
-
-  private def createTempPath(path: Path): Path = {
-    new Path(path.getParent, s".${path.getName}.${UUID.randomUUID}.tmp")
   }
 
   private def getFileContext(path: Path, hadoopConf: Configuration): FileContext = {

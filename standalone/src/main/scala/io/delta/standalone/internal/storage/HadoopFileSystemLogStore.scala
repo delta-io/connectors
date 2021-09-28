@@ -21,6 +21,8 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.FileAlreadyExistsException
 import java.util.UUID
 
+import scala.collection.JavaConverters._
+
 import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.storage.LogStore
 
@@ -40,13 +42,13 @@ abstract class HadoopFileSystemLogStore(override val initHadoopConf: Configurati
     new LineCloseableIterator(reader)
   }
 
-  override def listFrom(path: Path, hadoopConf: Configuration): Iterator[FileStatus] = {
+  override def listFrom(path: Path, hadoopConf: Configuration): java.util.Iterator[FileStatus] = {
     val fs = path.getFileSystem(hadoopConf)
     if (!fs.exists(path.getParent)) {
       throw new FileNotFoundException(s"No such file or directory: ${path.getParent}")
     }
     val files = fs.listStatus(path.getParent)
-    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator
+    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator.asJava
   }
 
   override def resolvePathOnPhysicalStorage(path: Path, hadoopConf: Configuration): Path = {

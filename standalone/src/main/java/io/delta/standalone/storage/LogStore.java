@@ -83,6 +83,18 @@ public abstract class LogStore {
      */
     public abstract CloseableIterator<String> read(Path path, Configuration hadoopConf);
 
+    /**
+     * :: DeveloperApi ::
+     *
+     * Load the given file and return an `Iterator` of lines, with line breaks removed from each line.
+     * Callers of this function are responsible to close the iterator if they are done with it.
+     *
+     * @since 1.0.0
+     *
+     * @param path  the path to load, as a {@link String}
+     * @param hadoopConf  the latest hadoopConf
+     * @return the CloseableIterator of lines in the given file.
+     */
     public final CloseableIterator<String> read(String path, Configuration hadoopConf) {
         return read(new Path(path), hadoopConf);
     }
@@ -112,6 +124,31 @@ public abstract class LogStore {
     /**
      * :: DeveloperApi ::
      *
+     * Write the given `actions` to the given `path` with or without overwrite as indicated.
+     * Implementation must throw [[java.nio.file.FileAlreadyExistsException]] exception if the file
+     * already exists and overwrite = false. Furthermore, if isPartialWriteVisible returns false,
+     * implementation must ensure that the entire file is made visible atomically, that is,
+     * it should not generate partial files.
+     *
+     * @since 1.0.0
+     *
+     * @param path  the path to write to, as a {@link String}
+     * @param actions  actions to be written
+     * @param overwrite  if true, overwrites the file if it already exists
+     * @param hadoopConf  the latest hadoopConf
+     */
+    public final void write(
+        String path,
+        Iterator<String> actions,
+        Boolean overwrite,
+        Configuration hadoopConf) throws FileAlreadyExistsException {
+
+        write(new Path(path), actions, overwrite, hadoopConf);
+    }
+
+    /**
+     * :: DeveloperApi ::
+     *
      * List the paths in the same directory that are lexicographically greater or equal to
      * (UTF-8 sorting) the given `path`. The result should also be sorted by the file name.
      *
@@ -125,6 +162,26 @@ public abstract class LogStore {
     public abstract Iterator<FileStatus> listFrom(
         Path path,
         Configuration hadoopConf) throws FileNotFoundException;
+
+    /**
+     * :: DeveloperApi ::
+     *
+     * List the paths in the same directory that are lexicographically greater or equal to
+     * (UTF-8 sorting) the given `path`. The result should also be sorted by the file name.
+     *
+     * @since 1.0.0
+     *
+     * @param path  the path to load, as a {@link String}
+     * @param hadoopConf  the latest hadoopConf
+     * @return an Iterator of the paths lexicographically greater or equal to (UTF-8 sorting) the
+     *         given `path`
+     */
+    public final Iterator<FileStatus> listFrom(
+        String path,
+        Configuration hadoopConf) throws FileNotFoundException {
+
+        return listFrom(new Path(path), hadoopConf);
+    }
 
     /**
      * :: DeveloperApi ::

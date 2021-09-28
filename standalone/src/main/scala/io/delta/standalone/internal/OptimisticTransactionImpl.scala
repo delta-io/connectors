@@ -306,7 +306,9 @@ private[internal] class OptimisticTransactionImpl(
   private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long = lockCommitIfEnabled {
     deltaLog.store.write(
       FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-      actions.map(_.json).toIterator
+      actions.map(_.json).toIterator.asJava,
+      false, // overwrite = false
+      deltaLog.hadoopConf
     )
 
     val postCommitSnapshot = deltaLog.update()
@@ -383,7 +385,7 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   private def isCommitLockEnabled: Boolean = {
-    deltaLog.store.isPartialWriteVisible(deltaLog.logPath)
+    deltaLog.store.isPartialWriteVisible(deltaLog.logPath, deltaLog.hadoopConf)
   }
 
   private def lockCommitIfEnabled[T](body: => T): T = {

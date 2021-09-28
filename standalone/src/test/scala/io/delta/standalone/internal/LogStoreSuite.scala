@@ -64,32 +64,32 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
       val logStore = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
-      assert(logStore.read(deltas.head, hadoopConf) == Seq("zero", "none"))
-      assert(logStore.read(deltas(1), hadoopConf) == Seq("one"))
+      assert(logStore.read(deltas.head, hadoopConf).asScala.toSeq == Seq("zero", "none"))
+      assert(logStore.read(deltas(1), hadoopConf).asScala.toSeq == Seq("one"))
     }
   }
 
-//  test("listFrom") {
-//    withGoldenTable("log-store-listFrom") { tablePath =>
-//      val logStore = createLogStore(hadoopConf)
-//
-//      val deltas = Seq(0, 1, 2, 3, 4)
-//        .map(i => new File(tablePath, i.toString))
-//        .map(_.toURI)
-//        .map(new Path(_))
-//
-//      assert(logStore.listFrom(deltas.head).asScala.map(_.getPath.getName)
-//        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-//      assert(logStore.listFrom(deltas(1)).map(_.getPath.getName)
-//        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-//      assert(logStore.listFrom(deltas(2)).map(_.getPath.getName)
-//        .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
-//      assert(logStore.listFrom(deltas(3)).map(_.getPath.getName)
-//        .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
-//      assert(logStore.listFrom(deltas(4)).map(_.getPath.getName)
-//        .filterNot(_ == "_delta_log").toArray === Nil)
-//    }
-//  }
+  test("listFrom") {
+    withGoldenTable("log-store-listFrom") { tablePath =>
+      val logStore = createLogStore(hadoopConf)
+
+      val deltas = Seq(0, 1, 2, 3, 4)
+        .map(i => new File(tablePath, i.toString))
+        .map(_.toURI)
+        .map(new Path(_))
+
+      assert(logStore.listFrom(deltas.head, hadoopConf).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(logStore.listFrom(deltas(1), hadoopConf).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(logStore.listFrom(deltas(2), hadoopConf).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
+      assert(logStore.listFrom(deltas(3), hadoopConf).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
+      assert(logStore.listFrom(deltas(4), hadoopConf).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Nil)
+    }
+  }
 }
 
 /**
@@ -111,7 +111,6 @@ class DefaultLogStoreSuite extends LogStoreSuiteBase {
  * Test having the user provide their own LogStore.
  */
 class UserDefinedLogStoreSuite extends LogStoreSuiteBase {
-  // The actual type of LogStore created will be LogStoreAdaptor.
   override def logStoreClassName: Option[String] = Some(classOf[UserDefinedLogStore].getName)
 
   override def hadoopConf: Configuration = {
@@ -147,7 +146,7 @@ class UserDefinedLogStore(override val initHadoopConf: Configuration)
   }
 
   override def listFrom(path: Path, hadoopConf: Configuration): java.util.Iterator[FileStatus] = {
-    mockImpl.listFrom(path, hadoopConf).asJava
+    mockImpl.listFrom(path, hadoopConf)
   }
 
   override def resolvePathOnPhysicalStorage(path: Path, hadoopConf: Configuration): Path = {

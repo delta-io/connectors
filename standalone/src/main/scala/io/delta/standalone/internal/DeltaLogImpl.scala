@@ -108,7 +108,8 @@ private[internal] class DeltaLogImpl private(
       failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
 
-    val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion))
+    val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion), hadoopConf)
+      .asScala
       .filter(f => FileNames.isDeltaFile(f.getPath))
 
     // Subtract 1 to ensure that we have the same check for the inclusive startVersion
@@ -121,8 +122,13 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionLog(version,
-        store.read(p).map(x => ConversionUtils.convertAction(Action.fromJson(x))).toList.asJava)
+      new VersionLog(
+        version,
+        store.read(p, hadoopConf)
+          .asScala
+          .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+          .toList
+          .asJava)
     }.asJava
   }
 
