@@ -227,5 +227,6 @@ private class InitialSnapshotImpl(
 
   override def scan(): DeltaScan = new DeltaScanImpl(Nil.asJava)
 
-  override def scan(predicate: Expression): DeltaScan = new DeltaScanImpl(Nil.asJava)
+  override def scan(predicate: Expression): DeltaScan =
+    new DeltaScanImpl(Nil.asJava, Some(predicate))
 }
