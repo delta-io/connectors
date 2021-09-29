@@ -31,6 +31,7 @@ import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.scan.{BaseDeltaScanImpl, FilteredDeltaScanImpl}
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 
@@ -67,10 +68,14 @@ private[internal] class SnapshotImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def scan(): DeltaScan = new DeltaScanImpl(activeFiles)
+  override def scan(): DeltaScan = new BaseDeltaScanImpl(allFilesScala)
 
   override def scan(predicate: Expression): DeltaScan =
-    new DeltaScanImpl(activeFiles, Some(predicate))
+    new FilteredDeltaScanImpl(
+      allFilesScala,
+      predicate,
+      metadataScala.partitionColumns,
+      metadataScala.partitionSchema)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFiles
 
@@ -238,8 +243,12 @@ private class InitialSnapshotImpl(
     SnapshotImpl.State(Protocol(), Metadata(), Nil, Nil, Nil, 0L, 0L, 1L, 1L, 0L, 0L)
   }
 
-  override def scan(): DeltaScan = new DeltaScanImpl(Nil.asJava)
+  override def scan(): DeltaScan = new BaseDeltaScanImpl(Nil)
 
   override def scan(predicate: Expression): DeltaScan =
-    new DeltaScanImpl(Nil.asJava, Some(predicate))
+    new FilteredDeltaScanImpl(
+      Nil,
+      predicate,
+      metadataScala.partitionColumns,
+      metadataScala.partitionSchema)
 }

@@ -388,7 +388,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn2 = log2.startTransaction()
-      txn2.markFilesAsRead(java.util.Arrays.asList(Literal.True))
+      txn2.markFilesAsRead(Literal.True)
       txn2.commit(add :: Nil, manualUpdate, engineInfo)
       verifyIsBlindAppend(2, expected = false)
     }
