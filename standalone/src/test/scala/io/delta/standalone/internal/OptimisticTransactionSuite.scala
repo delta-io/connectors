@@ -20,14 +20,16 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.expressions.Literal
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.types.{StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -183,7 +185,9 @@ class OptimisticTransactionSuite extends FunSuite {
       val e = intercept[java.io.IOException] {
         txn.commit(Metadata() :: Nil, manualUpdate, engineInfo)
       }
-      assert(e.getMessage == s"Cannot create ${log.getLogPath.toString}")
+
+      val logPath = new Path(log.getPath, "_delta_log")
+      assert(e.getMessage == s"Cannot create ${logPath.toString}")
     }
   }
 

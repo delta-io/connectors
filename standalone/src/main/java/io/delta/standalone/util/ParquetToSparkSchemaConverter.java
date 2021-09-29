@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal.exception
+package io.delta.standalone.util;
 
-import java.util.ConcurrentModificationException
+import io.delta.standalone.types.StructType;
+import org.apache.parquet.schema.MessageType;
 
-class DeltaConcurrentModificationException(message: String)
-  extends ConcurrentModificationException(message)
+public final class ParquetToSparkSchemaConverter {
 
-class ConcurrentAppendException(message: String)
-  extends DeltaConcurrentModificationException(message)
-
-class ConcurrentDeleteReadException(message: String)
-  extends DeltaConcurrentModificationException(message)
+    public static MessageType convert(StructType catalystSchema) {
+        // TODO
+        return null;
+    }
+}

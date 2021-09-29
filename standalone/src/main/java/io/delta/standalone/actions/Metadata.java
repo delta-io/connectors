@@ -34,22 +34,18 @@ public final class Metadata implements Action {
     private final String name;
     private final String description;
     private final Format format;
-    private final String schemaString;
     private final List<String> partitionColumns;
     private final Map<String, String> configuration;
     private final Optional<Long> createdTime;
     private final StructType schema;
 
-    // TODO: add back in previous constructor (in DSR)
-
-    public Metadata(String id, String name, String description, Format format, String schemaString,
+    public Metadata(String id, String name, String description, Format format,
                     List<String> partitionColumns, Map<String, String> configuration,
                     Optional<Long> createdTime, StructType schema) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.format = format;
-        this.schemaString = schemaString;
         this.partitionColumns = partitionColumns;
         this.configuration = configuration;
         this.createdTime = createdTime;
@@ -82,10 +78,6 @@ public final class Metadata implements Action {
      */
     public Format getFormat() {
         return format;
-    }
-
-    public String getSchemaString() {
-        return schemaString;
     }
 
     /**
@@ -128,7 +120,6 @@ public final class Metadata implements Action {
                 Objects.equals(name, metadata.name) &&
                 Objects.equals(description, metadata.description) &&
                 Objects.equals(format, metadata.format) &&
-                Objects.equals(schemaString, metadata.schemaString) &&
                 Objects.equals(partitionColumns, metadata.partitionColumns) &&
                 Objects.equals(configuration, metadata.configuration) &&
                 Objects.equals(createdTime, metadata.createdTime) &&
@@ -137,6 +128,83 @@ public final class Metadata implements Action {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, description, format, schemaString, partitionColumns, configuration, createdTime, schema);
+        return Objects.hash(id, name, description, format, partitionColumns, configuration, createdTime, schema);
+    }
+
+    /**
+     * @return a new {@code Metadata.Builder}
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder class for Metadata. Enables construction of Metadata object with default values.
+     */
+    public static class Builder {
+        private String id = java.util.UUID.randomUUID().toString();
+        private String name;
+        private String description;
+        private Format format = new Format("parquet", Collections.emptyMap());
+        private List<String> partitionColumns = Collections.emptyList();
+        private Map<String, String> configuration = Collections.emptyMap();
+        private Optional<Long> createdTime = Optional.of(System.currentTimeMillis());
+        private StructType schema;
+
+        public Builder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder description(String description) {
+            this.description = description;
+            return this;
+        }
+
+        public Builder format(Format format) {
+            this.format = format;
+            return this;
+        }
+
+        public Builder partitionColumns(List<String> partitionColumns) {
+            this.partitionColumns = partitionColumns;
+            return this;
+        }
+
+        public Builder configuration(Map<String, String> configuration) {
+            this.configuration = configuration;
+            return this;
+        }
+
+        public Builder createdTime(Long createdTime) {
+            this.createdTime = Optional.of(createdTime);
+            return this;
+        }
+
+        public Builder schema(StructType schema) {
+            this.schema = schema;
+            return this;
+        }
+
+        /**
+         * @return a new {@code Metadata} with the same properties as {@code this}
+         */
+        public Metadata build() {
+            Metadata metadata = new Metadata(
+                    this.id,
+                    this.name,
+                    this.description,
+                    this.format,
+                    this.partitionColumns,
+                    this.configuration,
+                    this.createdTime,
+                    this.schema);
+            return metadata;
+        }
     }
 }
