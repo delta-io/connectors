@@ -39,12 +39,13 @@
 package io.delta.standalone.internal.util
 
 import io.delta.standalone.types._
-
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import org.json4s.JsonDSL._
 import org.json4s.JsonAST.JValue
+import scala.collection.JavaConverters._
 
-private[internal] object DataTypeParser {
+private[standalone] object DataTypeParser {
 
   private val FIXED_DECIMAL = """decimal\(\s*(\d+)\s*,\s*(\-?\d+)\s*\)""".r
 
@@ -56,7 +57,7 @@ private[internal] object DataTypeParser {
 
   def fromJson(json: String): DataType = parseDataType(parse(json))
 
-  def parseDataType(json: JValue): DataType = json match {
+  private def parseDataType(json: JValue): DataType = json match {
     case JString(name) =>
       nameToType(name)
 
@@ -83,6 +84,64 @@ private[internal] object DataTypeParser {
         s"Failed to convert the JSON string '${compact(render(other))}' to a data type.")
   }
 
+  def toJson(value : DataType): String = {
+    compact(render(dataTypeToJValue(value)))
+  }
+
+  private def dataTypeToJValue(dataType: DataType): JValue = dataType match {
+    case array: ArrayType =>
+      ("type" -> "array") ~
+        ("elementType" -> dataTypeToJValue(array.getElementType)) ~
+        ("containsNull" -> array.containsNull())
+    case map: MapType =>
+      ("type" -> "map") ~
+        ("keyType" -> dataTypeToJValue(map.getKeyType())) ~
+        ("valueType" -> dataTypeToJValue(map.getValueType())) ~
+        ("valueContainsNull" -> map.valueContainsNull())
+    case struct: StructType =>
+      ("type" -> "struct") ~
+        ("fields" -> struct.getFields().map(structFieldToJValue).toList)
+    case decimal: DecimalType =>
+      s"decimal(${decimal.getPrecision()},${decimal.getScale()})"
+    case _: DataType =>
+      dataType.getTypeName()
+  }
+
+  private def structFieldToJValue(field: StructField): JValue = {
+    val name = field.getName()
+    val dataType = field.getDataType()
+    val nullable = field.isNullable()
+    val metadata = field.getMetadata()
+
+    ("name" -> name) ~
+      ("type" -> dataTypeToJValue(dataType)) ~
+      ("nullable" -> nullable) ~
+      ("metadata" -> metadataValueToJValue(metadata))
+  }
+
+  private def metadataValueToJValue(value: Any): JValue = {
+    value match {
+      case metadata: FieldMetadata =>
+        JObject(metadata.getEntries().entrySet().asScala.map(e =>
+          (e.getKey(), metadataValueToJValue(e.getValue()))).toList)
+      case arr: Array[Object] =>
+        JArray(arr.toList.map(metadataValueToJValue))
+      case x: Long =>
+        JInt(x)
+      case x: Double =>
+        JDouble(x)
+      case x: Boolean =>
+        JBool(x)
+      case x: String =>
+        JString(x)
+      case null =>
+        JNull
+      case other =>
+        throw new IllegalArgumentException(
+          s"Failed to convert ${value.getClass()} instance to JValue.")
+    }
+  }
+
   /** Given the string representation of a type, return its DataType */
   private def nameToType(name: String): DataType = {
     name match {
@@ -97,11 +156,11 @@ private[internal] object DataTypeParser {
 
   private def parseStructField(json: JValue): StructField = json match {
     case JSortedObject(
-    ("metadata", _: JObject),
+    ("metadata", metadata: JObject),
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
     ("type", dataType: JValue)) =>
-      new StructField(name, parseDataType(dataType), nullable)
+      new StructField(name, parseDataType(dataType), nullable, parseFieldMetadata(metadata))
     case JSortedObject(
     ("name", JString(name)),
     ("nullable", JBool(nullable)),
@@ -110,6 +169,54 @@ private[internal] object DataTypeParser {
     case other =>
       throw new IllegalArgumentException(
         s"Failed to convert the JSON string '${compact(render(other))}' to a field.")
+  }
+
+  private def parseFieldMetadata(metadata: JObject): FieldMetadata = {
+    val builder = FieldMetadata.builder()
+    metadata.obj.foreach {
+      case (key, JInt(value)) =>
+        builder.putLong(key, value.toLong)
+      case(key, JDouble(value)) =>
+        builder.putDouble(key, value)
+      case (key, JBool(value)) =>
+        builder.putBoolean(key, value)
+      case (key, JString(value)) =>
+        builder.putString(key, value)
+      case (key, o: JObject) =>
+        builder.putMetadata(key, parseFieldMetadata(o))
+      case (key, JArray(value)) =>
+        if (value.isEmpty) {
+          // If it is an empty array, we cannot infer its element type. We put an empty Array[Long].
+          builder.putLongArray(key, Array.empty)
+        } else {
+          value.head match {
+            case _: JInt =>
+              builder.putLongArray(key,
+                value.map(_.asInstanceOf[JInt].num.toLong.asInstanceOf[java.lang.Long]).toArray)
+            case _: JDouble =>
+              builder.putDoubleArray(key,
+                value.asInstanceOf[List[JDouble]].map(_.num.asInstanceOf[java.lang.Double]).toArray)
+            case _: JBool =>
+              builder.putBooleanArray(key,
+                value.asInstanceOf[List[JBool]].map(_.value.asInstanceOf[java.lang.Boolean])
+                  .toArray)
+            case _: JString =>
+              builder.putStringArray(key, value.asInstanceOf[List[JString]].map(_.s).toArray)
+            case _: JObject =>
+              builder.putMetadataArray(key,
+                value.asInstanceOf[List[JObject]].map(parseFieldMetadata).toArray)
+            case other =>
+              throw new IllegalArgumentException(
+                s"Unsupported ${value.head.getClass()} Array as metadata value.")
+          }
+        }
+      case (key, JNull) =>
+        builder.putNull(key)
+      case (key, other) =>
+        throw new IllegalArgumentException(
+          s"Unsupported ${other.getClass()} instance as metadata value.")
+    }
+    builder.build()
   }
 
   private object JSortedObject {

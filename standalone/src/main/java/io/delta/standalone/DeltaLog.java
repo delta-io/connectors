@@ -89,9 +89,6 @@ public interface DeltaLog {
     /** @return the path of the Delta table. */
     Path getPath();
 
-    /** @return the path of the delta log for this Delta table. */
-    Path getLogPath();
-
     /**
      * Get all actions starting from "startVersion" (inclusive).
      * If `startVersion` doesn't exist, return an empty {@code Iterator}.

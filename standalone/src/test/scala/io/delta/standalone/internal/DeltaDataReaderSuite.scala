@@ -26,10 +26,11 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.data.{RowRecord => JRowRecord}
 import io.delta.standalone.DeltaLog
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
+import io.delta.standalone.internal.util.DataTypeParser
 import io.delta.standalone.internal.util.GoldenTableUtils._
-import io.delta.standalone.types.{DateType, StructField, StructType, TimestampType}
+import io.delta.standalone.types._
 import org.apache.hadoop.conf.Configuration
-// scalastyle:off funsuite
+
 import org.scalatest.FunSuite
 
 /**
@@ -300,4 +301,65 @@ class DeltaDataReaderSuite extends FunSuite {
       assert(row.getSchema == expectedSchema)
     }
   }
+
+  def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {
+    test(s"DataType to Json and from Json - $dataType") {
+      assert(DataTypeParser.fromJson(dataType.toJson()) === dataType)
+    }
+
+    test(s"DataType inside StructType to Json and from Json - $dataType") {
+      val field1 = new StructField("foo", dataType, true)
+      val field2 = new StructField("bar", dataType, true)
+      val struct = new StructType(Array(field1, field2))
+      assert(DataTypeParser.fromJson(struct.toJson()) === struct)
+    }
+  }
+
+  checkDataTypeToJsonFromJson(new BooleanType)
+  checkDataTypeToJsonFromJson(new ByteType)
+  checkDataTypeToJsonFromJson(new ShortType)
+  checkDataTypeToJsonFromJson(new IntegerType)
+  checkDataTypeToJsonFromJson(new LongType)
+  checkDataTypeToJsonFromJson(new FloatType)
+  checkDataTypeToJsonFromJson(new DoubleType)
+  checkDataTypeToJsonFromJson(new DecimalType(10, 5))
+  checkDataTypeToJsonFromJson(DecimalType.USER_DEFAULT)
+  checkDataTypeToJsonFromJson(new DateType)
+  checkDataTypeToJsonFromJson(new TimestampType)
+  checkDataTypeToJsonFromJson(new StringType)
+  checkDataTypeToJsonFromJson(new BinaryType)
+  checkDataTypeToJsonFromJson(new ArrayType(new DoubleType, true))
+  checkDataTypeToJsonFromJson(new ArrayType(new StringType, false))
+  checkDataTypeToJsonFromJson(new MapType(new IntegerType, new StringType, true))
+  checkDataTypeToJsonFromJson(
+    new MapType(
+      new IntegerType,
+      new ArrayType(new DoubleType, true),
+      false))
+
+  test("toJson fromJson for field metadata") {
+    val emptyMetadata = FieldMetadata.builder().build()
+    val singleStringMetadata = FieldMetadata.builder().putString("test", "test_value").build()
+    val singleBooleanMetadata = FieldMetadata.builder().putBoolean("test", true).build()
+    val singleIntegerMetadata = FieldMetadata.builder().putLong("test", 2L).build()
+    val singleDoubleMetadata = FieldMetadata.builder().putDouble("test", 2.0).build()
+    val singleMapMetadata = FieldMetadata.builder().putMetadata("test_outside",
+      FieldMetadata.builder().putString("test_inside", "test_inside_value").build()).build()
+    val singleListMetadata = FieldMetadata.builder().putLongArray("test", Array(0L, 1L, 2L)).build()
+    val multipleEntriesMetadata = FieldMetadata.builder().putString("test", "test_value")
+      .putDouble("test", 2.0).putLongArray("test", Array(0L, 1L, 2L)).build()
+
+    val field_array = Array(
+      new StructField("emptyMetadata", new BooleanType, true, emptyMetadata),
+      new StructField("singleStringMetadata", new BooleanType, true, singleStringMetadata),
+      new StructField("singleBooleanMetadata", new BooleanType, true, singleBooleanMetadata),
+      new StructField("singleIntegerMetadata", new BooleanType, true, singleIntegerMetadata),
+      new StructField("singleDoubleMetadata", new BooleanType, true, singleDoubleMetadata),
+      new StructField("singleMapMetadata", new BooleanType, true, singleMapMetadata),
+      new StructField("singleListMetadata", new BooleanType, true, singleListMetadata),
+      new StructField("multipleEntriesMetadata", new BooleanType, true, multipleEntriesMetadata))
+    val struct = new StructType(field_array)
+    assert(struct == DataTypeParser.fromJson(struct.toJson()))
+  }
 }
+

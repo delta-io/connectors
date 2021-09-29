@@ -1,10 +1,10 @@
 package io.delta.standalone.expressions;
 
-import io.delta.standalone.data.RowRecord;
-import io.delta.standalone.types.*;
-
 import java.util.Collections;
 import java.util.Set;
+
+import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.types.*;
 
 /**
  * A column whose row-value will be computed based on the data in a [[RowRecord]].

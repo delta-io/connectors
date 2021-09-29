@@ -21,12 +21,16 @@ import scala.reflect.ClassTag
 
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDeleteDeleteException, ConcurrentDeleteReadException, ConcurrentTransactionException, MetadataChangedException, ProtocolChangedException}
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception._
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.types.{StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -62,14 +66,9 @@ class OptimisticTransactionSuite extends FunSuite {
       actions: Seq[Action],
       partitionCols: Seq[String] = "part" :: Nil)(
       test: DeltaLog => Unit): Unit = {
-    // TODO:
-    // val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
-    // val schema = new StructType(schemaFields)
-    // val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
-    // scalastyle:off line.size.limit
-    val schemaStr = """{"type":"struct","fields":[{"name":"part","type":"string","nullable":true,"metadata":{}}]}"""
-    // scalastyle:on line.size.limit
-    val metadata = Metadata(partitionColumns = partitionCols, schemaString = schemaStr)
+    val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
+    val schema = new StructType(schemaFields)
+    val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.toJson)
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
@@ -190,7 +189,9 @@ class OptimisticTransactionSuite extends FunSuite {
       val e = intercept[java.io.IOException] {
         txn.commit(Metadata() :: Nil, manualUpdate, engineInfo)
       }
-      assert(e.getMessage == s"Cannot create ${log.getLogPath.toString}")
+
+      val logPath = new Path(log.getPath, "_delta_log")
+      assert(e.getMessage == s"Cannot create ${logPath.toString}")
     }
   }
 
