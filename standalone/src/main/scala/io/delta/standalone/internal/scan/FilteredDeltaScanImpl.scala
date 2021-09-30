@@ -24,6 +24,12 @@ import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.util.PredicateUtils
 
+/**
+ * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
+ * those that match the [[getPushedPredicate]].
+ *
+ * If the pushed predicate is empty, then all files are returned.
+ */
 final private[internal] class FilteredDeltaScanImpl(
     files: Seq[AddFile],
     expr: Expression,
