@@ -37,8 +37,6 @@ private[internal] object SchemaUtils {
   /**
    * This is a simpler version of Delta OSS SchemaUtils::typeAsNullable. Instead of returning the
    * nullable DataType, returns true if the input `dt` matches the nullable DataType.
-   * @param dt
-   * @return
    */
   private def matchesNullableType(dt: DataType): Boolean = dt match {
     case s: StructType => s.getFields.forall { field =>

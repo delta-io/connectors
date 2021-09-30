@@ -85,8 +85,6 @@ private[internal] class DeltaLogImpl private(
 
   override def getPath: Path = dataPath
 
-  override def getLogPath: Path = logPath
-
   override def getCommitInfoAt(version: Long): CommitInfoJ = {
     history.checkVersionExists(version)
     ConversionUtils.convertCommitInfo(history.getCommitInfo(version))
@@ -195,7 +193,7 @@ private[standalone] object DeltaLogImpl {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
   }
 
-  def apply(
+  private def apply(
       hadoopConf: Configuration,
       rawPath: Path,
       clock: Clock = new SystemClock): DeltaLogImpl = {

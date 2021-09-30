@@ -46,6 +46,32 @@ public class CommitInfo implements Action {
     private final Optional<String> userMetadata;
     private final Optional<String> engineInfo;
 
+    // For binary compatibility with version 0.2.0
+    public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
+                      Optional<String> userName, String operation,
+                      Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
+                      Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
+                      Optional<Long> readVersion, Optional<String> isolationLevel,
+                      Optional<Boolean> isBlindAppend,
+                      Optional<Map<String, String>> operationMetrics,
+                      Optional<String> userMetadata) {
+        this.version = version;
+        this.timestamp = timestamp;
+        this.userId = userId;
+        this.userName = userName;
+        this.operation = operation;
+        this.operationParameters = operationParameters;
+        this.jobInfo = jobInfo;
+        this.notebookInfo = notebookInfo;
+        this.clusterId = clusterId;
+        this.readVersion = readVersion;
+        this.isolationLevel = isolationLevel;
+        this.isBlindAppend = isBlindAppend;
+        this.operationMetrics = operationMetrics;
+        this.userMetadata = userMetadata;
+        this.engineInfo = Optional.empty();
+    }
+
     public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
                       Optional<String> userName, String operation,
                       Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
@@ -207,5 +233,119 @@ public class CommitInfo implements Action {
         return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
                 jobInfo, notebookInfo, clusterId, readVersion, isolationLevel, isBlindAppend,
                 operationMetrics, userMetadata, engineInfo);
+    }
+
+    /**
+     * @return a new {@code CommitInfo.Builder}
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder class for CommitInfo. Enables construction of CommitInfo object with default values.
+     */
+    public static class Builder {
+        private Optional<Long> version = Optional.empty();
+        private Timestamp timestamp;
+        private Optional<String> userId = Optional.empty();
+        private Optional<String> userName = Optional.empty();
+        private String operation;
+        private Map<String, String> operationParameters;
+        private Optional<JobInfo> jobInfo = Optional.empty();
+        private Optional<NotebookInfo> notebookInfo = Optional.empty();
+        private Optional<String> clusterId = Optional.empty();
+        private Optional<Long> readVersion = Optional.empty();
+        private Optional<String> isolationLevel = Optional.empty();
+        private Optional<Boolean> isBlindAppend = Optional.empty();
+        private Optional<Map<String, String>> operationMetrics = Optional.empty();
+        private Optional<String> userMetadata = Optional.empty();
+        private Optional<String> engineInfo = Optional.empty();
+
+        public Builder version(Long version) {
+            this.version = Optional.of(version);
+            return this;
+        }
+
+        public Builder timestamp(Timestamp timestamp) {
+            this.timestamp = timestamp;
+            return this;
+        }
+
+        public Builder userId(String userId) {
+            this.userId = Optional.of(userId);
+            return this;
+        }
+
+        public Builder userName(String userName) {
+            this.userName = Optional.of(userName);
+            return this;
+        }
+
+        public Builder operation(String operation) {
+            this.operation = operation;
+            return this;
+        }
+
+        public Builder operationParameters(Map<String, String> operationParameters) {
+            this.operationParameters = operationParameters;
+            return this;
+        }
+
+        public Builder jobInfo(JobInfo jobInfo) {
+            this.jobInfo = Optional.of(jobInfo);
+            return this;
+        }
+
+        public Builder notebookInfo(NotebookInfo notebookInfo ) {
+            this.notebookInfo = Optional.of(notebookInfo);
+            return this;
+        }
+
+        public Builder clusterId(String clusterId) {
+            this.clusterId = Optional.of(clusterId);
+            return this;
+        }
+
+        public Builder readVersion(Long readVersion) {
+            this.readVersion = Optional.of(readVersion);
+            return this;
+        }
+
+        public Builder isolationLevel(String isolationLevel) {
+            this.isolationLevel = Optional.of(isolationLevel);
+            return this;
+        }
+
+        public Builder isBlindAppend(Boolean isBlindAppend) {
+            this.isBlindAppend = Optional.of(isBlindAppend);
+            return this;
+        }
+
+        public Builder operationMetrics(Map<String, String> operationMetrics) {
+            this.operationMetrics = Optional.of(operationMetrics);
+            return this;
+        }
+
+        public Builder userMetadata(String userMetadata) {
+            this.userMetadata = Optional.of(userMetadata);
+            return this;
+        }
+
+        public Builder engineInfo(String engineInfo) {
+            this.engineInfo = Optional.of(engineInfo);
+            return this;
+        }
+
+        /**
+         * @return a new {@code CommitInfo} with the same properties as {@code this}
+         */
+        public CommitInfo build() {
+            CommitInfo commitInfo = new CommitInfo(this.version, this.timestamp, this.userId,
+                    this.userName, this.operation, this.operationParameters, this.jobInfo,
+                    this.notebookInfo, this.clusterId, this.readVersion, this.isolationLevel,
+                    this.isBlindAppend, this.operationMetrics, this.userMetadata, this.engineInfo);
+            return commitInfo;
+        }
     }
 }
