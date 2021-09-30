@@ -22,8 +22,34 @@ public final class Column extends LeafExpression {
 
         if (dataType instanceof IntegerType) {
             evaluator = (record -> record.getInt(name));
+        } else if (dataType instanceof LongType) {
+            evaluator = (record -> record.getLong(name));
+        } else if (dataType instanceof ByteType) {
+            evaluator = (record -> record.getByte(name));
+        } else if (dataType instanceof ShortType) {
+            evaluator = (record -> record.getShort(name));
         } else if (dataType instanceof BooleanType) {
             evaluator = (record -> record.getBoolean(name));
+        } else if (dataType instanceof FloatType) {
+            evaluator = (record -> record.getFloat(name));
+        } else if (dataType instanceof DoubleType) {
+            evaluator = (record -> record.getDouble(name));
+        } else if (dataType instanceof StringType) {
+            evaluator = (record -> record.getString(name));
+        } else if (dataType instanceof BinaryType) {
+            evaluator = (record -> record.getBinary(name));
+        } else if (dataType instanceof DecimalType) {
+            evaluator = (record -> record.getBigDecimal(name));
+        } else if (dataType instanceof TimestampType) {
+            evaluator = (record -> record.getTimestamp(name));
+        } else if (dataType instanceof DateType) {
+            evaluator = (record -> record.getDate(name));
+        } else if (dataType instanceof ArrayType) {
+            evaluator = (record -> record.getList(name));
+        } else if (dataType instanceof MapType) {
+            evaluator = (record -> record.getMap(name));
+        } else if (dataType instanceof StructType) {
+            evaluator = (record -> record.getRecord(name));
         } else {
             throw new RuntimeException("Couldn't find matching rowRecord DataType for column: " + name);
         }

@@ -1,15 +1,19 @@
 package io.delta.standalone.expressions;
 
-import io.delta.standalone.data.RowRecord;
-import io.delta.standalone.types.BooleanType;
-import io.delta.standalone.types.DataType;
-import io.delta.standalone.types.IntegerType;
-
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
+import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.types.*;
+
 public final class Literal extends LeafExpression {
-    public static final Literal True = Literal.of(Boolean.TRUE);
-    public static final Literal False = Literal.of(false);
+    // TODO: why is one of these Boolean.TRUE and the other false?
+    public static final Literal True = Literal.of(Boolean.TRUE, new BooleanType());
+    public static final Literal False = Literal.of(false, new BooleanType());
 
     private final Object value;
     private final DataType dataType;
@@ -37,11 +41,77 @@ public final class Literal extends LeafExpression {
 
     @Override
     public String toString() {
-        return value.toString();
+        return String.valueOf(value);
     }
 
+    //TODO: thoroughly test this???
     private static void validateLiteralValue(Object value, DataType dataType) {
-        // TODO
+        if (value == null) return; // TODO: && dataType in *acceptable null dataTypes*, can they be null?
+        if ((dataType instanceof BinaryType && value instanceof byte[]) ||
+                (dataType instanceof BinaryType && value instanceof Byte[]) ||
+                (dataType instanceof BooleanType && value instanceof Boolean) ||
+                (dataType instanceof ByteType && value instanceof Byte) ||
+                (dataType instanceof DateType && value instanceof Date) ||
+                (dataType instanceof DecimalType && value instanceof BigDecimal) ||
+                (dataType instanceof DoubleType && value instanceof Double) ||
+                (dataType instanceof FloatType && value instanceof Float) ||
+                (dataType instanceof IntegerType && value instanceof Integer) ||
+                (dataType instanceof LongType && value instanceof Long) ||
+                (dataType instanceof NullType && value == null) ||
+                (dataType instanceof ShortType && value instanceof Short) ||
+                (dataType instanceof StringType && value instanceof String) ||
+                (dataType instanceof TimestampType && value instanceof Timestamp)) return;
+        if (dataType instanceof ArrayType) {
+            if (!(value instanceof List)) {
+                throw new RuntimeException(
+                        "Invalid literal creation with DataType: ArrayType and Value: " +
+                                value.toString());
+            }
+            try {
+                DataType innerType = ((ArrayType) dataType).getElementType();
+                ((List) value).forEach( (x) -> Literal.validateLiteralValue(x, innerType) );
+                return;
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Invalid literal creation with DataType: ArrayType and "
+                        + "Value: " + value.toString() + "with incorrect inner-type: " +
+                e.getMessage());
+            }
+        }
+        if (dataType instanceof MapType) {
+            if (!(value instanceof Map)) {
+                throw new RuntimeException(
+                        "Invalid literal creation with DataType: MapType and Value: " +
+                                value.toString());
+            }
+            try {
+                DataType keyType = ((MapType) dataType).getKeyType();
+                DataType valueType = ((MapType) dataType).getValueType();
+                ((Map) value).keySet().forEach( (x) -> Literal.validateLiteralValue(x, keyType));
+                ((Map) value).values().forEach( (x) -> Literal.validateLiteralValue(x, valueType));
+                return;
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Invalid literal creation with DataType: MapType and "
+                        + "Value: " + value.toString() + "with incorrect inner-type: " +
+                        e.getMessage());
+            }
+        }
+        if (dataType instanceof StructType) {
+            if (!(value instanceof RowRecord)) {
+                throw new RuntimeException(
+                        "Invalid literal creation with DataType: StructType and Value: " +
+                                value.toString());
+            }
+            if (!Objects.equals(((RowRecord) value).getSchema(), (StructType) dataType)) {
+                throw new RuntimeException(
+                        "Invalid literal creation with DataType: StructType and Value: " +
+                        value.toString() + " with mismatched schemas");
+            }
+            return;
+        }
+        throw new RuntimeException(
+                String.format("Invalid literal creation DataType: %s and Value: %s",
+                        dataType.getSimpleString(),
+                        value.toString()));
     }
 
     @Override
@@ -58,11 +128,5 @@ public final class Literal extends LeafExpression {
         return Objects.hash(value, dataType);
     }
 
-    public static Literal of(int value) {
-        return new Literal(value, new IntegerType());
-    }
-
-    public static Literal of(boolean value) {
-        return new Literal(value, new BooleanType());
-    }
+    public static Literal of(Object value, DataType type) { return new Literal(value, type); }
 }

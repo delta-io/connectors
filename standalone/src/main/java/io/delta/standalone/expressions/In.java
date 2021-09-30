@@ -36,20 +36,23 @@ public final class In implements Predicate {
         this.value = value;
         this.elems = elems;
         this.comparator = Util.createCastingComparator(value.dataType());
+        // TODO: this only allows certain dataTypes, do we want it to be broader than this?
     }
 
     @Override
     public Boolean eval(RowRecord record) {
         Object result = value.eval(record);
         if (null == result) {
-            throw new RuntimeException("'In' expression 'value.eval' result can't be null");
+            throw new IllegalArgumentException("'In' expression 'value.eval' result can't be null");
+            // TODO: is this what we want? what if we want to check for if null is in it?
         }
 
         return elems.stream().anyMatch(setElem -> {
             Object setElemValue = setElem.eval(record);
 
             if (null == setElemValue) {
-                throw new RuntimeException("'In' expression 'elems(i).eval' result can't be null");
+                throw new IllegalArgumentException("'In' expression 'elems(i).eval' result can't be null");
+                // TODO: same thing here why exactly can't null be in the list?
             }
 
             return comparator.compare(result, setElemValue) == 0;
