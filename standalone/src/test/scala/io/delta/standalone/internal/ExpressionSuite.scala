@@ -22,7 +22,6 @@ import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions._
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 import io.delta.standalone.internal.actions.AddFile
-import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
 import io.delta.standalone.internal.util.PartitionUtils
 
 // scalastyle:off funsuite
@@ -32,14 +31,14 @@ import org.scalatest.FunSuite
 class ExpressionSuite extends FunSuite {
   // scalastyle:on funsuite
 
-  private val dataSchema = new StructType(Array(
-    new StructField("col1", new IntegerType(), true),
-    new StructField("col2", new IntegerType(), true),
-    new StructField("col3", new IntegerType(), true)))
-
   private val partitionSchema = new StructType(Array(
     new StructField("col1", new IntegerType(), true),
     new StructField("col2", new IntegerType(), true)))
+
+  private val dataSchema = new StructType(Array(
+    new StructField("col3", new IntegerType(), true),
+    new StructField("col4", new IntegerType(), true),
+    new StructField("col5", new IntegerType(), true)))
 
   private def testPredicate(
       predicate: Expression,
@@ -135,21 +134,38 @@ class ExpressionSuite extends FunSuite {
 
   test("Expr.references() and PredicateUtils.isPredicateMetadataOnly()") {
     val dataExpr = new And(
-      new LessThan(dataSchema.column("col1"), Literal.of(5)),
+      new LessThan(dataSchema.column("col3"), Literal.of(5)),
       new Or(
-        new EqualTo(dataSchema.column("col1"), dataSchema.column("col2")),
-        new EqualTo(dataSchema.column("col1"), dataSchema.column("col3"))
+        new EqualTo(dataSchema.column("col3"), dataSchema.column("col4")),
+        new EqualTo(dataSchema.column("col3"), dataSchema.column("col5"))
       )
     )
 
     assert(dataExpr.references().size() == 3)
 
-    val partitionExpr = new EqualTo(dataSchema.column("col1"), dataSchema.column("col2"))
+    val partitionExpr = new EqualTo(partitionSchema.column("col1"), partitionSchema.column("col2"))
 
     assert(
       !PartitionUtils.isPredicateMetadataOnly(dataExpr, partitionSchema.getFieldNames.toSeq))
 
     assert(
       PartitionUtils.isPredicateMetadataOnly(partitionExpr, partitionSchema.getFieldNames.toSeq))
+  }
+
+  test("expression equality") {
+    // BinaryExpression
+    val and = new And(partitionSchema.column("col1"), partitionSchema.column("col2"))
+    val andCopy = new And(partitionSchema.column("col1"), partitionSchema.column("col2"))
+    assert(and == andCopy)
+
+    // UnaryExpression
+    val not = new Not(new EqualTo(Literal.of(1), Literal.of(1)))
+    val notCopy = new Not(new EqualTo(Literal.of(1), Literal.of(1)))
+    assert(not == notCopy)
+
+    // LeafExpression
+    val col1 = partitionSchema.column("col1")
+    val col1Copy = partitionSchema.column("col1")
+    assert(col1 == col1Copy)
   }
 }
