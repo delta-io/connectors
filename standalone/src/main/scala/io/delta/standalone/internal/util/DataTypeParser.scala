@@ -88,7 +88,7 @@ private[standalone] object DataTypeParser {
 
   def toPrettyJson(value: DataType): String = pretty(render(dataTypeToJValue(value)))
 
-  def dataTypeToJValue(dataType: DataType): JValue = dataType match {
+  private def dataTypeToJValue(dataType: DataType): JValue = dataType match {
     case array: ArrayType =>
       ("type" -> "array") ~
         ("elementType" -> dataTypeToJValue(array.getElementType)) ~
