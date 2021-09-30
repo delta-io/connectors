@@ -74,7 +74,6 @@ private[internal] class SnapshotImpl(
     new FilteredDeltaScanImpl(
       allFilesScala,
       predicate,
-      metadataScala.partitionColumns,
       metadataScala.partitionSchema)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFiles
@@ -246,9 +245,5 @@ private class InitialSnapshotImpl(
   override def scan(): DeltaScan = new BaseDeltaScanImpl(Nil)
 
   override def scan(predicate: Expression): DeltaScan =
-    new FilteredDeltaScanImpl(
-      Nil,
-      predicate,
-      metadataScala.partitionColumns,
-      metadataScala.partitionSchema)
+    new FilteredDeltaScanImpl(Nil, predicate, metadataScala.partitionSchema)
 }

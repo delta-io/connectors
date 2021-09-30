@@ -49,11 +49,11 @@ private[internal] class BaseDeltaScanImpl(files: Seq[AddFile]) extends DeltaScan
   def getFilesScala: Seq[AddFile] = files.filter(accept)
 
   override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
-    // Initialize next valid element so that the first hasNext() and next() calls succeed
-    findNextValid()
-
     private var nextValid: Option[AddFile] = None
     private val iter = files.iterator
+
+    // Initialize next valid element so that the first hasNext() and next() calls succeed
+    findNextValid()
 
     private def findNextValid(): Unit = {
       while (iter.hasNext) {

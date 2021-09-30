@@ -56,8 +56,7 @@ class ExpressionSuite extends FunSuite {
       filter: Expression,
       expectedMatchedFiles: Seq[AddFile]): Unit = {
     println("filter: " + filter.toString)
-    val partitionColNames = partitionSchema.getFieldNames.toSeq
-    val scan = new FilteredDeltaScanImpl(inputFiles, filter, partitionColNames, partitionSchema)
+    val scan = new FilteredDeltaScanImpl(inputFiles, filter, partitionSchema)
     val matchedFiles = scan.getFilesScala
     assert(matchedFiles.length == expectedMatchedFiles.length)
     assert(matchedFiles.forall(expectedMatchedFiles.contains(_)))

@@ -59,7 +59,7 @@ private[internal] object PredicateUtils {
 
   private def splitConjunctivePredicates(condition: Expression): Seq[Expression] = {
     condition match {
-      case a: And => splitConjunctivePredicates(a.left) ++ splitConjunctivePredicates(a.right)
+      case a: And => splitConjunctivePredicates(a.getLeft) ++ splitConjunctivePredicates(a.getRight)
       case other => other :: Nil
     }
   }

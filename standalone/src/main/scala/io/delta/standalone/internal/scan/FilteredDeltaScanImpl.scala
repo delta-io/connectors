@@ -33,8 +33,9 @@ import io.delta.standalone.internal.util.PredicateUtils
 final private[internal] class FilteredDeltaScanImpl(
     files: Seq[AddFile],
     expr: Expression,
-    partitionColumns: Seq[String],
     partitionSchema: StructType) extends BaseDeltaScanImpl(files) {
+
+  private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
   private val (metadataConjunction, dataConjunction) =
     PredicateUtils.splitMetadataAndDataPredicates(expr, partitionColumns)

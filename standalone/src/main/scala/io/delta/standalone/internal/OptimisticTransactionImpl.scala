@@ -22,8 +22,8 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
-import io.delta.standalone.expressions.{And, Column, Expression, Literal}
+import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
+import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
@@ -136,7 +136,6 @@ private[internal] class OptimisticTransactionImpl(
     val scan = new FilteredDeltaScanImpl(
       snapshot.allFilesScala,
       readPredicate,
-      metadata.partitionColumns,
       metadata.partitionSchema)
 
     val matchedFiles = scan.getFilesScala
