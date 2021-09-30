@@ -359,7 +359,7 @@ class OptimisticTransactionSuite extends FunSuite {
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            false
+            false // arr (ArrayType) containsNull
           )
         )
       )
@@ -377,16 +377,14 @@ class OptimisticTransactionSuite extends FunSuite {
         new StructField(
           "m",
           new MapType(
-            // m.key
-            new StructType(
+            new StructType( // m.key
               Array(
                 new StructField("name", new StringType(), true),
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            // m.value
-            new IntegerType(),
-            false
+            new IntegerType(), // m.value
+            false // m (MapType) valueContainsNull
           )
         )
       )
@@ -404,16 +402,14 @@ class OptimisticTransactionSuite extends FunSuite {
         new StructField(
           "m",
           new MapType(
-            // m.key
-            new IntegerType(),
-            // m.value
-            new StructType(
+            new IntegerType(), // m.key
+            new StructType( // m.value
               Array(
                 new StructField("name", new StringType(), true),
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            false
+            false // m (MapType) valueContainsNull
           )
         )
       )
@@ -442,13 +438,13 @@ class OptimisticTransactionSuite extends FunSuite {
                       new StructField("mailbox", new StringType(), false)
                     )
                   ),
-                  true
+                  true // arr (ArrayType) containsNull
                 ),
-                false
+                false // arr (StructField) nullable
               )
             )
           ),
-          true
+          true // s (StructField) nullable
         )
       )
     )
