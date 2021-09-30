@@ -76,7 +76,7 @@ private[internal] class SnapshotImpl(
       predicate,
       metadataScala.partitionSchema)
 
-  override def getAllFiles: java.util.List[AddFileJ] = activeFiles
+  override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
   override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
 
@@ -162,25 +162,14 @@ private[internal] class SnapshotImpl(
     )
   }
 
-  private lazy val activeFiles = state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
+  private lazy val activeFilesJ =
+    state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
 
-  /**
-   * Asserts that the client is up to date with the protocol and allowed
-   * to read the table that is using this Snapshot's `protocol`.
-   */
-  private def assertProtocolRead(): Unit = {
-    if (null != protocolScala) {
-      val clientReadVersion = Action.readerVersion
-      val tblReadVersion = protocolScala.minReaderVersion
-
-      if (clientReadVersion < tblReadVersion) {
-        throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocolScala)
-      }
-    }
-  }
+  /** A map to look up transaction version by appId. */
+  lazy val transactions: Map[String, Long] = setTransactions.map(t => t.appId -> t.version).toMap
 
   /** Complete initialization by checking protocol version. */
-  assertProtocolRead()
+  deltaLog.assertProtocolRead(protocolScala)
 }
 
 private[internal] object SnapshotImpl {
