@@ -336,6 +336,23 @@ lazy val mimaSettings = Seq(
   mimaBinaryIssueFilters ++= StandaloneMimaExcludes.ignoredABIProblems
 )
 
+lazy val compatibility = (project in file("oss-compatibility-tests"))
+  .dependsOn(standalone)
+  .settings(
+    name := "compatibility",
+    commonSettings,
+    skipReleaseSettings,
+    libraryDependencies ++= Seq(
+      // Test Dependencies
+      "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
+      "io.delta" % "delta-core_2.12" % "0.8.0" % "test",
+      "commons-io" % "commons-io" % "2.8.0" % "test",
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test" classifier "tests"
+    )
+  )
 
 lazy val goldenTables = (project in file("golden-tables")) settings (
   name := "golden-tables",
