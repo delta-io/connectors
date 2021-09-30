@@ -16,8 +16,44 @@
 
 package compatibility
 
-import org.scalatest.FunSuite
+import java.io.File
+import java.nio.file.Files
+import java.util.UUID
 
-class OSSCompatibilitySuite extends FunSuite {
+import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 
+import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
+import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
+
+import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.test.SharedSparkSession
+
+class OSSCompatibilitySuite extends QueryTest
+  with SharedSparkSession
+  with StandaloneUtil
+  with OSSUtil {
+
+  private def withTempDirAndLogs(f: (File, StandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
+    val dir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
+
+    val standaloneLog = StandaloneDeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+    val ossLog = OSSDeltaLog.forTable(spark, dir.getCanonicalPath)
+
+    try f(dir, standaloneLog, ossLog) finally {
+      FileUtils.deleteDirectory(dir)
+    }
+  }
+
+  test("actions") {
+    withTempDirAndLogs { (dir, standaloneLog, ossLog) =>
+
+    }
+  }
+
+  test("concurrency conflicts") {
+    withTempDirAndLogs { (dir, standaloneLog, ossLog) =>
+
+    }
+  }
 }
