@@ -416,7 +416,7 @@ private[internal] class OptimisticTransactionImpl(
       val value = if (metadata.configuration.contains(key)) {
           metadata.configuration(key)
         } else {
-        deltaLog.hadoopConf.get(key, defaultConfigs(key))
+          deltaLog.hadoopConf.get(key, defaultConfigs(key))
         }
 
       key -> value
