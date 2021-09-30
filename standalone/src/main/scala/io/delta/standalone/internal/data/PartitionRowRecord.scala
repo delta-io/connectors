@@ -88,25 +88,25 @@ private[internal] class PartitionRowRecord(
 
   override def getBinary(fieldName: String): Array[Byte] = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DoubleType])
-    partitionValues(fieldName).split("/").map(_.toByte)
+    require(partitionFieldToType(fieldName).isInstanceOf[BinaryType])
+    partitionValues(fieldName).stripPrefix("/u").split("/u").filter(_.nonEmpty).map(_.toByte)
   }
 
   override def getBigDecimal(fieldName: String): BigDecimalJ = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DoubleType])
+    require(partitionFieldToType(fieldName).isInstanceOf[DecimalType])
     new BigDecimalJ(partitionValues(fieldName))
   }
 
   override def getTimestamp(fieldName: String): Timestamp = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DoubleType])
+    require(partitionFieldToType(fieldName).isInstanceOf[TimestampType])
     Timestamp.valueOf(partitionValues(fieldName))
   }
 
   override def getDate(fieldName: String): Date = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DoubleType])
+    require(partitionFieldToType(fieldName).isInstanceOf[DateType])
     Date.valueOf(partitionValues(fieldName))
   }
 

@@ -12,7 +12,7 @@ public final class And extends BinaryOperator implements Predicate {
     @Override
     public Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
-            throw new RuntimeException("'And' expression children.eval results must be Booleans");
+            throw new IllegalArgumentException("'And' expression children.eval results must be Booleans");
         }
 
         return (boolean) leftResult && (boolean) rightResult;

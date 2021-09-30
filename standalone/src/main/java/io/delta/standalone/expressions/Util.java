@@ -51,6 +51,6 @@ public final class Util {
         // TODO: should we be able to compare binary values? what about strings?
 
         // unsupported comparison types: ArrayType, StructType, MapType
-        throw new RuntimeException("Couldn't find matching comparator for DataType: " + dataType.toString());
+        throw new IllegalArgumentException("Couldn't find matching comparator for DataType: " + dataType.toString());
     }
 }

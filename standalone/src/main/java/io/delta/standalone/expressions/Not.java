@@ -11,7 +11,7 @@ public class Not extends UnaryExpression implements Predicate {
     @Override
     public Object nullSafeEval(Object childResult) {
         if (!(childResult instanceof Boolean)) {
-            throw new RuntimeException("'Not' expression child.eval result must be a Boolean");
+            throw new IllegalArgumentException("'Not' expression child.eval result must be a Boolean");
         }
 
         return !((boolean) childResult);

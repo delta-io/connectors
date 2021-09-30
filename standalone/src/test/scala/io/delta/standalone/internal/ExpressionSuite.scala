@@ -2,12 +2,14 @@ package io.delta.standalone.internal
 
 import java.math.{BigDecimal => BigDecimalJ}
 import java.util.{Objects, Arrays => ArraysJ}
-import java.sql.{Date, Timestamp}
+import java.sql.{Date => DateJ, Timestamp => TimestampJ}
+
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions._
 import io.delta.standalone.internal.actions.AddFile
+import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.types._
 
 // scalastyle:off funsuite
@@ -40,10 +42,10 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new And(Literal.True, Literal.False), expectedResult = Some(false))
     testPredicate(new And(Literal.False, Literal.True), expectedResult = Some(false))
     testPredicate(new And(Literal.True, Literal.True), expectedResult = Some(true))
-    intercept[RuntimeException] {
+    intercept[IllegalArgumentException] {
       new And(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null)
     }
-    intercept[RuntimeException] {
+    intercept[IllegalArgumentException] {
       new And(Literal.False, Literal.of(null, new NullType())) // is this desired behavior?
     }
 
@@ -61,10 +63,10 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Or(Literal.False, Literal.True), expectedResult = Some(true))
     testPredicate(new Or(Literal.True, Literal.True), expectedResult = Some(true))
     // TODO: is this what we want? should it fail upon creation instead of eval???
-    intercept[RuntimeException] {
+    intercept[IllegalArgumentException] {
       new Or(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null)
     }
-    intercept[RuntimeException] {
+    intercept[IllegalArgumentException] {
       new Or(Literal.False, Literal.of(null, new NullType())) // is this desired behavior?
     }
 
@@ -72,13 +74,13 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Not(Literal.False), expectedResult = Some(true))
     testPredicate(new Not(Literal.True), expectedResult = Some(false))
     testPredicate(new Not(Literal.of(null, new BooleanType())), None)
-    intercept[RuntimeException] {
+    intercept[IllegalArgumentException] {
       new Not(Literal.of(1, new IntegerType())).eval(null)
     }
   }
 
   // TODO: do we need to test the (x,  null), (null, x) = null for every BinaryComparison?
-  // what about for dataType != dataType?
+  //  what about for dataType != dataType?
 
 
   test("comparison predicates") {
@@ -233,7 +235,6 @@ class ExpressionSuite extends FunSuite {
 
   test("in predicate") {
     // IN TESTS
-    // TODO: test all types? uses comparator same as the other comparison expressions
     // value == null throws exception
     intercept[IllegalArgumentException] {
       new In(null, List(Literal.True, Literal.True).asJava)
@@ -262,6 +263,7 @@ class ExpressionSuite extends FunSuite {
       new In(Literal.True, List(new Literal(null, new BooleanType())).asJava).eval(null)
     }
     // test correct output
+    // TODO: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1, new IntegerType()),
       (0 to 10).map{Literal.of(_, new IntegerType)}.asJava), Some(true))
     testPredicate( new In(Literal.of(100, new IntegerType()),
@@ -271,8 +273,8 @@ class ExpressionSuite extends FunSuite {
   }
 
   private def testLiteral(literal: Literal, expectedResult: Option[Any]) = {
-        println(literal.toString())
-        println(literal.eval(null))
+//        println(literal.toString())
+//        println(literal.eval(null))
         println(expectedResult.getOrElse(null))
     assert(Objects.equals(literal.eval(null), expectedResult.getOrElse(null)))
   }
@@ -292,8 +294,8 @@ class ExpressionSuite extends FunSuite {
     testLiteral(Literal.of("test", new StringType()), Some("test"))
     val curr_time = System.currentTimeMillis()
     testLiteral(
-      Literal.of(new Timestamp(curr_time), new TimestampType()), Some(new Timestamp(curr_time)))
-    testLiteral(Literal.of(new Date(curr_time), new DateType()), Some(new Date(curr_time)))
+      Literal.of(new TimestampJ(curr_time), new TimestampType()), Some(new TimestampJ(curr_time)))
+    testLiteral(Literal.of(new DateJ(curr_time), new DateType()), Some(new DateJ(curr_time)))
     testLiteral(Literal.of(new BigDecimalJ("0.1"), new DecimalType(1, 1)),
       Some(new BigDecimalJ("0.1")))
     assert(ArraysJ.equals(
@@ -305,20 +307,76 @@ class ExpressionSuite extends FunSuite {
       Literal.of(Map("a"-> 1, "b"->2).asJava,
         new MapType(new StringType(), new IntegerType(), false)),
       Some(Map("a"-> 1, "b"->2).asJava))
-    // TODO: StructType & RowRecord
+    // TODO: StructType & RowRecord (if we're only filtering on partition columns, do we even need
+    //  literals of these types??? ie. array, map & struct)
 
     // TODO: test validate literal (nested maps  / arrays included)
   }
 
-  test("column tests") {
-    // COLUMN tests
+  private def testColumn(fieldName: String,
+                         dataType: DataType,
+                         record: RowRecord,
+                        expectedResult: Option[Any]) = {
+//    println((new Column(fieldName, dataType)).eval(record))
+//    println(expectedResult.getOrElse(null))
+    assert(Objects.equals(new Column(fieldName, dataType).eval(record),
+      expectedResult.getOrElse(null)))
   }
 
+  test("column tests") {
+    // COLUMN tests
+    val schema = new StructType(Array(
+      new StructField("testInt", new IntegerType(), true),
+      new StructField("testLong", new LongType(), true),
+      new StructField("testByte", new ByteType(), true),
+      new StructField("testShort", new ShortType(), true),
+      new StructField("testBoolean", new BooleanType(), true),
+      new StructField("testFloat", new FloatType(), true),
+      new StructField("testDouble", new DoubleType(), true),
+      new StructField("testString", new StringType(), true),
+      new StructField("testBinary", new BinaryType(), true),
+      new StructField("testDecimal", DecimalType.USER_DEFAULT, true),
+      new StructField("testTimestamp", new TimestampType(), true),
+      new StructField("testDate", new DateType(), true)))
+    // todo: change this to use RowRecordImpl?? and then test PartitionRowRecord separately?
+    val partRowRecord = new PartitionRowRecord(schema,
+      Map("testInt"->"1",
+        "testLong"->"10",
+        "testByte" ->"8",
+      "testShort" -> "100",
+        "testBoolean" -> "true",
+        "testFloat" -> "20.0",
+        "testDouble" -> "22.0",
+        "testString" -> "onetwothree",
+        "testBinary" -> ("/u" + "test".getBytes().map(_.toString()).mkString("/u")),
+        "testDecimal" -> "0.123",
+        "testTimestamp" -> (new TimestampJ(12345678)).toString(),
+        "testDate" -> "1970-01-01"))
 
+    // todo: test negative  numbers?
+    testColumn("testInt", new IntegerType(), partRowRecord, Some(1))
+    testColumn("testLong", new LongType(), partRowRecord, Some(10L))
+    testColumn("testByte", new ByteType(), partRowRecord, Some(8.toByte))
+    testColumn("testShort", new ShortType(), partRowRecord, Some(100.toShort))
+    testColumn("testBoolean", new BooleanType(), partRowRecord, Some(true))
+    testColumn("testFloat", new FloatType(), partRowRecord, Some(20.0F))
+    testColumn("testDouble", new DoubleType(), partRowRecord, Some(22.0))
+    testColumn("testString", new StringType(), partRowRecord, Some("onetwothree"))
+    assert(ArraysJ.equals(
+      (new Column("testBinary", new BinaryType())).eval(partRowRecord).asInstanceOf[Array[Byte]],
+      "test".getBytes()))
+    testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord,
+      Some(new BigDecimalJ("0.123")))
+    testColumn("testTimestamp", new TimestampType(), partRowRecord, Some(new TimestampJ(12345678)))
+    testColumn("testDate", new DateType(), partRowRecord, Some(new DateJ(70, 0, 1)))
+    // test returning null
+    // test struct, array, map with regular partition row record??
+  }
+
+  // test partitionRowRecord and it's parsing!
   // combined expressions & expression tree tests
   // to do'S FOR TESTING? / LOOK through added code to find stuff that needs to be tested?
   // filterFileList (see below)
-
 
   private def testPartitionFilter(
                                    inputSchema: StructType,
@@ -331,47 +389,46 @@ class ExpressionSuite extends FunSuite {
     assert(matchedFiles.forall(expectedMatchedFiles.contains(_)))
   }
 
-
   test("basic partition filter") {
-//    val schema = new StructType(Array(
-//      new StructField("col1", new IntegerType()),
-//      new StructField("col2", new IntegerType())))
-//
-//    val add00 = AddFile("1", Map("col1" -> "0", "col2" -> "0"), 0, 0, dataChange = true)
-//    val add01 = AddFile("2", Map("col1" -> "0", "col2" -> "1"), 0, 0, dataChange = true)
-//    val add02 = AddFile("2", Map("col1" -> "0", "col2" -> "2"), 0, 0, dataChange = true)
-//    val add10 = AddFile("3", Map("col1" -> "1", "col2" -> "0"), 0, 0, dataChange = true)
-//    val add11 = AddFile("4", Map("col1" -> "1", "col2" -> "1"), 0, 0, dataChange = true)
-//    val add12 = AddFile("4", Map("col1" -> "1", "col2" -> "2"), 0, 0, dataChange = true)
-//    val add20 = AddFile("4", Map("col1" -> "2", "col2" -> "0"), 0, 0, dataChange = true)
-//    val add21 = AddFile("4", Map("col1" -> "2", "col2" -> "1"), 0, 0, dataChange = true)
-//    val add22 = AddFile("4", Map("col1" -> "2", "col2" -> "2"), 0, 0, dataChange = true)
-//    val inputFiles = Seq(add00, add01, add02, add10, add11, add12, add20, add21, add22)
-//
-//    val f1Expr1 = new EqualTo(schema.column("col1"), Literal.of(0))
-//    val f1Expr2 = new EqualTo(schema.column("col2"), Literal.of(1))
-//    val f1 = new And(f1Expr1, f1Expr2)
-//
-//    testPartitionFilter(schema, inputFiles, f1 :: Nil, add01 :: Nil)
-//    testPartitionFilter(schema, inputFiles, f1Expr1 :: f1Expr2 :: Nil, add01 :: Nil)
-//
-//    val f2Expr1 = new LessThan(schema.column("col1"), Literal.of(1))
-//    val f2Expr2 = new LessThan(schema.column("col2"), Literal.of(1))
-//    val f2 = new And(f2Expr1, f2Expr2)
-//    testPartitionFilter(schema, inputFiles, f2 :: Nil, add00 :: Nil)
-//    testPartitionFilter(schema, inputFiles, f2Expr1 :: f2Expr2 :: Nil, add00 :: Nil)
-//
-//    val f3Expr1 = new EqualTo(schema.column("col1"), Literal.of(2))
-//    val f3Expr2 = new LessThan(schema.column("col2"), Literal.of(1))
-//    val f3 = new Or(f3Expr1, f3Expr2)
-//    testPartitionFilter(schema, inputFiles, f3 :: Nil, Seq(add20, add21, add22, add00, add10))
-//
-//    val inSet4 = (2 to 10).map(Literal.of).asJava
-//    val f4 = new In(schema.column("col1"), inSet4)
-//    testPartitionFilter(schema, inputFiles, f4 :: Nil, add20 :: add21 :: add22 :: Nil)
-//
-//    val inSet5 = (100 to 110).map(Literal.of).asJava
-//    val f5 = new In(schema.column("col1"), inSet5)
+    val schema = new StructType(Array(
+      new StructField("col1", new IntegerType()),
+      new StructField("col2", new IntegerType())))
+
+    val add00 = AddFile("1", Map("col1" -> "0", "col2" -> "0"), 0, 0, dataChange = true)
+    val add01 = AddFile("2", Map("col1" -> "0", "col2" -> "1"), 0, 0, dataChange = true)
+    val add02 = AddFile("2", Map("col1" -> "0", "col2" -> "2"), 0, 0, dataChange = true)
+    val add10 = AddFile("3", Map("col1" -> "1", "col2" -> "0"), 0, 0, dataChange = true)
+    val add11 = AddFile("4", Map("col1" -> "1", "col2" -> "1"), 0, 0, dataChange = true)
+    val add12 = AddFile("4", Map("col1" -> "1", "col2" -> "2"), 0, 0, dataChange = true)
+    val add20 = AddFile("4", Map("col1" -> "2", "col2" -> "0"), 0, 0, dataChange = true)
+    val add21 = AddFile("4", Map("col1" -> "2", "col2" -> "1"), 0, 0, dataChange = true)
+    val add22 = AddFile("4", Map("col1" -> "2", "col2" -> "2"), 0, 0, dataChange = true)
+    val inputFiles = Seq(add00, add01, add02, add10, add11, add12, add20, add21, add22)
+
+    val f1Expr1 = new EqualTo(schema.column("col1"), Literal.of(0, new IntegerType()))
+    val f1Expr2 = new EqualTo(schema.column("col2"), Literal.of(1, new IntegerType()))
+    val f1 = new And(f1Expr1, f1Expr2)
+
+    testPartitionFilter(schema, inputFiles, f1 :: Nil, add01 :: Nil)
+    testPartitionFilter(schema, inputFiles, f1Expr1 :: f1Expr2 :: Nil, add01 :: Nil)
+
+    val f2Expr1 = new LessThan(schema.column("col1"), Literal.of(1, new IntegerType()))
+    val f2Expr2 = new LessThan(schema.column("col2"), Literal.of(1, new IntegerType()))
+    val f2 = new And(f2Expr1, f2Expr2)
+    testPartitionFilter(schema, inputFiles, f2 :: Nil, add00 :: Nil)
+    testPartitionFilter(schema, inputFiles, f2Expr1 :: f2Expr2 :: Nil, add00 :: Nil)
+
+    val f3Expr1 = new EqualTo(schema.column("col1"), Literal.of(2, new IntegerType()))
+    val f3Expr2 = new LessThan(schema.column("col2"), Literal.of(1, new IntegerType()))
+    val f3 = new Or(f3Expr1, f3Expr2)
+    testPartitionFilter(schema, inputFiles, f3 :: Nil, Seq(add20, add21, add22, add00, add10))
+
+    val inSet4 = (2 to 10).map(Literal.of(_, new IntegerType())).asJava
+    val f4 = new In(schema.column("col1"), inSet4)
+    testPartitionFilter(schema, inputFiles, f4 :: Nil, add20 :: add21 :: add22 :: Nil)
+
+    val inSet5 = (100 to 110).map(Literal.of(_, new IntegerType())).asJava
+    val f5 = new In(schema.column("col1"), inSet5)
 //    testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
   }
 

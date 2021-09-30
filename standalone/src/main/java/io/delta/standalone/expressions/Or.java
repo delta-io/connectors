@@ -12,7 +12,7 @@ public final class Or extends BinaryOperator implements Predicate {
     @Override
     public Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
-            throw new RuntimeException("'Or' expression left.eval and right.eval results must be Booleans");
+            throw new IllegalArgumentException("'Or' expression left.eval and right.eval results must be Booleans");
         }
 
         return (boolean) leftResult || (boolean) rightResult;

@@ -51,7 +51,7 @@ public final class Column extends LeafExpression {
         } else if (dataType instanceof StructType) {
             evaluator = (record -> record.getRecord(name));
         } else {
-            throw new RuntimeException("Couldn't find matching rowRecord DataType for column: " + name);
+            throw new IllegalArgumentException("Couldn't find matching rowRecord DataType for column: " + name);
         }
     }
 

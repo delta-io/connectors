@@ -63,7 +63,7 @@ public final class Literal extends LeafExpression {
                 (dataType instanceof TimestampType && value instanceof Timestamp)) return;
         if (dataType instanceof ArrayType) {
             if (!(value instanceof List)) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "Invalid literal creation with DataType: ArrayType and Value: " +
                                 value.toString());
             }
@@ -71,15 +71,15 @@ public final class Literal extends LeafExpression {
                 DataType innerType = ((ArrayType) dataType).getElementType();
                 ((List) value).forEach( (x) -> Literal.validateLiteralValue(x, innerType) );
                 return;
-            } catch (RuntimeException e) {
-                throw new RuntimeException("Invalid literal creation with DataType: ArrayType and "
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid literal creation with DataType: ArrayType and "
                         + "Value: " + value.toString() + "with incorrect inner-type: " +
                 e.getMessage());
             }
         }
         if (dataType instanceof MapType) {
             if (!(value instanceof Map)) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "Invalid literal creation with DataType: MapType and Value: " +
                                 value.toString());
             }
@@ -89,26 +89,26 @@ public final class Literal extends LeafExpression {
                 ((Map) value).keySet().forEach( (x) -> Literal.validateLiteralValue(x, keyType));
                 ((Map) value).values().forEach( (x) -> Literal.validateLiteralValue(x, valueType));
                 return;
-            } catch (RuntimeException e) {
-                throw new RuntimeException("Invalid literal creation with DataType: MapType and "
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid literal creation with DataType: MapType and "
                         + "Value: " + value.toString() + "with incorrect inner-type: " +
                         e.getMessage());
             }
         }
         if (dataType instanceof StructType) {
             if (!(value instanceof RowRecord)) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "Invalid literal creation with DataType: StructType and Value: " +
                                 value.toString());
             }
             if (!Objects.equals(((RowRecord) value).getSchema(), (StructType) dataType)) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "Invalid literal creation with DataType: StructType and Value: " +
                         value.toString() + " with mismatched schemas");
             }
             return;
         }
-        throw new RuntimeException(
+        throw new IllegalArgumentException(
                 String.format("Invalid literal creation DataType: %s and Value: %s",
                         dataType.getSimpleString(),
                         value.toString()));
