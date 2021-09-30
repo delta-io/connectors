@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
-import io.delta.standalone.expressions.Expression
+import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
@@ -139,14 +139,12 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Returns files matching the given predicates. */
   override def markFilesAsRead(readPredicate: Expression): DeltaScan = {
-    val scan = new FilteredDeltaScanImpl(
-      snapshot.allFilesScala,
-      readPredicate,
-      metadata.partitionSchema)
-
+    val scan = snapshot.scanScala(readPredicate)
     val matchedFiles = scan.getFilesScala
 
-    readPredicates += readPredicate
+    if (scan.getPushedPredicate.isPresent) {
+      readPredicates += scan.getPushedPredicate.get()
+    }
     readFiles ++= matchedFiles
 
     scan

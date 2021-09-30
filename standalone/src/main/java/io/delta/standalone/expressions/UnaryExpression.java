@@ -10,10 +10,14 @@ import java.util.List;
  * if the input is evaluated to null.
  */
 public abstract class UnaryExpression implements Expression {
-    public final Expression child;
+    protected final Expression child;
 
     public UnaryExpression(Expression child) {
         this.child = child;
+    }
+
+    public Expression getChild() {
+        return child;
     }
 
     @Override

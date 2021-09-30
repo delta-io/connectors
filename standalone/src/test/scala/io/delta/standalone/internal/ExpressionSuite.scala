@@ -23,7 +23,7 @@ import io.delta.standalone.expressions._
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
-import io.delta.standalone.internal.util.PredicateUtils
+import io.delta.standalone.internal.util.PartitionUtils
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -56,8 +56,7 @@ class ExpressionSuite extends FunSuite {
       filter: Expression,
       expectedMatchedFiles: Seq[AddFile]): Unit = {
     println("filter: " + filter.toString)
-    val scan = new FilteredDeltaScanImpl(inputFiles, filter, partitionSchema)
-    val matchedFiles = scan.getFilesScala
+    val matchedFiles = PartitionUtils.filterFileList(partitionSchema, inputFiles, filter)
     assert(matchedFiles.length == expectedMatchedFiles.length)
     assert(matchedFiles.forall(expectedMatchedFiles.contains(_)))
   }
@@ -148,9 +147,9 @@ class ExpressionSuite extends FunSuite {
     val partitionExpr = new EqualTo(dataSchema.column("col1"), dataSchema.column("col2"))
 
     assert(
-      !PredicateUtils.isPredicateMetadataOnly(dataExpr, partitionSchema.getFieldNames.toSeq))
+      !PartitionUtils.isPredicateMetadataOnly(dataExpr, partitionSchema.getFieldNames.toSeq))
 
     assert(
-      PredicateUtils.isPredicateMetadataOnly(partitionExpr, partitionSchema.getFieldNames.toSeq))
+      PartitionUtils.isPredicateMetadataOnly(partitionExpr, partitionSchema.getFieldNames.toSeq))
   }
 }

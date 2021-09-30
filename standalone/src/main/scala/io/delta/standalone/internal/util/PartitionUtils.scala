@@ -19,8 +19,36 @@ package io.delta.standalone.internal.util
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.expressions.{And, Expression, Literal}
+import io.delta.standalone.internal.actions.AddFile
+import io.delta.standalone.internal.data.PartitionRowRecord
+import io.delta.standalone.types.StructType
 
-private[internal] object PredicateUtils {
+private[internal] object PartitionUtils {
+
+  /**
+   * Filters the given [[AddFile]]s by the given `partitionFilters`, returning those that match.
+   *
+   * This is different from
+   * [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl.getFilesScala]] in that this method
+   * already has the [[AddFile]]s in memory, whereas the `FilteredDeltaScanImpl` performs a
+   * memory-optimized replay to collect and filter the files.
+   *
+   * @param files The active files in the DeltaLog state, which contains the partition value
+   *              information
+   * @param partitionFilter Filter on the partition columns
+   */
+  def filterFileList(
+      partitionSchema: StructType,
+      files: Seq[AddFile],
+      partitionFilter: Expression): Seq[AddFile] = {
+    // TODO: compressedExpr = ...
+
+    files.filter { addFile =>
+      val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
+      val result = partitionFilter.eval(partitionRowRecord)
+      result.asInstanceOf[Boolean]
+    }
+  }
 
   /**
    * Partition the given condition into two optional conjunctive predicates M, D such that

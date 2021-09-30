@@ -22,7 +22,7 @@ import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
-import io.delta.standalone.internal.util.PredicateUtils
+import io.delta.standalone.internal.util.PartitionUtils
 
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
@@ -33,12 +33,12 @@ import io.delta.standalone.internal.util.PredicateUtils
 final private[internal] class FilteredDeltaScanImpl(
     files: Seq[AddFile],
     expr: Expression,
-    partitionSchema: StructType) extends BaseDeltaScanImpl(files) {
+    partitionSchema: StructType) extends DeltaScanImpl(files) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
   private val (metadataConjunction, dataConjunction) =
-    PredicateUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
+    PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
   override protected def accept(addFile: AddFile): Boolean = {
     if (metadataConjunction.isEmpty) return true

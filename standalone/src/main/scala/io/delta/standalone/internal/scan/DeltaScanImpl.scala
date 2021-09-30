@@ -33,7 +33,7 @@ import io.delta.standalone.internal.util.ConversionUtils
  * b) it uses the metadata.partitionColumns, but the metadata won't be known until the log files
  *    are scanned
  */
-private[internal] class BaseDeltaScanImpl(files: Seq[AddFile]) extends DeltaScan {
+private[internal] class DeltaScanImpl(files: Seq[AddFile]) extends DeltaScan {
 
   /**
    * Whether or not the given [[addFile]] should be returned during iteration.
@@ -48,6 +48,7 @@ private[internal] class BaseDeltaScanImpl(files: Seq[AddFile]) extends DeltaScan
    */
   def getFilesScala: Seq[AddFile] = files.filter(accept)
 
+  // TODO: memory-optimized implementation
   override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
     private var nextValid: Option[AddFile] = None
     private val iter = files.iterator
