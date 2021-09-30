@@ -156,16 +156,22 @@ class ExpressionSuite extends FunSuite {
     // BinaryExpression
     val and = new And(partitionSchema.column("col1"), partitionSchema.column("col2"))
     val andCopy = new And(partitionSchema.column("col1"), partitionSchema.column("col2"))
+    val and2 = new And(dataSchema.column("col3"), Literal.of(44))
     assert(and == andCopy)
+    assert(and != and2)
 
     // UnaryExpression
     val not = new Not(new EqualTo(Literal.of(1), Literal.of(1)))
     val notCopy = new Not(new EqualTo(Literal.of(1), Literal.of(1)))
+    val not2 = new Not(new EqualTo(Literal.of(45), dataSchema.column("col4")))
     assert(not == notCopy)
+    assert(not != not2)
 
     // LeafExpression
     val col1 = partitionSchema.column("col1")
     val col1Copy = partitionSchema.column("col1")
+    val col2 = partitionSchema.column("col2")
     assert(col1 == col1Copy)
+    assert(col1 != col2)
   }
 }
