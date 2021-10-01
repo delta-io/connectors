@@ -20,6 +20,13 @@ import scala.collection.JavaConverters._
 
 trait ComparisonUtil {
 
+  private def compareOptions[J, S](a: java.util.Optional[J], b: Option[S]): Unit = {
+    assert(a.isPresent == b.isDefined)
+    if (a.isPresent) {
+      assert(a.get() == b.get)
+    }
+  }
+
   def compareMetadata(
       standalone: io.delta.standalone.actions.Metadata,
       oss: org.apache.spark.sql.delta.actions.Metadata): Unit = {
@@ -31,10 +38,7 @@ trait ComparisonUtil {
     assert(standalone.getSchema.toJson == oss.schemaString)
     assert(standalone.getPartitionColumns.asScala == oss.partitionColumns)
     assert(standalone.getConfiguration.asScala == oss.configuration)
-    assert(standalone.getCreatedTime.isPresent == oss.createdTime.isDefined)
-    if (oss.createdTime.isDefined) {
-      assert(standalone.getCreatedTime.get == oss.createdTime.get)
-    }
+    compareOptions(standalone.getCreatedTime, oss.createdTime)
   }
 
   def compareFormat(
@@ -48,7 +52,21 @@ trait ComparisonUtil {
   def compareCommitInfo(
       standalone: io.delta.standalone.actions.CommitInfo,
       oss: org.apache.spark.sql.delta.actions.CommitInfo): Unit = {
-    // TODO
+
+    // Do not compare `version`s. Standalone will inject the commitVersion using
+    // DeltaHistoryManager. To get the OSS commitInfo, we are just reading using the store, so
+    // the version is not injected.
+
+    assert(standalone.getTimestamp == oss.timestamp)
+    compareOptions(standalone.getUserId, oss.userId)
+    compareOptions(standalone.getUserName, oss.userName)
+    assert(standalone.getOperation == oss.operation)
+    assert(standalone.getOperationParameters.asScala == oss.operationParameters)
+    // TODO: job
+    // TODO: notebook
+    compareOptions(standalone.getClusterId, oss.clusterId)
+    compareOptions(standalone.getReadVersion, oss.readVersion)
+    compareOptions(standalone.getIsolationLevel, oss.isolationLevel)
   }
 
   def compareAddFiles(

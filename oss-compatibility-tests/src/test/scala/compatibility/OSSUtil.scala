@@ -16,7 +16,7 @@
 
 package compatibility
 
-import org.apache.spark.sql.delta.actions.{AddFile, CommitInfo, Format, Metadata}
+import org.apache.spark.sql.delta.actions.{AddFile, CommitInfo, Format, Metadata, RemoveFile}
 import org.apache.spark.sql.delta.{DeltaLog, DeltaOperations}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.SaveMode
@@ -54,6 +54,8 @@ object OSSUtil {
       tags = Map("tag_key" -> "tag_val")
     )
   }
+
+  val removeFiles: Seq[RemoveFile] = addFiles.map(_.removeWithTimestamp(2000L, dataChange = true))
 
   def getCommitInfoAt(log: DeltaLog, version: Long): CommitInfo = {
     log.update()

@@ -16,11 +16,11 @@
 
 package io.delta.standalone.internal // need this to access internal.util.JsonUtils
 
-import java.util.Collections
+import java.util.{Collections, Optional}
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile, Format, Metadata}
+import io.delta.standalone.actions.{AddFile, Format, Metadata, RemoveFile}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.Operation
 import io.delta.standalone.internal.util.JsonUtils
@@ -65,4 +65,14 @@ object StandaloneUtil {
     )
   }
 
+  val removeFiles: Seq[RemoveFile] = addFiles.map { a =>
+    RemoveFile.builder(a.getPath)
+      .deletionTimestamp(2000L)
+      .dataChange(true)
+      .extendedFileMetadata(true)
+      .partitionValues(a.getPartitionValues)
+      .size(a.getSize)
+      .tags(a.getTags)
+      .build()
+  }
 }

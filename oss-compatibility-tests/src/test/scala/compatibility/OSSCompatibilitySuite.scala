@@ -68,7 +68,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    * case 3a: standalone, oss, AddFile
    * case 3b: oss, standalone, AddFile
    *
-   * TODO
+   * case 4a: standalone, oss, RemoveFile
+   * case 4b: oss, standalone, RemoveFile
    */
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, ossLog) =>
@@ -101,6 +102,12 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
       // case 3b
       compareAddFiles(standaloneLog.update(), ossLog.update())
+
+      val standaloneTxn4 = standaloneLog.startTransaction()
+      standaloneTxn4.commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
+
+      // case 4a TODO
+
     }
   }
 
