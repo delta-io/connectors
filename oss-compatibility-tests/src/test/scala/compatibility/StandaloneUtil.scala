@@ -27,6 +27,8 @@ import io.delta.standalone.internal.util.JsonUtils
 
 object StandaloneUtil {
 
+  val engineInfo = "standaloneEngineInfo"
+
   val schema = new StructType(Array(
     new StructField("col1_part", new IntegerType(), true),
     new StructField("col2_part", new StringType(), true)
@@ -54,7 +56,7 @@ object StandaloneUtil {
   val addFiles: Seq[AddFile] = (0 until 50).map { i =>
     new AddFile(
       i.toString, // path
-      partitionColumns.map { col => col -> i.toString }.toMap.asJava, // partition cols
+      partitionColumns.map { col => col -> i.toString }.toMap.asJava, // partition values
       100L, // size
       1000, // modification time
       true, // data change

@@ -51,8 +51,6 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
     }
   }
 
-  private val standaloneEngineInfo = "standaloneEngineInfo"
-
   test("assert static actions are the same (without any writes/reads)") {
     compareMetadata(ss.metadata, oo.metadata)
   }
@@ -75,7 +73,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, ossLog) =>
       val standaloneTxn0 = standaloneLog.startTransaction()
-      standaloneTxn0.commit(Iterable(ss.metadata).asJava, ss.op, standaloneEngineInfo)
+      standaloneTxn0.commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
 
       // case 1a
       compareMetadata(standaloneLog.update().getMetadata, ossLog.update().metadata)
@@ -92,7 +90,17 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       // case 2b
       compareCommitInfo(standaloneLog.getCommitInfoAt(1), oo.getCommitInfoAt(ossLog, 1))
 
-      // TODO
+      val standaloneTxn2 = standaloneLog.startTransaction()
+      standaloneTxn2.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
+
+      // case 3a
+      compareAddFiles(standaloneLog.update(), ossLog.update())
+
+      val ossTxn3 = ossLog.startTransaction()
+      ossTxn3.commit(oo.addFiles, oo.op)
+
+      // case 3b
+      compareAddFiles(standaloneLog.update(), ossLog.update())
     }
   }
 

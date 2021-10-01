@@ -48,6 +48,27 @@ trait ComparisonUtil {
   def compareCommitInfo(
       standalone: io.delta.standalone.actions.CommitInfo,
       oss: org.apache.spark.sql.delta.actions.CommitInfo): Unit = {
+    // TODO
+  }
 
+  def compareAddFiles(
+      standaloneSnapshot: io.delta.standalone.Snapshot,
+      ossSnapshot: org.apache.spark.sql.delta.Snapshot): Unit = {
+    val standaloneAddFilesMap2 = standaloneSnapshot.getAllFiles.asScala
+      .map { f => f.getPath -> f }.toMap
+    val ossAddFilesMap2 = ossSnapshot.allFiles.collect().map { f => f.path -> f }.toMap
+
+    assert(standaloneAddFilesMap2.size == ossAddFilesMap2.size)
+    assert(standaloneAddFilesMap2.keySet == ossAddFilesMap2.keySet)
+
+    standaloneAddFilesMap2.keySet.foreach { path =>
+      compareAddFile(standaloneAddFilesMap2(path), ossAddFilesMap2(path))
+    }
+  }
+
+  def compareAddFile(
+      standalone: io.delta.standalone.actions.AddFile,
+      oss: org.apache.spark.sql.delta.actions.AddFile): Unit = {
+    // TODO
   }
 }

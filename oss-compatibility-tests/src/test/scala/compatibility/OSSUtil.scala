@@ -28,7 +28,7 @@ object OSSUtil {
     StructField("col2_part", StringType, nullable = true),
   ))
 
-  private val partitionColumns = schema.fieldNames.filter(_.contains("part"))
+  private val partitionColumns = schema.fieldNames.filter(_.contains("part")).toSeq
 
   val op: DeltaOperations.Write =
     DeltaOperations.Write(SaveMode.Append, Some(partitionColumns), Some("predicate_str"))
@@ -43,11 +43,16 @@ object OSSUtil {
     createdTime = Some(1000L)
   )
 
-  val addFiles = (0 until 50).map { i =>
-//    AddFile(
-//      path = i.toString,
-//      partitionColumns =
-//    )
+  val addFiles: Seq[AddFile] = (0 until 50).map { i =>
+    AddFile(
+      path = i.toString,
+      partitionValues = partitionColumns.map { col => col -> i.toString }.toMap,
+      size = 100L,
+      modificationTime = 1000L,
+      dataChange = true,
+      stats = null,
+      tags = Map("tag_key" -> "tag_val")
+    )
   }
 
   def getCommitInfoAt(log: DeltaLog, version: Long): CommitInfo = {
