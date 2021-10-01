@@ -260,8 +260,8 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
       ),
-      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.9.8",
-      "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
+      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
+      "org.json4s" %% "json4s-jackson" % "3.7.0-M5" excludeAll (
         ExclusionRule("com.fasterxml.jackson.core"),
         ExclusionRule("com.fasterxml.jackson.module")
       ),

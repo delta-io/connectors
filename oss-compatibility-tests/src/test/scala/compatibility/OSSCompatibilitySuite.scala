@@ -20,7 +20,10 @@ import java.io.File
 import java.nio.file.Files
 import java.util.UUID
 
+import scala.collection.JavaConverters._
+
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
+import io.delta.standalone.internal.StandaloneUtil
 
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.commons.io.FileUtils
@@ -29,10 +32,10 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
-class OSSCompatibilitySuite extends QueryTest
-  with SharedSparkSession
-  with StandaloneUtil
-  with OSSUtil {
+class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with ComparisonUtil {
+
+  private val ss = StandaloneUtil
+  private val oo = OSSUtil
 
   private def withTempDirAndLogs(f: (File, StandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
     val dir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
@@ -45,15 +48,52 @@ class OSSCompatibilitySuite extends QueryTest
     }
   }
 
-  test("actions") {
-    withTempDirAndLogs { (dir, standaloneLog, ossLog) =>
+  private val standaloneEngineInfo = "standaloneEngineInfo"
 
+  test("assert static actions are the same (before being written to delta log)") {
+    compareMetadata(ss.metadata, oo.metadata)
+  }
+
+  /**
+   * For each (logType1, logType2, action) below, we will test the case of:
+   * logType1 write action (A1), logType2 read action (A2), assert A1 == A2
+   *
+   * case 1a: standalone, oss, Metadata
+   * case 1b: oss, standalone, Metadata
+   *
+   * case 2a: standalone, oss, CommitInfo
+   * case 2b: oss, standalone, CommitInfo
+   *
+   * case 3a: standalone, oss, AddFile
+   * case 3b: oss, standalone, AddFile
+   *
+   * ...
+   */
+  test("read/write actions") {
+    withTempDirAndLogs { (_, standaloneLog, ossLog) =>
+      val standaloneTxn0 = standaloneLog.startTransaction()
+      standaloneTxn0.commit(Iterable(ss.metadata).asJava, ss.op, standaloneEngineInfo)
+
+      // case 1a
+      compareMetadata(standaloneLog.update().getMetadata, ossLog.update().metadata)
+
+      // case 2a
+      compareCommitInfo(standaloneLog.getCommitInfoAt(0), oo.getCommitInfoAt(ossLog, 0))
+
+      val ossTxn1 = ossLog.startTransaction()
+      ossTxn1.commit(Seq(oo.metadata), oo.op)
+
+      // case 1b
+      compareMetadata(standaloneLog.update().getMetadata, ossLog.update().metadata)
+
+      // case 2b
+      compareCommitInfo(standaloneLog.getCommitInfoAt(1), oo.getCommitInfoAt(ossLog, 1))
     }
   }
 
   test("concurrency conflicts") {
     withTempDirAndLogs { (dir, standaloneLog, ossLog) =>
-
+      // TODO
     }
   }
 }
