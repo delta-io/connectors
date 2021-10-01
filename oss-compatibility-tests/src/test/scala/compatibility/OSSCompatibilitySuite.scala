@@ -28,7 +28,6 @@ import io.delta.standalone.internal.StandaloneUtil
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
@@ -37,6 +36,10 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
   private val ss = StandaloneUtil
   private val oo = OSSUtil
 
+  /**
+   * Creates a temporary directory, a Standalone DeltaLog, and a DeltaOSS DeltaLog, which are all
+   * then passed to `f`. The temporary directory will be deleted after `f` returns.
+   */
   private def withTempDirAndLogs(f: (File, StandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
     val dir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
 
@@ -50,7 +53,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
   private val standaloneEngineInfo = "standaloneEngineInfo"
 
-  test("assert static actions are the same (before being written to delta log)") {
+  test("assert static actions are the same (without any writes/reads)") {
     compareMetadata(ss.metadata, oo.metadata)
   }
 
@@ -67,7 +70,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    * case 3a: standalone, oss, AddFile
    * case 3b: oss, standalone, AddFile
    *
-   * ...
+   * TODO
    */
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, ossLog) =>
@@ -88,6 +91,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
       // case 2b
       compareCommitInfo(standaloneLog.getCommitInfoAt(1), oo.getCommitInfoAt(ossLog, 1))
+
+      // TODO
     }
   }
 

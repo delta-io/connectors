@@ -54,10 +54,10 @@ object StandaloneUtil {
   val addFiles: Seq[AddFile] = (0 until 50).map { i =>
     new AddFile(
       i.toString, // path
-      partitionColumns.map { col => col -> i.toString }.toMap.asJava,
-      100L,
-      1000,
-    true, // data change
+      partitionColumns.map { col => col -> i.toString }.toMap.asJava, // partition cols
+      100L, // size
+      1000, // modification time
+      true, // data change
       null, // stats
       Map("tag_key" -> "tag_val").asJava // tags
     )
