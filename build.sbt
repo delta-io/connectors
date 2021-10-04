@@ -23,7 +23,6 @@ crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-val sparkVersion = "3.1.1"
 val deltaVersion = "1.0.0"
 val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
@@ -348,9 +347,9 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
       "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
       "io.delta" % "delta-core_2.12" % deltaVersion % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % sparkVersion % "test" classifier "tests",
-      "org.apache.spark" % "spark-core_2.12" % sparkVersion % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test" classifier "tests"
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
     )
   )
 
@@ -377,14 +376,14 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-      "io.delta" % "delta-core_2.12" % deltaVersion % "provided",
+      "org.apache.spark" %% "spark-sql" % "2.4.3" % "provided",
+      "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % "test",
       "com.h2database" % "h2" % "1.4.200" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % sparkVersion % "test",
-      "org.apache.spark" % "spark-core_2.12" % sparkVersion % "test",
-      "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test"
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test",
+      "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test",
+      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test"
     )
   )
   .settings(releaseSettings)
