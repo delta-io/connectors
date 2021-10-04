@@ -21,11 +21,12 @@ import java.nio.file.FileAlreadyExistsException
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, Operation, OptimisticTransaction}
+import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
-import io.delta.standalone.expressions.{And, Expression, Literal}
+import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
@@ -137,23 +138,16 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   /** Returns files matching the given predicates. */
-  override def markFilesAsRead(
-      _readPredicates: java.lang.Iterable[Expression]): java.util.List[AddFileJ] = {
+  override def markFilesAsRead(readPredicate: Expression): DeltaScan = {
+    val scan = snapshot.scanScala(readPredicate)
+    val matchedFiles = scan.getFilesScala
 
-    val partitionFilters = _readPredicates.asScala.filter { f =>
-      isPredicatePartitionColumnsOnly(f, metadata.partitionColumns)
-    }.toSeq
-
-    val matchedFiles = DeltaLogImpl.filterFileList(
-      metadata.partitionSchema,
-      snapshot.allFilesScala,
-      partitionFilters
-    )
-
-    readPredicates += partitionFilters.reduceLeftOption(new And(_, _)).getOrElse(Literal.True)
+    if (scan.getPushedPredicate.isPresent) {
+      readPredicates += scan.getPushedPredicate.get()
+    }
     readFiles ++= matchedFiles
 
-    matchedFiles.map(ConversionUtils.convertAddFile).asJava
+    scan
   }
 
   override def updateMetadata(metadataJ: MetadataJ): Unit = {
@@ -168,20 +162,9 @@ private[internal] class OptimisticTransactionImpl(
       newProtocol = Some(Protocol())
     }
 
-    latestMetadata = if (snapshot.metadataScala.schemaString == latestMetadata.schemaString) {
-        // Shortcut when the schema hasn't changed to avoid generating spurious schema change logs.
-        // It's fine if two different but semantically equivalent schema strings skip this special
-        // case - that indicates that something upstream attempted to do a no-op schema change, and
-        // we'll just end up doing a bit of redundant work in the else block.
-        latestMetadata
-      } else {
-        // TODO getJson()
-        //   val fixedSchema =
-        //   SchemaUtils.removeUnenforceableNotNullConstraints(metadata.schema).getJson()
-        // metadata.copy(schemaString = fixedSchema)
-
-        latestMetadata
-      }
+    if (snapshot.metadataScala.schemaString != latestMetadata.schemaString) {
+      SchemaUtils.checkUnenforceableNotNullConstraints(latestMetadata.schema)
+    }
 
     // Remove the protocol version properties
     val noProtocolVersionConfig = latestMetadata.configuration.filter {
@@ -409,8 +392,32 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Creates new metadata with global Delta configuration defaults. */
   private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
-    // TODO
-    metadata
+    // TODO DeltaConfigs.mergeGlobalConfigs
+
+    val defaultConfigs = Map(
+      "deletedFileRetentionDuration" -> "604800000", // 1 week
+      "checkpointInterval" -> "10",
+      "enableExpiredLogCleanup" -> "true",
+      "logRetentionDuration" -> "2592000000", // 30 days
+      "appendOnly" -> "false"
+    )
+
+    // Priority is:
+    // 1. user-provided configs (via metadata.configuration)
+    // 2. global hadoop configs
+    // 3. default configs
+    val newMetadataConfig = defaultConfigs.keySet.map { key =>
+      val value = if (metadata.configuration.contains(key)) {
+          metadata.configuration(key)
+        } else {
+          deltaLog.hadoopConf.get(key, defaultConfigs(key))
+        }
+
+      key -> value
+    }.toMap
+
+    // User provided configs take precedence.
+    metadata.copy(configuration = newMetadataConfig)
   }
 }
 
@@ -419,16 +426,5 @@ private[internal] object OptimisticTransactionImpl {
 
   def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
     op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
-  }
-
-  /**
-   * Does the predicate only contains partition columns?
-   */
-  def isPredicatePartitionColumnsOnly(
-      condition: Expression,
-      partitionColumns: Seq[String]): Boolean = {
-    // TODO: name equality resolver
-
-    condition.references().asScala.forall(partitionColumns.contains(_))
   }
 }
