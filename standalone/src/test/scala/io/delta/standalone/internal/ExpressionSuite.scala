@@ -10,6 +10,7 @@ import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions._
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.types._
 
 // scalastyle:off funsuite
@@ -233,7 +234,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new IsNull(Literal.False), Some(false))
   }
 
-  test("in predicate") {
+  test("In predicate") {
     // IN TESTS
     // value == null throws exception
     intercept[IllegalArgumentException] {
@@ -279,7 +280,7 @@ class ExpressionSuite extends FunSuite {
     assert(Objects.equals(literal.eval(null), expectedResult.getOrElse(null)))
   }
 
-  test("literal tests") {
+  test("Literal tests") {
     // LITERAL tests
     testLiteral(Literal.True, Some(true))
     testLiteral(Literal.False, Some(false))
@@ -308,9 +309,50 @@ class ExpressionSuite extends FunSuite {
         new MapType(new StringType(), new IntegerType(), false)),
       Some(Map("a"-> 1, "b"->2).asJava))
     // TODO: StructType & RowRecord (if we're only filtering on partition columns, do we even need
-    //  literals of these types??? ie. array, map & struct)
+    //  literals of these types??? ie. array, map & struct) -- same thing for Column
 
-    // TODO: test validate literal (nested maps  / arrays included)
+    // test ValidateLiteral
+    // can we have null of any DataType?
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new BinaryType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new BooleanType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new ByteType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new DateType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), DecimalType.USER_DEFAULT)
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(1, new DoubleType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(1.0, new FloatType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(1.0, new IntegerType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new LongType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(1, new NullType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new ShortType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new StringType())
+    }
+    intercept[IllegalArgumentException] {
+      Literal.of(Array(1, 2), new TimestampType())
+    }
+    // TODO: test validate literal (nested maps  / arrays included)??
   }
 
   private def testColumn(fieldName: String,
@@ -323,7 +365,7 @@ class ExpressionSuite extends FunSuite {
       expectedResult.getOrElse(null)))
   }
 
-  test("column tests") {
+  test("Column tests") {
     // COLUMN tests
     val schema = new StructType(Array(
       new StructField("testInt", new IntegerType(), true),
@@ -338,7 +380,6 @@ class ExpressionSuite extends FunSuite {
       new StructField("testDecimal", DecimalType.USER_DEFAULT, true),
       new StructField("testTimestamp", new TimestampType(), true),
       new StructField("testDate", new DateType(), true)))
-    // todo: change this to use RowRecordImpl?? and then test PartitionRowRecord separately?
     val partRowRecord = new PartitionRowRecord(schema,
       Map("testInt"->"1",
         "testLong"->"10",
@@ -348,12 +389,10 @@ class ExpressionSuite extends FunSuite {
         "testFloat" -> "20.0",
         "testDouble" -> "22.0",
         "testString" -> "onetwothree",
-        "testBinary" -> ("/u" + "test".getBytes().map(_.toString()).mkString("/u")),
+        "testBinary" -> "\u0001\u0005\u0008",
         "testDecimal" -> "0.123",
         "testTimestamp" -> (new TimestampJ(12345678)).toString(),
         "testDate" -> "1970-01-01"))
-
-    // todo: test negative  numbers?
     testColumn("testInt", new IntegerType(), partRowRecord, Some(1))
     testColumn("testLong", new LongType(), partRowRecord, Some(10L))
     testColumn("testByte", new ByteType(), partRowRecord, Some(8.toByte))
@@ -362,21 +401,89 @@ class ExpressionSuite extends FunSuite {
     testColumn("testFloat", new FloatType(), partRowRecord, Some(20.0F))
     testColumn("testDouble", new DoubleType(), partRowRecord, Some(22.0))
     testColumn("testString", new StringType(), partRowRecord, Some("onetwothree"))
-    assert(ArraysJ.equals(
-      (new Column("testBinary", new BinaryType())).eval(partRowRecord).asInstanceOf[Array[Byte]],
-      "test".getBytes()))
+    assert(Array(1.toByte, 5.toByte, 8.toByte) sameElements
+      (new Column("testBinary", new BinaryType())).eval(partRowRecord).asInstanceOf[Array[Byte]])
     testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord,
       Some(new BigDecimalJ("0.123")))
     testColumn("testTimestamp", new TimestampType(), partRowRecord, Some(new TimestampJ(12345678)))
     testColumn("testDate", new DateType(), partRowRecord, Some(new DateJ(70, 0, 1)))
-    // test returning null
     // test struct, array, map with regular partition row record??
   }
 
-  // test partitionRowRecord and it's parsing!
+  private def buildPartitionRowRecord(dataType: DataType, nullable: Boolean, value: String) = {
+    new PartitionRowRecord(new StructType(Array(new StructField("test", dataType, nullable))),
+      Map("test" -> value))
+  }
+
+  test("PartitionRowRecord tests") {
+    val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), true, "5")
+    assert(buildPartitionRowRecord(new IntegerType(), true, "").isNullAt("test"))
+    assert(!testPartitionRowRecord.isNullAt("test"))
+    intercept[IllegalArgumentException] {
+      testPartitionRowRecord.isNullAt("foo")
+    }
+
+    // field does not exist
+    // should this be tested for every getter?
+    intercept[IllegalArgumentException]{
+      testPartitionRowRecord.getInt("foo")
+    }
+    // test wrong DataType
+    // should this be tested for every getter?
+    intercept[ClassCastException]{
+      println(testPartitionRowRecord.getLong("test"))
+    }
+
+    //primitive types can't be null (per rowrecord interface?)
+    //getInt
+    assert(buildPartitionRowRecord(new IntegerType(), true, "0").getInt("test") == 0)
+    assert(buildPartitionRowRecord(new IntegerType(), true, "5").getInt("test") == 5)
+    assert(buildPartitionRowRecord(new IntegerType(), true, "-5").getInt("test") == -5)
+    intercept[NullPointerException]{
+      buildPartitionRowRecord(new IntegerType(), true, "").getInt("test")
+    }
+    //getLong
+    assert(buildPartitionRowRecord(new LongType(), true, "0").getLong("test") == 0L)
+    assert(buildPartitionRowRecord(new LongType(), true, "5").getLong("test") == 5L)
+    assert(buildPartitionRowRecord(new LongType(), true, "-5").getLong("test") == -5L)
+    intercept[NullPointerException]{
+      buildPartitionRowRecord(new LongType(), true, "").getLong("test")
+    }
+    //getByte
+    //long
+    //byte
+    //short
+    //boolean
+    //float
+    //double
+
+    // non primitive types can be null ONLY when nullable (test both)
+    //string
+    //binary
+    assert(buildPartitionRowRecord(new BinaryType(), true, "").getBinary("test") == null)
+    assert(buildPartitionRowRecord(new BinaryType(), true, "\u0001\u0002").getBinary("test")
+      sameElements Array(1.toByte, 2.toByte))
+    assert(buildPartitionRowRecord(new BinaryType(), true, "\u0000").getBinary("test")
+      sameElements Array(0.toByte))
+    intercept[NullPointerException]{
+      buildPartitionRowRecord(new BinaryType(), false, "").getBinary("test")
+    }
+    //bigdecimal
+    //timestamp
+    //date
+
+    intercept[UnsupportedOperationException]{
+      testPartitionRowRecord.getRecord("test")
+    }
+    intercept[UnsupportedOperationException]{
+      testPartitionRowRecord.getList("test")
+    }
+    intercept[UnsupportedOperationException]{
+      testPartitionRowRecord.getMap("test")
+    }
+  }
+
   // combined expressions & expression tree tests
-  // to do'S FOR TESTING? / LOOK through added code to find stuff that needs to be tested?
-  // filterFileList (see below)
 
   private def testPartitionFilter(
                                    inputSchema: StructType,
@@ -431,6 +538,8 @@ class ExpressionSuite extends FunSuite {
     val f5 = new In(schema.column("col1"), inSet5)
 //    testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
   }
+
+  // TODO: add partition filter tests
 
   test("not null partition filter") {
     val schema = new StructType(Array(

@@ -3,7 +3,10 @@ package io.delta.standalone.internal.data
 import java.math.{BigDecimal => BigDecimalJ}
 import java.sql.{Date, Timestamp}
 
+import scala.reflect.ClassTag
+
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.types._
 
 /**
@@ -29,85 +32,160 @@ private[internal] class PartitionRowRecord(
     require(partitionValues.contains(fieldName))
   }
 
+  // TODO: if partition values CAN be null:
+//  private def getAs[T, D](fieldName: String, f: String => T): Option[T] = {
+//    requireFieldExists(fieldName)
+//    if (isNullAt(fieldName)) {
+//      if (!partitionSchema.get(fieldName).isNullable()) {
+//        throw DeltaErrors.nullValueFoundForNonNullSchemaField(fieldName, partitionSchema)
+//      }
+//      None
+//    } else {
+//      require(partitionFieldToType(fieldName).isInstanceOf[D])
+//      Some(f(partitionValues(fieldName)))
+//    }
+//  }
+  // FOLLOWING ROWRECORD INTERFACE...
+  private def getPrimitive(fieldName: String): String = {
+    if (isNullAt(fieldName)) {
+      throw new NullPointerException(
+        s"null value found for primitive DataType: " +
+          s"${partitionFieldToType(fieldName).getSimpleString()} " +
+          s"Field: $fieldName in RowRecord: $partitionValues")
+    }
+    partitionValues(fieldName)
+  }
+
+  private def getNonPrimitive(fieldName: String): Option[String] = {
+    if (isNullAt(fieldName)) {
+      if (!partitionSchema.get(fieldName).isNullable()) {
+        throw new NullPointerException(
+          s"null value found for non-nullable Field: $fieldName in RowRecord: $partitionValues")
+      }
+      None
+    } else {
+      Some(partitionValues(fieldName))
+    }
+  }
+
   override def getSchema: StructType = partitionSchema
 
   override def getLength: Int = partitionSchema.getFieldNames.length
 
+
+  // per Delta Protocol an empty string for any type is a null value
+  // TODO: should this throw an error if field is not nullable?
   override def isNullAt(fieldName: String): Boolean = {
     requireFieldExists(fieldName)
-    null == partitionValues(fieldName)
+    partitionValues(fieldName).isEmpty()
   }
 
   override def getInt(fieldName: String): Int = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[IntegerType])
-    partitionValues(fieldName).toInt
+    if (!partitionFieldToType(fieldName).isInstanceOf[IntegerType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toInt
   }
 
   override def getLong(fieldName: String): Long = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[LongType])
-    partitionValues(fieldName).toLong
+    if (!partitionFieldToType(fieldName).isInstanceOf[LongType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toLong
   }
 
   override def getByte(fieldName: String): Byte = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[ByteType])
-    partitionValues(fieldName).toByte
+    if (!partitionFieldToType(fieldName).isInstanceOf[ByteType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toByte
   }
 
   override def getShort(fieldName: String): Short = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[ShortType])
-    partitionValues(fieldName).toShort
+    if (!partitionFieldToType(fieldName).isInstanceOf[ShortType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toShort
   }
 
   override def getBoolean(fieldName: String): Boolean = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[BooleanType])
-    partitionValues(fieldName).toBoolean
+    if (!partitionFieldToType(fieldName).isInstanceOf[BooleanType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toBoolean
   }
 
   override def getFloat(fieldName: String): Float = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[FloatType])
-    partitionValues(fieldName).toFloat
+    if (!partitionFieldToType(fieldName).isInstanceOf[FloatType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toFloat
   }
 
   override def getDouble(fieldName: String): Double = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DoubleType])
-    partitionValues(fieldName).toDouble
+    if (!partitionFieldToType(fieldName).isInstanceOf[DoubleType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getPrimitive(fieldName).toDouble
   }
 
   override def getString(fieldName: String): String = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[StringType])
-    partitionValues(fieldName)
+    if (!partitionFieldToType(fieldName).isInstanceOf[StringType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getNonPrimitive(fieldName).getOrElse(null)
   }
 
   override def getBinary(fieldName: String): Array[Byte] = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[BinaryType])
-    partitionValues(fieldName).stripPrefix("/u").split("/u").filter(_.nonEmpty).map(_.toByte)
+    if (!partitionFieldToType(fieldName).isInstanceOf[BinaryType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getNonPrimitive(fieldName).map{_.map{_.toByte}.toArray}.getOrElse(null)
   }
 
   override def getBigDecimal(fieldName: String): BigDecimalJ = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DecimalType])
-    new BigDecimalJ(partitionValues(fieldName))
+    if (!partitionFieldToType(fieldName).isInstanceOf[DecimalType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getNonPrimitive(fieldName).map{new BigDecimalJ(_)}.getOrElse(null)
   }
 
   override def getTimestamp(fieldName: String): Timestamp = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[TimestampType])
-    Timestamp.valueOf(partitionValues(fieldName))
+    if (!partitionFieldToType(fieldName).isInstanceOf[TimestampType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getNonPrimitive(fieldName).map{Timestamp.valueOf(_)}.getOrElse(null)
   }
 
   override def getDate(fieldName: String): Date = {
     requireFieldExists(fieldName)
-    require(partitionFieldToType(fieldName).isInstanceOf[DateType])
-    Date.valueOf(partitionValues(fieldName))
+    if (!partitionFieldToType(fieldName).isInstanceOf[DateType]) {
+      throw new ClassCastException(s"Mismatched DataType for Field: " +
+        s"$fieldName in RowRecord: $partitionValues")
+    }
+    getNonPrimitive(fieldName).map{Date.valueOf(_)}.getOrElse(null)
   }
 
   override def getRecord(fieldName: String): RowRecordJ = {

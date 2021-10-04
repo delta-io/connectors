@@ -46,7 +46,7 @@ public final class Literal extends LeafExpression {
 
     //TODO: thoroughly test this???
     private static void validateLiteralValue(Object value, DataType dataType) {
-        if (value == null) return; // TODO: && dataType in *acceptable null dataTypes*, can they be null?
+        if (value == null) return;
         if ((dataType instanceof BinaryType && value instanceof byte[]) ||
                 (dataType instanceof BinaryType && value instanceof Byte[]) ||
                 (dataType instanceof BooleanType && value instanceof Boolean) ||
@@ -129,4 +129,6 @@ public final class Literal extends LeafExpression {
     }
 
     public static Literal of(Object value, DataType type) { return new Literal(value, type); }
+
+    //todo: could also do of(Object value, IntegerType type) etc for each type?????? validate within
 }
