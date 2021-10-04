@@ -348,9 +348,9 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
       "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
       "io.delta" % "delta-core_2.12" % "1.0.0" % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
       "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test" classifier "tests"
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
     )
   )
 
