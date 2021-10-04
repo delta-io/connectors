@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal // need this to access internal.util.JsonUtils
 
-import java.util.{Collections, Optional}
+package io.delta.standalone.internal.util // need this to access internal.util.JsonUtils
+
+import java.util.Collections
 
 import scala.collection.JavaConverters._
 
+import io.delta.standalone.Operation
 import io.delta.standalone.actions.{AddFile, Format, Metadata, RemoveFile}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
-import io.delta.standalone.Operation
-import io.delta.standalone.internal.util.JsonUtils
 
 object StandaloneUtil {
 

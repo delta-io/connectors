@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package compatibility
 
-import org.apache.spark.sql.delta.actions.{AddFile, CommitInfo, Format, Metadata, RemoveFile}
+package io.delta.standalone.util
+
 import org.apache.spark.sql.delta.{DeltaLog, DeltaOperations}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.delta.actions._
+import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.SaveMode
 
 object OSSUtil {
 
   val schema: StructType = StructType(Array(
     StructField("col1_part", IntegerType, nullable = true),
-    StructField("col2_part", StringType, nullable = true),
+    StructField("col2_part", StringType, nullable = true)
   ))
 
   private val partitionColumns = schema.fieldNames.filter(_.contains("part")).toSeq

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package compatibility
+package io.delta.standalone.tests.compatibility
 
 import java.io.File
 import java.nio.file.Files
@@ -23,11 +23,13 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
-import io.delta.standalone.internal.StandaloneUtil
+import io.delta.standalone.internal.util.StandaloneUtil
+import io.delta.standalone.util.{ComparisonUtil, OSSUtil}
 
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
+
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
