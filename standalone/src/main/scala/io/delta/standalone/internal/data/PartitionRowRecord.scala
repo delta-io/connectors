@@ -31,20 +31,7 @@ private[internal] class PartitionRowRecord(
     // due to `require` statement above
     require(partitionValues.contains(fieldName))
   }
-
-  // todo: if partition values CAN be null...
-//  private def getAs[T, D](fieldName: String, f: String => T): Option[T] = {
-//    requireFieldExists(fieldName)
-//    if (isNullAt(fieldName)) {
-//      if (!partitionSchema.get(fieldName).isNullable()) {
-//        throw DeltaErrors.nullValueFoundForNonNullSchemaField(fieldName, partitionSchema)
-//      }
-//      None
-//    } else {
-//      require(partitionFieldToType(fieldName).isInstanceOf[D])
-//      Some(f(partitionValues(fieldName)))
-//    }
-//  }
+ 
   // FOLLOWING ROWRECORD INTERFACE...
   private def getPrimitive(fieldName: String): String = {
     if (isNullAt(fieldName)) {
