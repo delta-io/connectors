@@ -101,7 +101,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new EqualTo(Literal.True, Literal.False), expectedResult = Some(false))
     testPredicate(new EqualTo(Literal.False, Literal.True), expectedResult = Some(false))
     // FloatType
-    // TODO: future work--should we support automatic casting between compatible types?
+    // todo: future work--should we support automatic casting between compatible types?
     testPredicate(
       new EqualTo(Literal.of(1.0F, new FloatType()), Literal.of(1.0F, new FloatType())),
       expectedResult = Some(true))
@@ -264,7 +264,7 @@ class ExpressionSuite extends FunSuite {
       new In(Literal.True, List(new Literal(null, new BooleanType())).asJava).eval(null)
     }
     // test correct output
-    // TODO: test all types? uses comparator same as the other comparison expressions
+    // todo: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1, new IntegerType()),
       (0 to 10).map{Literal.of(_, new IntegerType)}.asJava), Some(true))
     testPredicate( new In(Literal.of(100, new IntegerType()),
@@ -308,11 +308,11 @@ class ExpressionSuite extends FunSuite {
       Literal.of(Map("a"-> 1, "b"->2).asJava,
         new MapType(new StringType(), new IntegerType(), false)),
       Some(Map("a"-> 1, "b"->2).asJava))
-    // TODO: StructType & RowRecord (if we're only filtering on partition columns, do we even need
-    //  literals of these types??? ie. array, map & struct) -- same thing for Column
+    // TODO: if we're only filtering on partition columns, do we need literals (and columns)
+    //  of Array, Map or Record?
 
     // test ValidateLiteral
-    // can we have null of any DataType?
+    // TODO: can we have null of any DataType? (add tests for maps, arrays, record etc pending ^^)
     intercept[IllegalArgumentException] {
       Literal.of(Array(1, 2), new BinaryType())
     }
@@ -352,7 +352,6 @@ class ExpressionSuite extends FunSuite {
     intercept[IllegalArgumentException] {
       Literal.of(Array(1, 2), new TimestampType())
     }
-    // TODO: test validate literal (nested maps  / arrays included)??
   }
 
   private def testColumn(fieldName: String,
@@ -483,7 +482,7 @@ class ExpressionSuite extends FunSuite {
     }
   }
 
-  // combined expressions & expression tree tests
+  // TODO: add nested expression tree tests?
 
   private def testPartitionFilter(
                                    inputSchema: StructType,
@@ -539,7 +538,7 @@ class ExpressionSuite extends FunSuite {
 //    testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
   }
 
-  // TODO: add partition filter tests
+  // TODO: add additional partition filter tests
 
   test("not null partition filter") {
     val schema = new StructType(Array(

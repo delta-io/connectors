@@ -32,7 +32,7 @@ private[internal] class PartitionRowRecord(
     require(partitionValues.contains(fieldName))
   }
 
-  // TODO: if partition values CAN be null:
+  // todo: if partition values CAN be null...
 //  private def getAs[T, D](fieldName: String, f: String => T): Option[T] = {
 //    requireFieldExists(fieldName)
 //    if (isNullAt(fieldName)) {

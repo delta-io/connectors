@@ -11,7 +11,6 @@ import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
 public final class Literal extends LeafExpression {
-    // TODO: why is one of these Boolean.TRUE and the other false?
     public static final Literal True = Literal.of(Boolean.TRUE, new BooleanType());
     public static final Literal False = Literal.of(false, new BooleanType());
 
@@ -44,7 +43,6 @@ public final class Literal extends LeafExpression {
         return String.valueOf(value);
     }
 
-    //TODO: thoroughly test this???
     private static void validateLiteralValue(Object value, DataType dataType) {
         if (value == null) return;
         if ((dataType instanceof BinaryType && value instanceof byte[]) ||
