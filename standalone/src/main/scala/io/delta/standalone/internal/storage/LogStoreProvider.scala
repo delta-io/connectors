@@ -42,7 +42,7 @@ private[internal] trait LogStoreProvider {
         .newInstance(hadoopConf)
         .asInstanceOf[LogStore]
     } else {
-      // TODO proper error
+      // TODO proper error?
       throw new IllegalArgumentException(s"Can't instantiate a LogStore with classname " +
         s"$logStoreClassName.")
     }
