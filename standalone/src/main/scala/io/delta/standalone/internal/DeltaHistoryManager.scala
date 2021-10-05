@@ -24,6 +24,7 @@ import io.delta.standalone.internal.actions.{Action, CommitInfo, CommitMarker}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.FileNames
 import io.delta.standalone.storage.LogStore
+
 import org.apache.hadoop.fs.Path
 
 /**

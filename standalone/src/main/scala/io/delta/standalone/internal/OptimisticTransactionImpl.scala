@@ -21,11 +21,12 @@ import java.nio.file.FileAlreadyExistsException
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, Operation, OptimisticTransaction}
+import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
-import io.delta.standalone.expressions.{And, Column, Expression, Literal}
+import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
@@ -82,8 +83,8 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def commit(
-      actionsJ: java.lang.Iterable[ActionJ],
+  override def commit[T <: ActionJ](
+      actionsJ: java.lang.Iterable[T],
       op: Operation,
       engineInfo: String): CommitResult = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
@@ -137,23 +138,16 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   /** Returns files matching the given predicates. */
-  override def markFilesAsRead(
-      _readPredicates: java.lang.Iterable[Expression]): java.util.List[AddFileJ] = {
+  override def markFilesAsRead(readPredicate: Expression): DeltaScan = {
+    val scan = snapshot.scanScala(readPredicate)
+    val matchedFiles = scan.getFilesScala
 
-    val partitionFilters = _readPredicates.asScala.filter { f =>
-      isPredicatePartitionColumnsOnly(f, metadata.partitionColumns)
-    }.toSeq
-
-    val matchedFiles = DeltaLogImpl.filterFileList(
-      metadata.partitionSchema,
-      snapshot.allFilesScala,
-      partitionFilters
-    )
-
-    readPredicates += partitionFilters.reduceLeftOption(new And(_, _)).getOrElse(Literal.True)
+    if (scan.getPushedPredicate.isPresent) {
+      readPredicates += scan.getPushedPredicate.get()
+    }
     readFiles ++= matchedFiles
 
-    matchedFiles.map(ConversionUtils.convertAddFile).asJava
+    scan
   }
 
   override def updateMetadata(metadataJ: MetadataJ): Unit = {
@@ -265,7 +259,7 @@ private[internal] class OptimisticTransactionImpl(
   protected def doCommitRetryIteratively(
       attemptVersion: Long,
       actions: Seq[Action],
-      isolationLevel: IsolationLevel): Long = lockCommitIfEnabled {
+      isolationLevel: IsolationLevel): Long = deltaLog.lockInterruptibly {
     var tryCommit = true
     var commitVersion = attemptVersion
     var attemptNumber = 0
@@ -303,23 +297,24 @@ private[internal] class OptimisticTransactionImpl(
    * @throws IllegalStateException if the attempted commit version is ahead of the current delta log
    *                               version
    */
-  private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long = lockCommitIfEnabled {
-    deltaLog.store.write(
-      FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-      actions.map(_.json).toIterator.asJava,
-      false, // overwrite = false
-      deltaLog.hadoopConf
-    )
+  private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long =
+    deltaLog.lockInterruptibly {
+      deltaLog.store.write(
+        FileNames.deltaFile(deltaLog.logPath, attemptVersion),
+        actions.map(_.json).toIterator.asJava,
+        false, // overwrite = false
+        deltaLog.hadoopConf
+      )
 
-    val postCommitSnapshot = deltaLog.update()
-    if (postCommitSnapshot.version < attemptVersion) {
-      throw new IllegalStateException(
-        s"The committed version is $attemptVersion " +
-          s"but the current version is ${postCommitSnapshot.version}.")
+      val postCommitSnapshot = deltaLog.update()
+      if (postCommitSnapshot.version < attemptVersion) {
+        throw new IllegalStateException(
+          s"The committed version is $attemptVersion " +
+            s"but the current version is ${postCommitSnapshot.version}.")
+      }
+
+      attemptVersion
     }
-
-    attemptVersion
-  }
 
   /**
    * Perform post-commit operations
@@ -384,18 +379,6 @@ private[internal] class OptimisticTransactionImpl(
     Protocol.checkMetadataProtocolProperties(metadata, protocol)
   }
 
-  private def isCommitLockEnabled: Boolean = {
-    deltaLog.store.isPartialWriteVisible(deltaLog.logPath, deltaLog.hadoopConf)
-  }
-
-  private def lockCommitIfEnabled[T](body: => T): T = {
-    if (isCommitLockEnabled) {
-      deltaLog.lockInterruptibly(body)
-    } else {
-      body
-    }
-  }
-
   /**
    * Returns true if we should checkpoint the version that has just been committed.
    */
@@ -429,7 +412,7 @@ private[internal] class OptimisticTransactionImpl(
       val value = if (metadata.configuration.contains(key)) {
           metadata.configuration(key)
         } else {
-        deltaLog.hadoopConf.get(key, defaultConfigs(key))
+          deltaLog.hadoopConf.get(key, defaultConfigs(key))
         }
 
       key -> value
@@ -445,16 +428,5 @@ private[internal] object OptimisticTransactionImpl {
 
   def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
     op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
-  }
-
-  /**
-   * Does the predicate only contains partition columns?
-   */
-  def isPredicatePartitionColumnsOnly(
-      condition: Expression,
-      partitionColumns: Seq[String]): Boolean = {
-    // TODO: name equality resolver
-
-    condition.references().asScala.forall(partitionColumns.contains(_))
   }
 }

@@ -26,6 +26,7 @@ import io.delta.standalone.internal.actions.SingleAction
 import io.delta.standalone.internal.util.JsonUtils
 import io.delta.standalone.internal.util.FileNames._
 
+import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import com.github.mjakubowski84.parquet4s.ParquetWriter

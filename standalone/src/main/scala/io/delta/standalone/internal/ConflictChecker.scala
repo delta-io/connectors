@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.FileNames
+import io.delta.standalone.internal.util.{FileNames, PartitionUtils}
 
 /**
  * A class representing different attributes of current transaction needed for conflict detection.
@@ -145,10 +145,10 @@ private[internal] class ConflictChecker(
     }
 
     val predicatesMatchingAddedFiles = currentTransactionInfo.readPredicates.flatMap { p =>
-      val conflictingFile = DeltaLogImpl.filterFileList(
+      val conflictingFile = PartitionUtils.filterFileList(
         currentTransactionInfo.metadata.partitionSchema,
         addedFilesToCheckForConflicts,
-        p :: Nil
+        p
       ).headOption
 
       conflictingFile.map(f => getPrettyPartitionMessage(f.partitionValues))

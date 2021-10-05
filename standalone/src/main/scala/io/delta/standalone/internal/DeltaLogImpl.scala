@@ -26,14 +26,11 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
-import io.delta.standalone.expressions.{And, Expression, Literal}
-import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol}
-import io.delta.standalone.internal.data.PartitionRowRecord
+import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.storage.LogStoreProvider
 import io.delta.standalone.internal.util.{Clock, ConversionUtils, FileNames, SystemClock}
-import io.delta.standalone.types.StructType
 
 /**
  * Scala implementation of Java interface [[DeltaLog]].
@@ -95,8 +92,6 @@ private[internal] class DeltaLogImpl private(
   ///////////////////////////////////////////////////////////////////////////
 
   override def getPath: Path = dataPath
-
-  override def getLogPath: Path = logPath
 
   override def getCommitInfoAt(version: Long): CommitInfoJ = {
     history.checkVersionExists(version)
@@ -212,7 +207,7 @@ private[standalone] object DeltaLogImpl {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
   }
 
-  def apply(
+  private def apply(
       hadoopConf: Configuration,
       rawPath: Path,
       clock: Clock = new SystemClock): DeltaLogImpl = {
@@ -220,25 +215,5 @@ private[standalone] object DeltaLogImpl {
     val path = fs.makeQualified(rawPath)
 
     new DeltaLogImpl(hadoopConf, path, path.getParent, clock)
-  }
-
-  /**
-   * Filters the given [[AddFile]]s by the given `partitionFilters`, returning those that match.
-   * @param files The active files in the DeltaLog state, which contains the partition value
-   *              information
-   * @param partitionFilters Filters on the partition columns
-   */
-  private[internal] def filterFileList(
-      partitionSchema: StructType,
-      files: Seq[AddFile],
-      partitionFilters: Seq[Expression]): Seq[AddFile] = {
-    val expr = partitionFilters.reduceLeftOption(new And(_, _)).getOrElse(Literal.True)
-    // TODO: compressedExpr = ...
-
-    files.filter { addFile =>
-      val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-      val result = expr.eval(partitionRowRecord)
-      result.asInstanceOf[Boolean]
-    }
   }
 }

@@ -1,10 +1,11 @@
 package io.delta.standalone.expressions;
 
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Set;
+
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
-
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A column whose row-value will be computed based on the data in a [[RowRecord]].
@@ -56,6 +57,20 @@ public final class Column extends LeafExpression {
     @Override
     public Set<String> references() {
         return Collections.singleton(name);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Column column = (Column) o;
+        return Objects.equals(name, column.name) &&
+            Objects.equals(dataType, column.dataType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, dataType);
     }
 
     @FunctionalInterface

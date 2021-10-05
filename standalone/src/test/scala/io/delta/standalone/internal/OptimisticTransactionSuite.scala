@@ -21,22 +21,22 @@ import scala.reflect.ClassTag
 
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDeleteDeleteException, ConcurrentDeleteReadException, ConcurrentTransactionException, MetadataChangedException, ProtocolChangedException}
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception._
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
-import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.types._
+import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
 
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
-
-  implicit def exprSeqToList[T <: Expression](seq: Seq[T]): java.util.List[Expression] =
-    seq.asInstanceOf[Seq[Expression]].asJava
 
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
@@ -63,14 +63,9 @@ class OptimisticTransactionSuite extends FunSuite {
       actions: Seq[Action],
       partitionCols: Seq[String] = "part" :: Nil)(
       test: DeltaLog => Unit): Unit = {
-    // TODO:
-    // val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
-    // val schema = new StructType(schemaFields)
-    // val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
-    // scalastyle:off line.size.limit
-    val schemaStr = """{"type":"struct","fields":[{"name":"part","type":"string","nullable":true,"metadata":{}}]}"""
-    // scalastyle:on line.size.limit
-    val metadata = Metadata(partitionColumns = partitionCols, schemaString = schemaStr)
+    val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
+    val schema = new StructType(schemaFields)
+    val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.toJson)
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
@@ -153,7 +148,7 @@ class OptimisticTransactionSuite extends FunSuite {
       val txn = log.startTransaction()
       txn.commit(Metadata() :: Nil, manualUpdate, engineInfo)
       val e = intercept[AssertionError] {
-        txn.commit(Nil, manualUpdate, engineInfo)
+        txn.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
       assert(e.getMessage.contains("Transaction already committed."))
     }
@@ -191,7 +186,9 @@ class OptimisticTransactionSuite extends FunSuite {
       val e = intercept[java.io.IOException] {
         txn.commit(Metadata() :: Nil, manualUpdate, engineInfo)
       }
-      assert(e.getMessage == s"Cannot create ${log.getLogPath.toString}")
+
+      val logPath = new Path(log.getPath, "_delta_log")
+      assert(e.getMessage == s"Cannot create ${logPath.toString}")
     }
   }
 
@@ -200,7 +197,7 @@ class OptimisticTransactionSuite extends FunSuite {
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val e = intercept[IllegalStateException] {
-        txn.commit(Nil, manualUpdate, engineInfo)
+        txn.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
       assert(e.getMessage == DeltaErrors.metadataAbsentException().getMessage)
     }
@@ -301,7 +298,7 @@ class OptimisticTransactionSuite extends FunSuite {
         Protocol.MIN_WRITER_VERSION_PROP -> "2"
       ))
       txn.updateMetadata(ConversionUtils.convertMetadata(metadata))
-      txn.commit(Nil, manualUpdate, engineInfo)
+      txn.commit(Iterable().asJava, manualUpdate, engineInfo)
 
       val writtenConfig = log.update().getMetadata.getConfiguration
       assert(!writtenConfig.containsKey(Protocol.MIN_READER_VERSION_PROP))
@@ -359,7 +356,7 @@ class OptimisticTransactionSuite extends FunSuite {
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            false
+            false // arr (ArrayType) containsNull
           )
         )
       )
@@ -377,16 +374,14 @@ class OptimisticTransactionSuite extends FunSuite {
         new StructField(
           "m",
           new MapType(
-            // m.key
-            new StructType(
+            new StructType( // m.key
               Array(
                 new StructField("name", new StringType(), true),
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            // m.value
-            new IntegerType(),
-            false
+            new IntegerType(), // m.value
+            false // m (MapType) valueContainsNull
           )
         )
       )
@@ -404,16 +399,14 @@ class OptimisticTransactionSuite extends FunSuite {
         new StructField(
           "m",
           new MapType(
-            // m.key
-            new IntegerType(),
-            // m.value
-            new StructType(
+            new IntegerType(), // m.key
+            new StructType( // m.value
               Array(
                 new StructField("name", new StringType(), true),
                 new StructField("mailbox", new StringType(), false)
               )
             ),
-            false
+            false // m (MapType) valueContainsNull
           )
         )
       )
@@ -442,13 +435,13 @@ class OptimisticTransactionSuite extends FunSuite {
                       new StructField("mailbox", new StringType(), false)
                     )
                   ),
-                  true
+                  true // arr (ArrayType) containsNull
                 ),
-                false
+                false // arr (StructField) nullable
               )
             )
           ),
-          true
+          true // s (StructField) nullable
         )
       )
     )
@@ -515,6 +508,8 @@ class OptimisticTransactionSuite extends FunSuite {
       assert(commitInfo.getEngineInfo.isPresent)
       assert(commitInfo.getEngineInfo.get() == engineInfo)
       assert(commitInfo.getOperation == manualUpdate.getName.toString)
+
+      // TODO: test commitInfo.operationParameters
     }
   }
 
@@ -537,7 +532,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn2 = log2.startTransaction()
-      txn2.markFilesAsRead(java.util.Arrays.asList(Literal.True))
+      txn2.markFilesAsRead(Literal.True)
       txn2.commit(add :: Nil, manualUpdate, engineInfo)
       verifyIsBlindAppend(2, expected = false)
     }
@@ -580,11 +575,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val tx1 = log.startTransaction()
       val tx2 = log.startTransaction()
       tx2.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "foo")))
-      tx2.commit(Nil, manualUpdate, engineInfo)
+      tx2.commit(Iterable().asJava, manualUpdate, engineInfo)
 
       assertThrows[MetadataChangedException] {
         tx1.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "bar")))
-        tx1.commit(Nil, manualUpdate, engineInfo)
+        tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
     }
   }
@@ -598,11 +593,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // TX1 reads only P1
-      val tx1Read = tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
-      assert(tx1Read.asScala.map(_.getPath) == A_P1 :: Nil)
+      val tx1Read = tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
+      assert(tx1Read.getFiles.asScala.toSeq.map(_.getPath) == A_P1 :: Nil)
 
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       // TX2 modifies only P1
       tx2.commit(addB_P1 :: Nil, manualUpdate, engineInfo)
 
@@ -618,11 +613,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // TX1 full table scan
-      tx1.markFilesAsRead(Literal.True :: Nil)
-      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+      tx1.markFilesAsRead(Literal.True)
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
 
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       tx2.commit(addC_P2 :: addD_P2.remove :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentAppendException] {
@@ -635,10 +630,10 @@ class OptimisticTransactionSuite extends FunSuite {
     // This tests the case when isolationLevel == SnapshotIsolation
     withLog(addA_P1 :: addB_P1 :: Nil) { log =>
       val tx1 = log.startTransaction()
-      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx1.markFilesAsRead(Literal.True)
 
       val tx2 = log.startTransaction()
-      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx1.markFilesAsRead(Literal.True)
       tx2.commit(addE_P3 :: Nil, manualUpdate, engineInfo)
 
       // tx1 rearranges files (dataChange = false)
@@ -661,11 +656,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // read P1
-      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
 
       // tx2 commits before tx1
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       tx2.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentDeleteReadException] {
@@ -726,7 +721,7 @@ class OptimisticTransactionSuite extends FunSuite {
       winningTxn.commit(SetTransaction("t1", 1, Some(1234L)) :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentTransactionException] {
-        tx1.commit(Nil, manualUpdate, engineInfo)
+        tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
     }
   }
