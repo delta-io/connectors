@@ -23,10 +23,9 @@ crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-val sparkVersion = "2.4.3"
-val hadoopVersion = "2.7.2"
-val hiveVersion = "2.3.7"
-val hiveDeltaVersion = "0.5.0"
+val hadoopVersion = "3.1.0"
+val hiveVersion = "3.1.2"
+val tezVersion = "0.9.2"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -129,11 +128,13 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.apache.hive" % "hive-metastore" % hiveVersion % "provided"  excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.apache.hive", "hive-exec")
     ),
     "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
@@ -142,14 +143,11 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule("org.apache.hive", "hive-exec"),
+      ExclusionRule("com.google.guava", "guava"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
-    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   ),
 
   /** Hive assembly jar. Build with `assembly` command */
@@ -171,11 +169,13 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
   name := "hive-mr",
   commonSettings,
   skipReleaseSettings,
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
@@ -186,12 +186,11 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("ch.qos.logback", "logback-classic"),
+      ExclusionRule("com.google.guava", "guava"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    // TODO Figure out how this fixes some bad dependency
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 
@@ -199,6 +198,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   name := "hive-tez",
   commonSettings,
   skipReleaseSettings,
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
@@ -211,12 +211,14 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.jodd" % "jodd-core" % "3.5.2",
     "org.apache.hive" % "hive-metastore" % hiveVersion % "provided" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.apache.hive", "hive-exec")
     ),
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
@@ -229,17 +231,16 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule("org.apache.hive", "hive-exec"),
+      ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersion % "test",
     "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersion % "test",
-    "org.apache.tez" % "tez-mapreduce" % "0.8.4" % "test",
-    "org.apache.tez" % "tez-dag" % "0.8.4" % "test",
-    "org.apache.tez" % "tez-tests" % "0.8.4" % "test" classifier "tests",
-    // TODO Figure out how this fixes some bad dependency
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "org.apache.tez" % "tez-mapreduce" % tezVersion % "test",
+    "org.apache.tez" % "tez-dag" % tezVersion % "test",
+    "org.apache.tez" % "tez-tests" % tezVersion % "test" classifier "tests",
+    "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
   )
 )
 
@@ -247,6 +248,8 @@ lazy val standalone = (project in file("standalone"))
   .settings(
     name := "delta-standalone",
     commonSettings,
+    releaseSettings,
+    mimaSettings,
     unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
     libraryDependencies ++= Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
@@ -255,8 +258,8 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
       ),
-      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
-      "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
+      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
+      "org.json4s" %% "json4s-jackson" % "3.7.0-M5" excludeAll (
         ExclusionRule("com.fasterxml.jackson.core"),
         ExclusionRule("com.fasterxml.jackson.module")
       ),
@@ -288,7 +291,66 @@ lazy val standalone = (project in file("standalone"))
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
   )
-  .settings(releaseSettings)
+
+/*
+ ********************
+ *  MIMA settings   *
+ ********************
+ */
+def getPrevVersion(currentVersion: String): String = {
+  implicit def extractInt(str: String): Int = {
+    """\d+""".r.findFirstIn(str).map(java.lang.Integer.parseInt).getOrElse {
+      throw new Exception(s"Could not extract version number from $str in $version")
+    }
+  }
+
+  val (major, minor, patch): (Int, Int, Int) = {
+    currentVersion.split("\\.").toList match {
+      case majorStr :: minorStr :: patchStr :: _ =>
+        (majorStr, minorStr, patchStr)
+      case _ => throw new Exception(s"Could not find previous version for $version.")
+    }
+  }
+
+  val majorToLastMinorVersions: Map[Int, Int] = Map(
+    // TODO add mapping when required
+    // e.g. 0 -> 8
+  )
+  if (minor == 0) {  // 1.0.0
+    val prevMinor = majorToLastMinorVersions.getOrElse(major - 1, {
+      throw new Exception(s"Last minor version of ${major - 1}.x.x not configured.")
+    })
+    s"${major - 1}.$prevMinor.0"  // 1.0.0 -> 0.8.0
+  } else if (patch == 0) {
+    s"$major.${minor - 1}.0"      // 1.1.0 -> 1.0.0
+  } else {
+    s"$major.$minor.${patch - 1}" // 1.1.1 -> 1.1.0
+  }
+}
+
+lazy val mimaSettings = Seq(
+  (test in Test) := ((test in Test) dependsOn mimaReportBinaryIssues).value,
+  mimaPreviousArtifacts := Set("io.delta" %% "delta-standalone" %  getPrevVersion(version.value)),
+  mimaBinaryIssueFilters ++= StandaloneMimaExcludes.ignoredABIProblems
+)
+
+lazy val compatibility = (project in file("oss-compatibility-tests"))
+  .dependsOn(standalone)
+  .settings(
+    name := "compatibility",
+    commonSettings,
+    skipReleaseSettings,
+    libraryDependencies ++= Seq(
+      // Test Dependencies
+      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test",
+      "io.delta" % "delta-core_2.12" % "1.0.0" % "test",
+      "commons-io" % "commons-io" % "2.8.0" % "test",
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
+    )
+  )
 
 lazy val goldenTables = (project in file("golden-tables")) settings (
   name := "golden-tables",
@@ -313,7 +375,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
+      "org.apache.spark" %% "spark-sql" % "2.4.3" % "provided",
       "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % "test",

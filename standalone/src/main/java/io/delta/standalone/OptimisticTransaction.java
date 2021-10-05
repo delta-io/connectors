@@ -14,13 +14,13 @@ public interface OptimisticTransaction {
      * the given `lastVersion`. In the case of a conflict with a concurrent writer this
      * method will throw an exception.
      *
-     * @param actions Set of actions to commit.
-     * @param op Details of operation that is performing this transactional commit.
-     * @param engineInfo String used to identify the writer engine. It should resemble
+     * @param actions  Set of actions to commit.
+     * @param op  Details of operation that is performing this transactional commit.
+     * @param engineInfo  String used to identify the writer engine. It should resemble
      *                 "{engineName}-{engineVersion}".
      * @return a {@link CommitResult}, wrapping the table version that was committed.
      */
-    CommitResult commit(Iterable<Action> actions, Operation op, String engineInfo);
+     <T extends Action> CommitResult commit(Iterable<T> actions, Operation op, String engineInfo);
 
     /**
      * Mark files matched by the `readPredicates` as read by this transaction.
@@ -39,10 +39,11 @@ public interface OptimisticTransaction {
      *   readFiles were changed by TXN2. Thus there are no logical conflicts and TXN1 can commit at
      *   table version N+1.
      *
-     * @param readPredicates Predicates used to determine which files were read.
-     * @return Files matching the given predicates.
+     * @param readPredicate  Predicates used to determine which files were read.
+     * @return a {@link DeltaScan} containing the list of files matching the push portion of the
+     *         readPredicate.
      */
-    List<AddFile> markFilesAsRead(Iterable<Expression> readPredicates);
+    DeltaScan markFilesAsRead(Expression readPredicate);
 
     /**
      * Records an update to the metadata that should be committed with this transaction.
@@ -52,7 +53,7 @@ public interface OptimisticTransaction {
      * IMPORTANT: It is the responsibility of the caller to ensure that files currently
      * present in the table are still valid under the new metadata.
      *
-     * @param metadata The new metadata for the delta table.
+     * @param metadata  The new metadata for the delta table.
      */
     void updateMetadata(Metadata metadata);
 
@@ -62,7 +63,7 @@ public interface OptimisticTransaction {
     void readWholeTable();
 
     /**
-     * @param id TODO
+     * @param id  TODO
      * @return the latest version that has committed for the idempotent transaction with given `id`.
      */
     long txnVersion(String id);
