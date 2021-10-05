@@ -419,6 +419,8 @@ class ExpressionSuite extends FunSuite {
   test("PartitionRowRecord tests") {
     val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), true, "5")
     assert(buildPartitionRowRecord(new IntegerType(), true, "").isNullAt("test"))
+    assert(buildPartitionRowRecord(new IntegerType(), true, null).isNullAt("test"))
+
     assert(!testPartitionRowRecord.isNullAt("test"))
     intercept[IllegalArgumentException] {
       testPartitionRowRecord.isNullAt("foo")

@@ -11,7 +11,7 @@ import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
 public final class Literal extends LeafExpression {
-    public static final Literal True = Literal.of(Boolean.TRUE, new BooleanType());
+    public static final Literal True = Literal.of(true, new BooleanType());
     public static final Literal False = Literal.of(false, new BooleanType());
 
     private final Object value;

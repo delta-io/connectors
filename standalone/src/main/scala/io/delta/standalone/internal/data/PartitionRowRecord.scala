@@ -59,12 +59,11 @@ private[internal] class PartitionRowRecord(
 
   override def getLength: Int = partitionSchema.getFieldNames.length
 
-
-  // per Delta Protocol an empty string for any type is a null value
   // TODO: should this throw an error if field is not nullable?
   override def isNullAt(fieldName: String): Boolean = {
     requireFieldExists(fieldName)
-    partitionValues(fieldName).isEmpty()
+    // per Delta Protocol an empty string for any type is a null value
+    null == partitionValues(fieldName) || partitionValues(fieldName).isEmpty()
   }
 
   override def getInt(fieldName: String): Int = {
@@ -145,7 +144,7 @@ private[internal] class PartitionRowRecord(
       throw new ClassCastException(s"Mismatched DataType for Field: " +
         s"$fieldName in RowRecord: $partitionValues")
     }
-    getNonPrimitive(fieldName).map{_.map{_.toByte}.toArray}.getOrElse(null)
+    getNonPrimitive(fieldName).map(_.map(_.toByte).toArray).getOrElse(null)
   }
 
   override def getBigDecimal(fieldName: String): BigDecimalJ = {
@@ -154,7 +153,7 @@ private[internal] class PartitionRowRecord(
       throw new ClassCastException(s"Mismatched DataType for Field: " +
         s"$fieldName in RowRecord: $partitionValues")
     }
-    getNonPrimitive(fieldName).map{new BigDecimalJ(_)}.getOrElse(null)
+    getNonPrimitive(fieldName).map(new BigDecimalJ(_)).getOrElse(null)
   }
 
   override def getTimestamp(fieldName: String): Timestamp = {
@@ -163,7 +162,7 @@ private[internal] class PartitionRowRecord(
       throw new ClassCastException(s"Mismatched DataType for Field: " +
         s"$fieldName in RowRecord: $partitionValues")
     }
-    getNonPrimitive(fieldName).map{Timestamp.valueOf(_)}.getOrElse(null)
+    getNonPrimitive(fieldName).map(Timestamp.valueOf(_)).getOrElse(null)
   }
 
   override def getDate(fieldName: String): Date = {
@@ -172,7 +171,7 @@ private[internal] class PartitionRowRecord(
       throw new ClassCastException(s"Mismatched DataType for Field: " +
         s"$fieldName in RowRecord: $partitionValues")
     }
-    getNonPrimitive(fieldName).map{Date.valueOf(_)}.getOrElse(null)
+    getNonPrimitive(fieldName).map(Date.valueOf(_)).getOrElse(null)
   }
 
   override def getRecord(fieldName: String): RowRecordJ = {
