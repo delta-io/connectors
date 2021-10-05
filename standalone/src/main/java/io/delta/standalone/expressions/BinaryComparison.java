@@ -1,5 +1,7 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.internal.expressions.Util;
+
 /**
  * A [[BinaryOperator]] that compares the left and right [[Expression]]s and returns a boolean value.
  */

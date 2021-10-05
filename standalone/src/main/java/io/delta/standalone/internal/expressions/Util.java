@@ -1,8 +1,9 @@
-package io.delta.standalone.expressions;
+package io.delta.standalone.internal.expressions;
 
 import java.math.BigDecimal;
 import java.util.Date;
 
+import io.delta.standalone.expressions.CastingComparator;
 import io.delta.standalone.types.*;
 
 public final class Util {
