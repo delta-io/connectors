@@ -90,6 +90,8 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
         .filterNot(_ == "_delta_log").toArray === Nil)
     }
   }
+
+  // TODO: log store write tests
 }
 
 /**
