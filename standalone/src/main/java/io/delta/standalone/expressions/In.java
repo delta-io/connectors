@@ -40,22 +40,16 @@ public final class In implements Predicate {
 
     @Override
     public Boolean eval(RowRecord record) {
-        Object result = value.eval(record);
-        if (null == result) {
-            throw new IllegalArgumentException("'In' expression 'value.eval' result can't be null");
-            // TODO: is this what we want? what if we want to check for if null is in it?
-        }
+        Object origValue = value.eval(record);
+        if (null == origValue) return null;
 
-        return elems.stream().anyMatch(setElem -> {
+        Boolean result = false;
+        for (Expression setElem : elems) {
             Object setElemValue = setElem.eval(record);
-
-            if (null == setElemValue) {
-                throw new IllegalArgumentException("'In' expression 'elems(i).eval' result can't be null");
-                // TODO: same thing here why exactly can't null be in the list?
-            }
-
-            return comparator.compare(result, setElemValue) == 0;
-        });
+            if (setElemValue == null) result = null;
+            if (comparator.compare(origValue, setElemValue) == 0) return true;
+        }
+        return result;
     }
 
     @Override

@@ -255,14 +255,16 @@ class ExpressionSuite extends FunSuite {
     intercept[IllegalArgumentException] {
       new In(Literal.True, List(Literal.of(1, new IntegerType()), Literal.True).asJava)
     }
-    // value.eval() can't be null
-    intercept[IllegalArgumentException] {
-      new In(new Literal(null, new BooleanType()), List(Literal.True).asJava).eval(null)
-    }
-    // an element.eval() can't be null
-    intercept[IllegalArgumentException] {
-      new In(Literal.True, List(new Literal(null, new BooleanType())).asJava).eval(null)
-    }
+    // value.eval() null -> null
+    testPredicate(new In(new Literal(null, new BooleanType()), List(Literal.True).asJava), None)
+    // value in list (w/ null in  list)
+    testPredicate(new In(Literal.True, List(Literal.True,
+      new Literal(null, new BooleanType())).asJava),
+      Some(true))
+    // value not in list (w/ null in list)
+    testPredicate(new In(Literal.False, List(Literal.True,
+      new Literal(null, new BooleanType())).asJava),
+      None)
     // test correct output
     // todo: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1, new IntegerType()),
