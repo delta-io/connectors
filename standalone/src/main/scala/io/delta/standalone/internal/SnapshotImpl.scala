@@ -25,7 +25,7 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import io.delta.standalone.{DeltaScan, Snapshot}
-import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
+import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
@@ -92,9 +92,12 @@ private[internal] class SnapshotImpl(
   // Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
+
+  def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
+
   def allFilesScala: Seq[AddFile] = state.activeFiles.toSeq
   def tombstonesScala: Seq[RemoveFile] = state.tombstones.toSeq
-  def setTransactions: Seq[SetTransaction] = state.setTransactions
+  def setTransactionsScala: Seq[SetTransaction] = state.setTransactions
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
   def numOfFiles: Long = state.numOfFiles
@@ -162,7 +165,8 @@ private[internal] class SnapshotImpl(
     state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
 
   /** A map to look up transaction version by appId. */
-  lazy val transactions: Map[String, Long] = setTransactions.map(t => t.appId -> t.version).toMap
+  lazy val transactions: Map[String, Long] =
+    setTransactionsScala.map(t => t.appId -> t.version).toMap
 
   /** Complete initialization by checking protocol version. */
   deltaLog.assertProtocolRead(protocolScala)

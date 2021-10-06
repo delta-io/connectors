@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.tests.compatibility
+package io.delta.standalone.internal.compatibility.tests
 
 import java.io.File
 import java.nio.file.Files
@@ -23,38 +23,42 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
-import io.delta.standalone.internal.util.StandaloneUtil
-import io.delta.standalone.util.{ComparisonUtil, OSSUtil}
+import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
+import io.delta.standalone.internal.util.{ComparisonUtil, OSSUtil, StandaloneUtil}
 
-import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-
+import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
 class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with ComparisonUtil {
 
-  private val ss = StandaloneUtil
-  private val oo = OSSUtil
+  private val now = System.currentTimeMillis()
+  private val ss = new StandaloneUtil(now)
+  private val oo = new OSSUtil(now)
 
   /**
    * Creates a temporary directory, a Standalone DeltaLog, and a DeltaOSS DeltaLog, which are all
    * then passed to `f`. The temporary directory will be deleted after `f` returns.
    */
-  private def withTempDirAndLogs(f: (File, StandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
+  private def withTempDirAndLogs(
+      f: (File, StandaloneDeltaLog, InternalStandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
     val dir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
 
     val standaloneLog = StandaloneDeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+    val standaloneInternalLog =
+      InternalStandaloneDeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
     val ossLog = OSSDeltaLog.forTable(spark, dir.getCanonicalPath)
 
-    try f(dir, standaloneLog, ossLog) finally {
+    try f(dir, standaloneLog, standaloneInternalLog, ossLog) finally {
       FileUtils.deleteDirectory(dir)
     }
   }
 
   test("assert static actions are the same (without any writes/reads)") {
     compareMetadata(ss.metadata, oo.metadata)
+    compareAddFiles(ss.addFiles, oo.addFiles)
   }
 
   /**
@@ -74,7 +78,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    * case 4b: oss, standalone, RemoveFile
    */
   test("read/write actions") {
-    withTempDirAndLogs { (_, standaloneLog, ossLog) =>
+    withTempDirAndLogs { (_, standaloneLog, standaloneInternalLog, ossLog) =>
+      // === Standalone commit Metadata & CommitInfo ===
       val standaloneTxn0 = standaloneLog.startTransaction()
       standaloneTxn0.commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
 
@@ -84,6 +89,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       // case 2a
       compareCommitInfo(standaloneLog.getCommitInfoAt(0), oo.getCommitInfoAt(ossLog, 0))
 
+      // === OSS commit Metadata & CommitInfo ===
       val ossTxn1 = ossLog.startTransaction()
       ossTxn1.commit(Seq(oo.metadata), oo.op)
 
@@ -93,29 +99,59 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       // case 2b
       compareCommitInfo(standaloneLog.getCommitInfoAt(1), oo.getCommitInfoAt(ossLog, 1))
 
+      // === Standalone commit AddFiles ===
       val standaloneTxn2 = standaloneLog.startTransaction()
       standaloneTxn2.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
 
-      // case 3a
-      compareAddFiles(standaloneLog.update(), ossLog.update())
+      def assertAddFiles(): Unit = {
+        standaloneLog.update()
+        ossLog.update()
+        assert(standaloneLog.snapshot().getAllFiles.size() == ss.addFiles.size)
+        assert(ossLog.snapshot.allFiles.count() == ss.addFiles.size)
+        compareAddFiles(
+          standaloneLog.update().getAllFiles.asScala, ossLog.update().allFiles.collect())
+      }
 
+      // case 3a
+      assertAddFiles()
+
+      // === OSS commit AddFiles ===
       val ossTxn3 = ossLog.startTransaction()
       ossTxn3.commit(oo.addFiles, oo.op)
 
       // case 3b
-      compareAddFiles(standaloneLog.update(), ossLog.update())
+      assertAddFiles()
 
+      // === Standalone commit RemoveFiles ===
       val standaloneTxn4 = standaloneLog.startTransaction()
       standaloneTxn4.commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
 
-      // case 4a TODO
+      def assertRemoveFiles(): Unit = {
+        standaloneLog.update()
+        standaloneInternalLog.update()
+        ossLog.update()
 
+        assert(standaloneLog.snapshot().getAllFiles.isEmpty)
+        assert(ossLog.snapshot.allFiles.isEmpty)
+        assert(standaloneInternalLog.snapshot.tombstones.size == ss.removeFiles.size)
+        assert(ossLog.snapshot.tombstones.count() == ss.removeFiles.size)
+        compareRemoveFiles(
+          standaloneInternalLog.snapshot.tombstones, ossLog.snapshot.tombstones.collect())
+      }
+
+      // case 4a
+      assertRemoveFiles()
+
+      // === OSS commit RemoveFiles ===
+      val ossTxn5 = ossLog.startTransaction()
+      ossTxn5.commit(oo.removeFiles, oo.op)
+
+      // case 4b
+      assertRemoveFiles()
     }
   }
 
   test("concurrency conflicts") {
-    withTempDirAndLogs { (dir, standaloneLog, ossLog) =>
-      // TODO
-    }
+    // TODO
   }
 }

@@ -15,16 +15,24 @@
  */
 
 
-package io.delta.standalone.util
+package io.delta.standalone.internal.util
 
 import scala.collection.JavaConverters._
 
 trait ComparisonUtil {
 
-  private def compareOptions[J, S](a: java.util.Optional[J], b: Option[S]): Unit = {
+  private def compareOptions(a: java.util.Optional[_], b: Option[_]): Unit = {
     assert(a.isPresent == b.isDefined)
     if (a.isPresent) {
       assert(a.get() == b.get)
+    }
+  }
+
+  private def compareNullableMaps(a: java.util.Map[_, _], b: Map[_, _]): Unit = {
+    if (null == a) {
+      assert(null == b)
+    } else {
+      assert(a.asScala == b)
     }
   }
 
@@ -71,23 +79,54 @@ trait ComparisonUtil {
   }
 
   def compareAddFiles(
-      standaloneSnapshot: io.delta.standalone.Snapshot,
-      ossSnapshot: org.apache.spark.sql.delta.Snapshot): Unit = {
-    val standaloneAddFilesMap2 = standaloneSnapshot.getAllFiles.asScala
-      .map { f => f.getPath -> f }.toMap
-    val ossAddFilesMap2 = ossSnapshot.allFiles.collect().map { f => f.path -> f }.toMap
+      standaloneFiles: Seq[io.delta.standalone.actions.AddFile],
+      ossFiles: Seq[org.apache.spark.sql.delta.actions.AddFile]): Unit = {
+    val standaloneAddFilesMap = standaloneFiles.map { f => f.getPath -> f }.toMap
+    val ossAddFilesMap = ossFiles.map { f => f.path -> f }.toMap
+
+    assert(standaloneAddFilesMap.size == ossAddFilesMap.size)
+    assert(standaloneAddFilesMap.keySet == ossAddFilesMap.keySet)
+
+    standaloneAddFilesMap.keySet.foreach { path =>
+      compareAddFile(standaloneAddFilesMap(path), ossAddFilesMap(path))
+    }
+  }
+
+  private def compareAddFile(
+      standalone: io.delta.standalone.actions.AddFile,
+      oss: org.apache.spark.sql.delta.actions.AddFile): Unit = {
+    assert(standalone.getPath == oss.path)
+    compareNullableMaps(standalone.getPartitionValues, oss.partitionValues)
+    assert(standalone.getSize == oss.size)
+    assert(standalone.getModificationTime == oss.modificationTime)
+    assert(standalone.isDataChange == oss.dataChange)
+    assert(standalone.getStats == oss.stats)
+    compareNullableMaps(standalone.getTags, oss.tags)
+  }
+
+  def compareRemoveFiles(
+      standaloneFiles: Seq[io.delta.standalone.actions.RemoveFile],
+      ossFiles: Seq[org.apache.spark.sql.delta.actions.RemoveFile]): Unit = {
+    val standaloneAddFilesMap2 = standaloneFiles.map { f => f.getPath -> f }.toMap
+    val ossAddFilesMap2 = ossFiles.map { f => f.path -> f }.toMap
 
     assert(standaloneAddFilesMap2.size == ossAddFilesMap2.size)
     assert(standaloneAddFilesMap2.keySet == ossAddFilesMap2.keySet)
 
     standaloneAddFilesMap2.keySet.foreach { path =>
-      compareAddFile(standaloneAddFilesMap2(path), ossAddFilesMap2(path))
+      compareRemoveFile(standaloneAddFilesMap2(path), ossAddFilesMap2(path))
     }
   }
 
-  def compareAddFile(
-      standalone: io.delta.standalone.actions.AddFile,
-      oss: org.apache.spark.sql.delta.actions.AddFile): Unit = {
-    // TODO
+  def compareRemoveFile(
+      standalone: io.delta.standalone.actions.RemoveFile,
+      oss: org.apache.spark.sql.delta.actions.RemoveFile): Unit = {
+    assert(standalone.getPath == oss.path)
+    compareOptions(standalone.getDeletionTimestamp, oss.deletionTimestamp)
+    assert(standalone.isDataChange == oss.dataChange)
+    assert(standalone.isExtendedFileMetadata == oss.extendedFileMetadata)
+    compareNullableMaps(standalone.getPartitionValues, oss.partitionValues)
+    assert(standalone.getSize == oss.size)
+    compareNullableMaps(standalone.getTags, oss.tags)
   }
 }
