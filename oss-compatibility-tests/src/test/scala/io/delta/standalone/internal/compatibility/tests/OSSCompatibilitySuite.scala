@@ -39,8 +39,13 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
   private val oo = new OSSUtil(now)
 
   /**
-   * Creates a temporary directory, a Standalone DeltaLog, and a DeltaOSS DeltaLog, which are all
-   * then passed to `f`. The temporary directory will be deleted after `f` returns.
+   * Creates a temporary directory, a public Standalone DeltaLog, an internal Standalone DeltaLog,
+   * and a DeltaOSS DeltaLog, which are all then passed to `f`.
+   *
+   * The internal Standalone DeltaLog is used to gain access to internal, non-public Java APIs
+   * to verify internal state.
+   *
+   * The temporary directory will be deleted after `f` returns.
    */
   private def withTempDirAndLogs(
       f: (File, StandaloneDeltaLog, InternalStandaloneDeltaLog, OSSDeltaLog) => Unit): Unit = {
