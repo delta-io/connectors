@@ -135,4 +135,12 @@ trait ComparisonUtil {
     assert(standalone.getSize == oss.size)
     compareNullableMaps(standalone.getTags, oss.tags)
   }
+
+  def compareSetTransaction(
+      standalone: io.delta.standalone.actions.SetTransaction,
+      oss: org.apache.spark.sql.delta.actions.SetTransaction): Unit = {
+    assert(standalone.getAppId == oss.appId)
+    assert(standalone.getVerion == oss.version)
+    compareOptions(standalone.getLastUpdated, oss.lastUpdated)
+  }
 }

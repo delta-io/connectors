@@ -58,6 +58,8 @@ class OSSUtil(now: Long) {
   val removeFiles: Seq[RemoveFile] =
     addFiles.map(_.removeWithTimestamp(now + 100, dataChange = true))
 
+  val setTransaction: SetTransaction = SetTransaction("appId", 123, Some(now + 200))
+
   def getCommitInfoAt(log: DeltaLog, version: Long): CommitInfo = {
     log.update()
 

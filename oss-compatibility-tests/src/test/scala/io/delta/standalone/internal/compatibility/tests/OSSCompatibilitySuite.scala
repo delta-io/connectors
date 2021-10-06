@@ -60,6 +60,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
     compareMetadata(ss.metadata, oo.metadata)
     compareAddFiles(ss.addFiles, oo.addFiles)
     compareRemoveFiles(ss.removeFiles, oo.removeFiles)
+    compareSetTransaction(ss.setTransaction, oo.setTransaction)
   }
 
   /**
@@ -95,7 +96,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
       // === OSS commit Metadata & CommitInfo ===
       val ossTxn1 = ossLog.startTransaction()
-      ossTxn1.commit(Seq(oo.metadata), oo.op)
+      ossTxn1.commit(oo.metadata :: Nil, oo.op)
 
       // case 1b
       compareMetadata(standaloneLog.update().getMetadata, ossLog.update().metadata)
@@ -152,6 +153,30 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
       // case 4b
       assertRemoveFiles()
+
+      // === Standalone commit SetTransaction ===
+      val standaloneTxn6 = standaloneLog.startTransaction()
+      standaloneTxn6.commit(Iterable(ss.setTransaction).asJava, ss.op, ss.engineInfo)
+
+      def assertSetTransactions(): Unit = {
+        standaloneInternalLog.update()
+        ossLog.update()
+        assert(standaloneInternalLog.snapshot.setTransactionsScala.length == 1)
+        assert(ossLog.snapshot.setTransactions.length == 1)
+        compareSetTransaction(
+          standaloneInternalLog.snapshot.setTransactions.head,
+          ossLog.snapshot.setTransactions.head)
+      }
+
+      // case 5a
+      assertSetTransactions()
+
+      // === OSS commit SetTransaction ===
+      val ossTxn7 = ossLog.startTransaction()
+      ossTxn7.commit(oo.setTransaction :: Nil, oo.op)
+
+      // case 5b
+      assertSetTransactions()
     }
   }
 

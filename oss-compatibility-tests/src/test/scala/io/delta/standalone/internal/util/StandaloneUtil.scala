@@ -21,7 +21,7 @@ import java.util.Collections
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile, Format, Metadata, RemoveFile}
+import io.delta.standalone.actions.{AddFile, Format, Metadata, RemoveFile, SetTransaction}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.Operation
 
@@ -75,4 +75,7 @@ class StandaloneUtil(now: Long) {
       .tags(a.getTags)
       .build()
   }
+
+  val setTransaction: SetTransaction =
+    new SetTransaction("appId", 123, java.util.Optional.of(now + 200))
 }
