@@ -73,16 +73,17 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    * case 2a: standalone, oss, CommitInfo
    * case 2b: oss, standalone, CommitInfo
    *
-   * case 3a: standalone, oss, AddFile
-   * case 3b: oss, standalone, AddFile
+   * case 3a: standalone, oss, Protocol
+   * case 3b: oss, standalone, Protocol
    *
-   * case 4a: standalone, oss, RemoveFile
-   * case 4b: oss, standalone, RemoveFile
+   * case 4a: standalone, oss, AddFile
+   * case 4b: oss, standalone, AddFile
    *
-   * case 5a: standalone, oss, SetTransaction
-   * case 5b: oss, standalone, SetTransaction
+   * case 5a: standalone, oss, RemoveFile
+   * case 5b: oss, standalone, RemoveFile
    *
-   * TODO: protocol, cdc
+   * case 6a: standalone, oss, SetTransaction
+   * case 6b: oss, standalone, SetTransaction
    */
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, standaloneInternalLog, ossLog) =>
@@ -96,6 +97,9 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       // case 2a
       compareCommitInfo(standaloneLog.getCommitInfoAt(0), oo.getCommitInfoAt(ossLog, 0))
 
+      // case 3a
+      compareProtocol(standaloneInternalLog.update().protocol, ossLog.snapshot.protocol)
+
       // === OSS commit Metadata & CommitInfo ===
       val ossTxn1 = ossLog.startTransaction()
       ossTxn1.commit(oo.metadata :: Nil, oo.op)
@@ -106,6 +110,9 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       // case 2b
       compareCommitInfo(standaloneLog.getCommitInfoAt(1), oo.getCommitInfoAt(ossLog, 1))
 
+      // case 3b
+      compareProtocol(standaloneInternalLog.update().protocol, ossLog.snapshot.protocol)
+
       // === Standalone commit AddFiles ===
       val standaloneTxn2 = standaloneLog.startTransaction()
       standaloneTxn2.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
@@ -113,20 +120,25 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       def assertAddFiles(): Unit = {
         standaloneLog.update()
         ossLog.update()
+
+        val scanFiles = standaloneLog.snapshot().scan().getFiles.asScala.toSeq
         assert(standaloneLog.snapshot().getAllFiles.size() == ss.addFiles.size)
+        assert(scanFiles.size == ss.addFiles.size)
         assert(ossLog.snapshot.allFiles.count() == ss.addFiles.size)
+
         compareAddFiles(
           standaloneLog.update().getAllFiles.asScala, ossLog.update().allFiles.collect())
+        compareAddFiles(scanFiles, ossLog.update().allFiles.collect())
       }
 
-      // case 3a
+      // case 4a
       assertAddFiles()
 
       // === OSS commit AddFiles ===
       val ossTxn3 = ossLog.startTransaction()
       ossTxn3.commit(oo.addFiles, oo.op)
 
-      // case 3b
+      // case 4b
       assertAddFiles()
 
       // === Standalone commit RemoveFiles ===
@@ -146,14 +158,14 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
           standaloneInternalLog.snapshot.tombstones, ossLog.snapshot.tombstones.collect())
       }
 
-      // case 4a
+      // case 5a
       assertRemoveFiles()
 
       // === OSS commit RemoveFiles ===
       val ossTxn5 = ossLog.startTransaction()
       ossTxn5.commit(oo.removeFiles, oo.op)
 
-      // case 4b
+      // case 5b
       assertRemoveFiles()
 
       // === Standalone commit SetTransaction ===
@@ -170,16 +182,20 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
           ossLog.snapshot.setTransactions.head)
       }
 
-      // case 5a
+      // case 6a
       assertSetTransactions()
 
       // === OSS commit SetTransaction ===
       val ossTxn7 = ossLog.startTransaction()
       ossTxn7.commit(oo.setTransaction :: Nil, oo.op)
 
-      // case 5b
+      // case 6b
       assertSetTransactions()
     }
+  }
+
+  test("Standalone (with fixed Protocol(1, 2)) read from higher protocol OSS table") {
+    // TODO
   }
 
   test("concurrency conflicts") {

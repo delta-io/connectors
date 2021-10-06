@@ -24,7 +24,7 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import io.delta.standalone.{DeltaScan, Snapshot}
-import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
+import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ, Protocol => ProtocolJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
@@ -100,6 +100,7 @@ private[internal] class SnapshotImpl(
   def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
   def setTransactions: Seq[SetTransactionJ] =
     state.setTransactions.map(ConversionUtils.convertSetTransaction)
+  def protocol: ProtocolJ = ConversionUtils.convertProtocol(state.protocol)
 
   def allFilesScala: Seq[AddFile] = state.activeFiles.toSeq
   def tombstonesScala: Seq[RemoveFile] = state.tombstones.toSeq

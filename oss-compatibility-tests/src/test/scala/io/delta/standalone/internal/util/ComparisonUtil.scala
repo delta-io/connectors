@@ -84,6 +84,13 @@ trait ComparisonUtil {
     compareOptions(standalone.getUserMetadata, oss.userMetadata)
   }
 
+  def compareProtocol(
+      standalone: io.delta.standalone.actions.Protocol,
+      oss: org.apache.spark.sql.delta.actions.Protocol): Unit = {
+    assert(standalone.getMinReaderVersion == oss.minReaderVersion)
+    assert(standalone.getMinWriterVersion == oss.minWriterVersion)
+  }
+
   def compareAddFiles(
       standaloneFiles: Seq[io.delta.standalone.actions.AddFile],
       ossFiles: Seq[org.apache.spark.sql.delta.actions.AddFile]): Unit = {
