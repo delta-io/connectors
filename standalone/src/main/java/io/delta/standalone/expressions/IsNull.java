@@ -5,7 +5,7 @@ import io.delta.standalone.types.BooleanType;
 import io.delta.standalone.types.DataType;
 
 /**
- * Usage: new IsNull(expr) - Returns true if `expr` is null, else false.
+ * Usage: {@code new IsNull(expr)} - Returns true if `expr` is null, else false.
  */
 public class IsNull extends UnaryExpression implements Predicate {
     public IsNull(Expression child) {

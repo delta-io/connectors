@@ -1,7 +1,7 @@
 package io.delta.standalone.expressions;
 
 /**
- * Usage: new Or(expr1, expr2) - Logical OR
+ * Usage: {@code new Or(expr1, expr2)} - Logical OR
  */
 public final class Or extends BinaryOperator implements Predicate {
 

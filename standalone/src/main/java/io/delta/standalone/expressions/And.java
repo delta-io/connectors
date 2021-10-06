@@ -1,7 +1,7 @@
 package io.delta.standalone.expressions;
 
 /**
- * Usage: new And(expr1, expr2) - Logical AND
+ * Usage: {@code new And(expr1, expr2)} - Logical AND
  */
 public final class And extends BinaryOperator implements Predicate {
 

@@ -94,6 +94,8 @@ class ExpressionSuite extends FunSuite {
 
   test("comparison predicates") {
 
+    // todo: if we are supporting Array, Struct and Map types check error thrown for comparisons
+
     // (small, big)
     val literals = Seq(
       (Literal.of(1), Literal.of(2), Literal.of(1)), // IntegerType

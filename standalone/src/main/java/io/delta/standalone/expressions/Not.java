@@ -1,7 +1,7 @@
 package io.delta.standalone.expressions;
 
 /**
- * Usage: new Not(expr) - Logical not.
+ * Usage: {@code new Not(expr)} - Logical not.
  */
 public class Not extends UnaryExpression implements Predicate {
     public Not(Expression child) {
