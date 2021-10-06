@@ -81,6 +81,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    *
    * case 5a: standalone, oss, SetTransaction
    * case 5b: oss, standalone, SetTransaction
+   *
+   * TODO: protocol, cdc
    */
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, standaloneInternalLog, ossLog) =>
