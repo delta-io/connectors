@@ -29,6 +29,15 @@ class ExpressionSuite extends FunSuite {
     assert(predicate.eval(record) == expectedResult.getOrElse(null))
   }
 
+  private def testException[T <: Throwable](
+                           f: => Any,
+                           messageContains: String)(implicit manifest: Manifest[T]) = {
+    val e = intercept[T]{
+      f;
+    }.getMessage
+    assert(e.contains(messageContains))
+  }
+
   test("logical predicates") {
     // AND tests
     testPredicate(
@@ -43,12 +52,12 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new And(Literal.True, Literal.False), expectedResult = Some(false))
     testPredicate(new And(Literal.False, Literal.True), expectedResult = Some(false))
     testPredicate(new And(Literal.True, Literal.True), expectedResult = Some(true))
-    intercept[IllegalArgumentException] {
-      new And(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null)
-    }
-    intercept[IllegalArgumentException] {
-      new And(Literal.False, Literal.of(null, new NullType())) // is this desired behavior?
-    }
+    testException[IllegalArgumentException](
+      new And(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null),
+      "'And' expression children.eval results must be Booleans")
+    testException[IllegalArgumentException]( // is this desired behavior?
+      new And(Literal.False, Literal.of(null, new NullType())),
+      "BinaryOperator left and right DataTypes must be the same")
 
     // OR tests
     testPredicate(
@@ -64,20 +73,20 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Or(Literal.False, Literal.True), expectedResult = Some(true))
     testPredicate(new Or(Literal.True, Literal.True), expectedResult = Some(true))
     // TODO: is this what we want? should it fail upon creation instead of eval???
-    intercept[IllegalArgumentException] {
-      new Or(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null)
-    }
-    intercept[IllegalArgumentException] {
-      new Or(Literal.False, Literal.of(null, new NullType())) // is this desired behavior?
-    }
+    testException[IllegalArgumentException](
+      new Or(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())).eval(null),
+      "'Or' expression left.eval and right.eval results must be Booleans")
+    testException[IllegalArgumentException](
+      new Or(Literal.False, Literal.of(null, new NullType())),
+      "BinaryOperator left and right DataTypes must be the same") // is this desired behavior?
 
     // NOT tests
     testPredicate(new Not(Literal.False), expectedResult = Some(true))
     testPredicate(new Not(Literal.True), expectedResult = Some(false))
     testPredicate(new Not(Literal.of(null, new BooleanType())), None)
-    intercept[IllegalArgumentException] {
-      new Not(Literal.of(1, new IntegerType())).eval(null)
-    }
+    testException[IllegalArgumentException](
+      new Not(Literal.of(1, new IntegerType())).eval(null),
+      "'Not' expression child.eval result must be a Boolean")
   }
 
   // TODO: do we need to test the (x,  null), (null, x) = null for every BinaryComparison?
@@ -137,25 +146,22 @@ class ExpressionSuite extends FunSuite {
 
   test("In predicate") {
     // IN TESTS
-    // value == null throws exception
-    intercept[IllegalArgumentException] {
-      new In(null, List(Literal.True, Literal.True).asJava)
-    }
-    // elems == null throws exception
-    intercept[IllegalArgumentException] {
-      new In(Literal.True, null)
-    }
-    // empty elems throws exception
-    intercept[IllegalArgumentException] {
-      new In(Literal.True, List().asJava)
-    }
+    testException[IllegalArgumentException](
+      new In(null, List(Literal.True, Literal.True).asJava),
+      "'In' expression 'value' cannot be null")
+    testException[IllegalArgumentException](
+      new In(Literal.True, null),
+      "'In' expression 'elems' cannot be null")
+    testException[IllegalArgumentException](
+      new In(Literal.True, List().asJava),
+      "'In' expression 'elems' cannot be empty")
     // mismatched DataTypes throws exception
-    intercept[IllegalArgumentException] {
-      new In(Literal.of(1, new IntegerType()), List(Literal.True, Literal.True).asJava)
-    }
-    intercept[IllegalArgumentException] {
-      new In(Literal.True, List(Literal.of(1, new IntegerType()), Literal.True).asJava)
-    }
+    testException[IllegalArgumentException](
+      new In(Literal.of(1, new IntegerType()), List(Literal.True, Literal.True).asJava),
+      "In expression 'elems' and 'value' must all be of the same DataType")
+    testException[IllegalArgumentException](
+      new In(Literal.True, List(Literal.of(1, new IntegerType()), Literal.True).asJava),
+      "In expression 'elems' and 'value' must all be of the same DataType")
     // value.eval() null -> null
     testPredicate(new In(new Literal(null, new BooleanType()), List(Literal.True).asJava), None)
     // value in list (w/ null in  list)
@@ -185,10 +191,9 @@ class ExpressionSuite extends FunSuite {
 
   // pending other decisions to update later
   private def testValidateLiteral(value: Any, dataType: DataType) = {
-    val e = intercept[IllegalArgumentException] {
-      Literal.of(value, dataType)
-    }.getMessage
-    assert(e.contains("Invalid literal creation"))
+    testException[IllegalArgumentException](
+      Literal.of(value, dataType),
+      "Invalid literal creation")
   }
 
   test("Literal tests") {
@@ -301,38 +306,41 @@ class ExpressionSuite extends FunSuite {
     assert(buildPartitionRowRecord(new IntegerType(), true, null).isNullAt("test"))
 
     assert(!testPartitionRowRecord.isNullAt("test"))
-    intercept[IllegalArgumentException] {
-      testPartitionRowRecord.isNullAt("foo")
-    }
+    testException[IllegalArgumentException](
+      testPartitionRowRecord.isNullAt("foo"),
+      "requirement failed")
 
     // field does not exist
     // should this be tested for every getter?
-    intercept[IllegalArgumentException]{
-      testPartitionRowRecord.getInt("foo")
-    }
+    testException[IllegalArgumentException](
+      testPartitionRowRecord.getInt("foo"),
+      "requirement failed")
+
     // test wrong DataType
     // should this be tested for every getter?
-    intercept[ClassCastException]{
-      println(testPartitionRowRecord.getLong("test"))
-    }
+    testException[ClassCastException](
+      testPartitionRowRecord.getLong("test"),
+      "Mismatched DataType for Field")
 
+    // TODO: test these programatically?
     //primitive types can't be null (per rowrecord interface?)
     //getInt
     assert(buildPartitionRowRecord(new IntegerType(), true, "0").getInt("test") == 0)
     assert(buildPartitionRowRecord(new IntegerType(), true, "5").getInt("test") == 5)
     assert(buildPartitionRowRecord(new IntegerType(), true, "-5").getInt("test") == -5)
-    intercept[NullPointerException]{
-      buildPartitionRowRecord(new IntegerType(), true, "").getInt("test")
-    }
+    testException[NullPointerException](
+      buildPartitionRowRecord(new IntegerType(), true, "").getInt("test"),
+      "null value found for primitive DataType")
     //getLong
     assert(buildPartitionRowRecord(new LongType(), true, "0").getLong("test") == 0L)
     assert(buildPartitionRowRecord(new LongType(), true, "5").getLong("test") == 5L)
     assert(buildPartitionRowRecord(new LongType(), true, "-5").getLong("test") == -5L)
-    intercept[NullPointerException]{
-      buildPartitionRowRecord(new LongType(), true, "").getLong("test")
-    }
+    testException[NullPointerException](
+      buildPartitionRowRecord(new LongType(), true, "").getLong("test"),
+      "null value found for primitive DataType")
     //getByte
     //long
+    //byte
     //byte
     //short
     //boolean
@@ -347,22 +355,22 @@ class ExpressionSuite extends FunSuite {
       sameElements Array(1.toByte, 2.toByte))
     assert(buildPartitionRowRecord(new BinaryType(), true, "\u0000").getBinary("test")
       sameElements Array(0.toByte))
-    intercept[NullPointerException]{
-      buildPartitionRowRecord(new BinaryType(), false, "").getBinary("test")
-    }
+    testException[NullPointerException](
+      buildPartitionRowRecord(new BinaryType(), false, "").getBinary("test"),
+      "null value found for non-nullable Field")
     //bigdecimal
     //timestamp
     //date
 
-    intercept[UnsupportedOperationException]{
-      testPartitionRowRecord.getRecord("test")
-    }
-    intercept[UnsupportedOperationException]{
-      testPartitionRowRecord.getList("test")
-    }
-    intercept[UnsupportedOperationException]{
-      testPartitionRowRecord.getMap("test")
-    }
+    testException[UnsupportedOperationException](
+      testPartitionRowRecord.getRecord("test"),
+      "Struct is not a supported partition type.")
+    testException[UnsupportedOperationException](
+      testPartitionRowRecord.getList("test"),
+      "Array is not a supported partition type.")
+    intercept[UnsupportedOperationException](
+      testPartitionRowRecord.getMap("test"),
+      "Map is not a supported partition type.")
   }
 
   // TODO: add nested expression tree tests?
