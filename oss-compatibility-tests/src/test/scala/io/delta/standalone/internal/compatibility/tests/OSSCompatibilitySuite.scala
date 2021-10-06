@@ -59,6 +59,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
   test("assert static actions are the same (without any writes/reads)") {
     compareMetadata(ss.metadata, oo.metadata)
     compareAddFiles(ss.addFiles, oo.addFiles)
+    compareRemoveFiles(ss.removeFiles, oo.removeFiles)
   }
 
   /**
@@ -76,6 +77,9 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
    *
    * case 4a: standalone, oss, RemoveFile
    * case 4b: oss, standalone, RemoveFile
+   *
+   * case 5a: standalone, oss, SetTransaction
+   * case 5b: oss, standalone, SetTransaction
    */
   test("read/write actions") {
     withTempDirAndLogs { (_, standaloneLog, standaloneInternalLog, ossLog) =>

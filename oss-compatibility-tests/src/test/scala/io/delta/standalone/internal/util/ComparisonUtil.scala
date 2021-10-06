@@ -70,12 +70,18 @@ trait ComparisonUtil {
     compareOptions(standalone.getUserId, oss.userId)
     compareOptions(standalone.getUserName, oss.userName)
     assert(standalone.getOperation == oss.operation)
-    assert(standalone.getOperationParameters.asScala == oss.operationParameters)
+    compareNullableMaps(standalone.getOperationParameters, oss.operationParameters)
     // TODO: job
     // TODO: notebook
     compareOptions(standalone.getClusterId, oss.clusterId)
     compareOptions(standalone.getReadVersion, oss.readVersion)
     compareOptions(standalone.getIsolationLevel, oss.isolationLevel)
+    compareOptions(standalone.getIsBlindAppend, oss.isBlindAppend)
+    assert(standalone.getOperationMetrics.isPresent == oss.operationMetrics.isDefined)
+    if (standalone.getOperationMetrics.isPresent) {
+      compareNullableMaps(standalone.getOperationMetrics.get(), oss.operationMetrics.get)
+    }
+    compareOptions(standalone.getUserMetadata, oss.userMetadata)
   }
 
   def compareAddFiles(
