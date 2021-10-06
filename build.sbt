@@ -23,11 +23,9 @@ crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-val sparkVersion = "2.4.3"
 val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
 val tezVersion = "0.9.2"
-val hiveDeltaVersion = "0.5.0"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -344,13 +342,13 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
     skipReleaseSettings,
     libraryDependencies ++= Seq(
       // Test Dependencies
-      "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
+      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test",
       "io.delta" % "delta-core_2.12" % "1.0.0" % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test" classifier "tests"
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
     )
   )
 
@@ -377,7 +375,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
+      "org.apache.spark" %% "spark-sql" % "2.4.3" % "provided",
       "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % "test",

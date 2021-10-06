@@ -25,8 +25,8 @@ import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDele
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.ConversionUtils
-import io.delta.standalone.types.{StringType, StructField, StructType}
+import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
+import io.delta.standalone.types._
 import io.delta.standalone.internal.util.TestUtils._
 
 import org.apache.hadoop.conf.Configuration
@@ -37,9 +37,6 @@ import org.scalatest.FunSuite
 
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
-
-  implicit def exprSeqToList[T <: Expression](seq: Seq[T]): java.util.List[Expression] =
-    seq.asInstanceOf[Seq[Expression]].asJava
 
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
@@ -326,6 +323,151 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  test("unenforceable not null constraints") {
+    val validSchema = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
+          true)
+      )
+    ))
+
+    SchemaUtils.checkUnenforceableNotNullConstraints(validSchema) // should not throw
+
+    // case 1: not null within array
+    val inValidSchema1 = new StructType(
+      Array(
+        new StructField(
+          "arr",
+          new ArrayType(
+            new StructType(
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            false // arr (ArrayType) containsNull
+          )
+        )
+      )
+    )
+
+    val e1 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema1)
+    }.getMessage
+
+    assert(e1.contains("The element type of the field arr contains a NOT NULL constraint."))
+
+    // case 2: null within map key
+    val inValidSchema2 = new StructType(
+      Array(
+        new StructField(
+          "m",
+          new MapType(
+            new StructType( // m.key
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            new IntegerType(), // m.value
+            false // m (MapType) valueContainsNull
+          )
+        )
+      )
+    )
+
+    val e2 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema2)
+    }.getMessage
+
+    assert(e2.contains("The key type of the field m contains a NOT NULL constraint."))
+
+    // case 3: null within map key
+    val inValidSchema3 = new StructType(
+      Array(
+        new StructField(
+          "m",
+          new MapType(
+            new IntegerType(), // m.key
+            new StructType( // m.value
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            false // m (MapType) valueContainsNull
+          )
+        )
+      )
+    )
+
+    val e3 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema3)
+    }.getMessage
+
+    assert(e3.contains("The value type of the field m contains a NOT NULL constraint."))
+
+    // case 4: not null within nested array
+    val inValidSchema4 = new StructType(
+      Array(
+        new StructField(
+          "s",
+          new StructType(
+            Array(
+              new StructField("n", new IntegerType, false),
+              new StructField(
+                "arr",
+                new ArrayType(
+                  new StructType(
+                    Array(
+                      new StructField("name", new StringType(), true),
+                      new StructField("mailbox", new StringType(), false)
+                    )
+                  ),
+                  true // arr (ArrayType) containsNull
+                ),
+                false // arr (StructField) nullable
+              )
+            )
+          ),
+          true // s (StructField) nullable
+        )
+      )
+    )
+
+    val e4 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema4)
+    }.getMessage
+
+    assert(e4.contains("The element type of the field s.arr contains a NOT NULL constraint."))
+  }
+
+  test("updateMetadata withGlobalConfigDefaults") {
+    // TODO: use DeltaConfigs...
+    withTempDir { dir =>
+      // note that the default for logRetentionDuration is 2592000000
+      val hadoopConf = new Configuration()
+      hadoopConf.set("logRetentionDuration", "1000")
+      val metadata = Metadata(configuration = Map("logRetentionDuration" -> "2000"))
+
+      val log = DeltaLogImpl.forTable(hadoopConf, dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
+
+      assert(log.deltaRetentionMillis == 2000)
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // verifyNewMetadata() tests
   ///////////////////////////////////////////////////////////////////////////
@@ -351,10 +493,6 @@ class OptimisticTransactionSuite extends FunSuite {
     testMetadata[RuntimeException](Metadata(partitionColumns = "bad;column,name" :: Nil),
       "Found partition columns having invalid character(s)")
   }
-
-  // TODO: test updateMetadata > unenforceable not null constraints removed from metadata schemaStr
-
-  // TODO: test updateMetadata > withGlobalConfigDefaults
 
   ///////////////////////////////////////////////////////////////////////////
   // commit() tests
@@ -394,7 +532,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn2 = log2.startTransaction()
-      txn2.markFilesAsRead(java.util.Arrays.asList(Literal.True))
+      txn2.markFilesAsRead(Literal.True)
       txn2.commit(add :: Nil, manualUpdate, engineInfo)
       verifyIsBlindAppend(2, expected = false)
     }
@@ -455,11 +593,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // TX1 reads only P1
-      val tx1Read = tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
-      assert(tx1Read.asScala.map(_.getPath) == A_P1 :: Nil)
+      val tx1Read = tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
+      assert(tx1Read.getFiles.asScala.toSeq.map(_.getPath) == A_P1 :: Nil)
 
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       // TX2 modifies only P1
       tx2.commit(addB_P1 :: Nil, manualUpdate, engineInfo)
 
@@ -475,11 +613,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // TX1 full table scan
-      tx1.markFilesAsRead(Literal.True :: Nil)
-      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+      tx1.markFilesAsRead(Literal.True)
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
 
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       tx2.commit(addC_P2 :: addD_P2.remove :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentAppendException] {
@@ -492,10 +630,10 @@ class OptimisticTransactionSuite extends FunSuite {
     // This tests the case when isolationLevel == SnapshotIsolation
     withLog(addA_P1 :: addB_P1 :: Nil) { log =>
       val tx1 = log.startTransaction()
-      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx1.markFilesAsRead(Literal.True)
 
       val tx2 = log.startTransaction()
-      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx1.markFilesAsRead(Literal.True)
       tx2.commit(addE_P3 :: Nil, manualUpdate, engineInfo)
 
       // tx1 rearranges files (dataChange = false)
@@ -518,11 +656,11 @@ class OptimisticTransactionSuite extends FunSuite {
       val schema = log.update().getMetadata.getSchema
       val tx1 = log.startTransaction()
       // read P1
-      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")))
 
       // tx2 commits before tx1
       val tx2 = log.startTransaction()
-      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.markFilesAsRead(Literal.True)
       tx2.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentDeleteReadException] {
