@@ -1,6 +1,7 @@
 package io.delta.standalone.internal.expressions;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.Date;
 
 import io.delta.standalone.expressions.CastingComparator;
@@ -8,7 +9,7 @@ import io.delta.standalone.types.*;
 
 public final class Util {
 
-    public static CastingComparator<?> createCastingComparator(DataType dataType) {
+    public static Comparator<Object> createComparator(DataType dataType) {
         if (dataType instanceof IntegerType) {
             return new CastingComparator<Integer>();
         }
@@ -49,7 +50,24 @@ public final class Util {
             return new CastingComparator<Date>();
         }
 
-        // TODO: should we be able to compare binary values? what about strings?
+        if (dataType instanceof StringType) {
+            return new CastingComparator<String>();
+        }
+
+        if (dataType instanceof BinaryType) {
+            return (o1, o2) -> {
+                byte[] one = (byte[]) o1;
+                byte[] two = (byte[]) o2;
+                int i = 0;
+                while (i < one.length && i < two.length) {
+                    if (one[i] != two[i]) {
+                        return Byte.compare(one[i], two[i]);
+                    }
+                    i ++;
+                }
+                return Integer.compare(one.length, two.length);
+            };
+        }
 
         // unsupported comparison types: ArrayType, StructType, MapType
         throw new IllegalArgumentException("Couldn't find matching comparator for DataType: " + dataType.toString());

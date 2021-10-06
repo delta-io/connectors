@@ -43,6 +43,7 @@ public final class Literal extends LeafExpression {
         return String.valueOf(value);
     }
 
+    // unnecessary pending needed literal types
     private static void validateLiteralValue(Object value, DataType dataType) {
         if (value == null) return;
         if ((dataType instanceof BinaryType && value instanceof byte[]) ||
@@ -126,7 +127,58 @@ public final class Literal extends LeafExpression {
         return Objects.hash(value, dataType);
     }
 
-    public static Literal of(Object value, DataType type) { return new Literal(value, type); }
+    public static Literal of(int value) {
+        return new Literal(value, new IntegerType());
+    }
 
-    //todo: could also do of(Object value, IntegerType type) etc for each type?????? validate within
+    public static Literal of(boolean value) {
+        return new Literal(value, new BooleanType());
+    }
+
+    public static Literal of(byte[] value) {
+        return new Literal(value, new BinaryType());
+    }
+
+    public static Literal of(Date value) {
+        return new Literal(value, new DateType());
+    }
+
+    public static Literal of(BigDecimal value) {
+        //TODO: get the precision and scale from the value
+        return new Literal(value, DecimalType.USER_DEFAULT);
+    }
+
+    public static Literal of(double value) {
+        return new Literal(value, new DoubleType());
+    }
+
+    public static Literal of(float value) {
+        return new Literal(value, new FloatType());
+    }
+
+    public static Literal of(long value) {
+        return new Literal(value, new LongType());
+    }
+
+    public static Literal of(short value) {
+        return new Literal(value, new ShortType());
+    }
+
+    public static Literal of(String value) {
+        return new Literal(value, new StringType());
+    }
+
+    public static Literal of(Timestamp value) {
+        return new Literal(value, new TimestampType());
+    }
+
+    public static Literal of(byte value) {
+        return new Literal(value, new ByteType());
+    }
+
+
+    // TODO: expose null values somehow
+
+    // todo: if we are not having literals of the other types this is unnecessary (and validate)
+    public static Literal of(Object value, DataType type) { return new Literal(value, type); }
 }

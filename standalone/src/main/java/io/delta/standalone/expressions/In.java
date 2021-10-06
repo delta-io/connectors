@@ -3,6 +3,7 @@ package io.delta.standalone.expressions;
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.internal.expressions.Util;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -13,7 +14,7 @@ import java.util.stream.Stream;
 public final class In implements Predicate {
     private final Expression value;
     private final List<? extends Expression> elems;
-    private final CastingComparator<?> comparator;
+    private final Comparator<Object> comparator;
 
     public In(Expression value, List<? extends Expression> elems) {
         if (null == value) {
@@ -34,7 +35,7 @@ public final class In implements Predicate {
 
         this.value = value;
         this.elems = elems;
-        this.comparator = Util.createCastingComparator(value.dataType());
+        this.comparator = Util.createComparator(value.dataType());
         // TODO: this only allows certain dataTypes, do we want it to be broader than this?
     }
 
@@ -47,7 +48,7 @@ public final class In implements Predicate {
         for (Expression setElem : elems) {
             Object setElemValue = setElem.eval(record);
             if (setElemValue == null) result = null;
-            if (comparator.compare(origValue, setElemValue) == 0) return true;
+            else if (comparator.compare(origValue, setElemValue) == 0) return true;
         }
         return result;
     }

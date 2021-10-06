@@ -83,143 +83,44 @@ class ExpressionSuite extends FunSuite {
   // TODO: do we need to test the (x,  null), (null, x) = null for every BinaryComparison?
   //  what about for dataType != dataType?
 
-
   test("comparison predicates") {
-    // EQUALTO tests
-    // IntegerType
-    testPredicate(
-      new EqualTo(Literal.of(1, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new EqualTo(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new EqualTo(Literal.of(2, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(false))
-    // BooleanType
-    testPredicate(new EqualTo(Literal.True, Literal.True), expectedResult = Some(true))
-    testPredicate(new EqualTo(Literal.True, Literal.False), expectedResult = Some(false))
-    testPredicate(new EqualTo(Literal.False, Literal.True), expectedResult = Some(false))
-    // FloatType
+
+    // (small, big)
+    val literals = Seq(
+      (Literal.of(1), Literal.of(2), Literal.of(1)), // IntegerType
+      (Literal.of(1.0F), Literal.of(2.0F), Literal.of(1.0F)), // FloatType
+      (Literal.of(1L), Literal.of(2L), Literal.of(1L)), // LongType
+      (Literal.of(1.toShort), Literal.of(2.toShort), Literal.of(1.toShort)), // ShortType
+      (Literal.of(1.0), Literal.of(2.0), Literal.of(1.0)), // DoubleType
+      (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte)), // ByteType
+      (Literal.of(new BigDecimalJ("0.1")), Literal.of(new BigDecimalJ("0.2")),
+        Literal.of(new BigDecimalJ("0.1"))), // DecimalType
+      (Literal.False, Literal.True, Literal.False), // BooleanType
+      (Literal.of(new TimestampJ(0)), Literal.of(new TimestampJ(1000000)),
+      Literal.of(new TimestampJ(0))), // TimestampType
+      (Literal.of(new DateJ(0)), Literal.of(new DateJ(1000000)),
+        Literal.of(new DateJ(0))), // DateType
+      (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples")), // StringType
+      (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()), Literal.of("apples".getBytes())), // BinaryType
+      // todo: add additional tests for custom implemented binary comparisons?
+    )
+
+    val predicates = Seq(
+      ((a: Literal, b: Literal) => new LessThan(a, b), (true, false, false)),
+      ((a: Literal, b: Literal) => new LessThanOrEqual(a, b), (true, false, true)),
+      ((a: Literal, b: Literal) => new GreaterThan(a, b), (false, true, false)),
+      ((a: Literal, b: Literal) => new GreaterThanOrEqual(a, b), (false, true, true)),
+      ((a: Literal, b: Literal) => new EqualTo(a, b), (false, false, true)),
+    )
+
+    literals.foreach { case (small, big, small2) =>
+      predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
+        testPredicate(predicateCreator(small, big), Some(smallBig))
+        testPredicate(predicateCreator(big, small), Some(bigSmall))
+        testPredicate(predicateCreator(small, small2), Some(smallSmall))
+        }
+    }
     // todo: future work--should we support automatic casting between compatible types?
-    testPredicate(
-      new EqualTo(Literal.of(1.0F, new FloatType()), Literal.of(1.0F, new FloatType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new EqualTo(Literal.of(1.0F, new FloatType()), Literal.of(2.0F, new FloatType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new EqualTo(Literal.of(2.0F, new FloatType()), Literal.of(1.0F, new FloatType())),
-      expectedResult = Some(false))
-    // LongType
-    testPredicate(
-      new EqualTo(Literal.of(1L, new LongType()), Literal.of(1L, new LongType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new EqualTo(Literal.of(1L, new LongType()), Literal.of(2L, new LongType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new EqualTo(Literal.of(2L, new LongType()), Literal.of(1L, new LongType())),
-      expectedResult = Some(false))
-    // ByteType
-    // ShortType
-    // DoubleType
-    testPredicate(
-      new EqualTo(Literal.of(1.0, new DoubleType()), Literal.of(1.0, new DoubleType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new EqualTo(Literal.of(1.0, new DoubleType()), Literal.of(2.0, new DoubleType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new EqualTo(Literal.of(2.0, new DoubleType()), Literal.of(1.0, new DoubleType())),
-      expectedResult = Some(false))
-    // DecimalType
-    // TimestampType
-    // DateType
-
-    // LESSTHAN tests
-    // IntegerType
-    testPredicate(
-      new LessThan(Literal.of(1, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new LessThan(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new LessThan(Literal.of(2, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(false))
-    // BooleanType
-    // FloatType
-    // LongType
-    // ByteType
-    // ShortType
-    // DoubleType
-    // DecimalType
-    // TimestampType
-    // DateType
-
-    // LESSTHANOREQUAL tests
-    // IntegerType
-    testPredicate(
-      new LessThanOrEqual(Literal.of(1, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new LessThanOrEqual(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new LessThanOrEqual(Literal.of(2, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(false))
-    // BooleanType
-    // FloatType
-    // LongType
-    // ByteType
-    // ShortType
-    // DoubleType
-    // DecimalType
-    // TimestampType
-    // DateType
-
-    // GREATERTHAN tests
-    // IntegerType
-    testPredicate(
-      new GreaterThan(Literal.of(1, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new GreaterThan(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new GreaterThan(Literal.of(2, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(true))
-    // BooleanType
-    // FloatType
-    // LongType
-    // ByteType
-    // ShortType
-    // DoubleType
-    // DecimalType
-    // TimestampType
-    // DateType
-
-    // GREATERTHANOREQUAL tests
-    // IntegerType
-    testPredicate(
-      new GreaterThanOrEqual(Literal.of(1, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(true))
-    testPredicate(
-      new GreaterThanOrEqual(Literal.of(1, new IntegerType()), Literal.of(2, new IntegerType())),
-      expectedResult = Some(false))
-    testPredicate(
-      new GreaterThanOrEqual(Literal.of(2, new IntegerType()), Literal.of(1, new IntegerType())),
-      expectedResult = Some(true))
-    // BooleanType
-    // FloatType
-    // LongType
-    // ByteType
-    // ShortType
-    // DoubleType
-    // DecimalType
-    // TimestampType
-    // DateType
   }
 
   test("null predicates") {
@@ -282,27 +183,36 @@ class ExpressionSuite extends FunSuite {
     assert(Objects.equals(literal.eval(null), expectedResult.getOrElse(null)))
   }
 
+  // pending other decisions to update later
+  private def testValidateLiteral(value: Any, dataType: DataType) = {
+    val e = intercept[IllegalArgumentException] {
+      Literal.of(value, dataType)
+    }.getMessage
+    assert(e.contains("Invalid literal creation"))
+  }
+
   test("Literal tests") {
     // LITERAL tests
     testLiteral(Literal.True, Some(true))
     testLiteral(Literal.False, Some(false))
-    testLiteral(Literal.of(8.toByte, new ByteType()), Some(8.toByte))
-    testLiteral(Literal.of(1.0, new DoubleType()), Some(1.0))
-    testLiteral(Literal.of(2.0F, new FloatType()), Some(2.0F))
-    testLiteral(Literal.of(5, new IntegerType()), Some(5))
-    testLiteral(Literal.of(10L, new LongType()), Some(10L))
+    testLiteral(Literal.of(8.toByte), Some(8.toByte))
+    testLiteral(Literal.of(1.0), Some(1.0))
+    testLiteral(Literal.of(2.0F), Some(2.0F))
+    testLiteral(Literal.of(5), Some(5))
+    testLiteral(Literal.of(10L), Some(10L))
+    // todo: update when we decide how to treat null literal values
     testLiteral(Literal.of(null, new NullType()), None)
     // test null with different DataTypes?
-    testLiteral(Literal.of(5.toShort, new ShortType()), Some(5.toShort))
-    testLiteral(Literal.of("test", new StringType()), Some("test"))
+    testLiteral(Literal.of(5.toShort), Some(5.toShort))
+    testLiteral(Literal.of("test"), Some("test"))
     val curr_time = System.currentTimeMillis()
     testLiteral(
-      Literal.of(new TimestampJ(curr_time), new TimestampType()), Some(new TimestampJ(curr_time)))
-    testLiteral(Literal.of(new DateJ(curr_time), new DateType()), Some(new DateJ(curr_time)))
-    testLiteral(Literal.of(new BigDecimalJ("0.1"), new DecimalType(1, 1)),
+      Literal.of(new TimestampJ(curr_time)), Some(new TimestampJ(curr_time)))
+    testLiteral(Literal.of(new DateJ(curr_time)), Some(new DateJ(curr_time)))
+    testLiteral(Literal.of(new BigDecimalJ("0.1")),
       Some(new BigDecimalJ("0.1")))
     assert(ArraysJ.equals(
-      Literal.of("test".getBytes(), new BinaryType()).eval(null).asInstanceOf[Array[Byte]],
+      Literal.of("test".getBytes()).eval(null).asInstanceOf[Array[Byte]],
       "test".getBytes()))
     testLiteral(Literal.of(List(1, 2, 3).asJava, new ArrayType(new IntegerType(), false)),
       Some(List(1, 2, 3).asJava))
@@ -315,45 +225,14 @@ class ExpressionSuite extends FunSuite {
 
     // test ValidateLiteral
     // TODO: can we have null of any DataType? (add tests for maps, arrays, record etc pending ^^)
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new BinaryType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new BooleanType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new ByteType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new DateType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), DecimalType.USER_DEFAULT)
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(1, new DoubleType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(1.0, new FloatType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(1.0, new IntegerType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new LongType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(1, new NullType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new ShortType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new StringType())
-    }
-    intercept[IllegalArgumentException] {
-      Literal.of(Array(1, 2), new TimestampType())
-    }
+    val dataTypeSeq = Seq( new BinaryType(), new BooleanType(), new ByteType, new DateType(),
+      DecimalType.USER_DEFAULT, new DoubleType(), new FloatType(), new IntegerType(),
+      new LongType(), new ShortType(), new StringType(), new TimestampType())
+    // todo: pending other decisions add array, map, struct & null
+
+    // TODO: should we do this for all the types? or is one of each enough?
+    dataTypeSeq.filter(!_.isInstanceOf[IntegerType]).map(testValidateLiteral(0, _))
+    dataTypeSeq.filter(!_.isInstanceOf[LongType]).map(testValidateLiteral(0L, _))
   }
 
   private def testColumn(fieldName: String,
@@ -408,7 +287,7 @@ class ExpressionSuite extends FunSuite {
       Some(new BigDecimalJ("0.123")))
     testColumn("testTimestamp", new TimestampType(), partRowRecord, Some(new TimestampJ(12345678)))
     testColumn("testDate", new DateType(), partRowRecord, Some(new DateJ(70, 0, 1)))
-    // test struct, array, map with regular partition row record??
+    // todo: test struct, array, map with regular partition row record?? (pending decision)
   }
 
   private def buildPartitionRowRecord(dataType: DataType, nullable: Boolean, value: String) = {
