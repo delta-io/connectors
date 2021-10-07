@@ -18,11 +18,15 @@ package io.delta.standalone.internal
 
 import java.util.Collections
 
-import io.delta.standalone.actions.AddFile
+import scala.collection.JavaConverters._
+
+import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, SetTransaction => SetTransactionJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.expressions.{EqualTo, Literal}
+import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
 class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
-  private val addA = new AddFile("a", Collections.emptyMap(), 1, 1, true, null, null)
-  private val addB = new AddFile("b", Collections.emptyMap(), 1, 1, true, null, null)
+  private val addA = new AddFileJ("a", Collections.emptyMap(), 1, 1, true, null, null)
+  private val addB = new AddFileJ("b", Collections.emptyMap(), 1, 1, true, null, null)
 
   /* ************************** *
    * Allowed concurrent actions *
@@ -38,4 +42,39 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
       addA),
     actions = Seq(
       addB))
+
+  check(
+    "disjoint txns",
+    conflicts = false,
+    reads = Seq(
+      t => t.txnVersion("t1")
+    ),
+    concurrentWrites = Seq(
+      new SetTransactionJ("t2", 0, java.util.Optional.of(1234L))),
+    actions = Nil)
+
+  {
+    val schema = new StructType(Array(new StructField("x", new IntegerType())))
+
+    check(
+      "disjoint delete / read",
+      conflicts = false,
+      setup = Seq(
+        MetadataJ.builder()
+          .schema(schema)
+          .partitionColumns(Seq("x").asJava)
+          .build(),
+        new AddFileJ("a", Map("x" -> "2").asJava, 1, 1, true, null, null)
+      ),
+      reads = Seq(
+        t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      ),
+      concurrentWrites = Seq(
+        RemoveFileJ.builder("a").deletionTimestamp(4L).build()
+      ),
+      actions = Seq()
+    )
+  }
+
+
 }
