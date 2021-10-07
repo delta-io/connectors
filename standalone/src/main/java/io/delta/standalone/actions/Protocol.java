@@ -6,6 +6,12 @@ public class Protocol implements Action {
     private final int minReaderVersion;
     private final int minWriterVersion;
 
+    public Protocol() {
+        // TODO: have these statically and publically defined
+        this.minReaderVersion = 1;
+        this.minWriterVersion = 2;
+    }
+
     public Protocol(int minReaderVersion, int minWriterVersion) {
         this.minReaderVersion = minReaderVersion;
         this.minWriterVersion = minWriterVersion;
