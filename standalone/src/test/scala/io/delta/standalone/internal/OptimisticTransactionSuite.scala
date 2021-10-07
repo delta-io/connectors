@@ -76,5 +76,26 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
     )
   }
 
+  {
+    val schema = new StructType(Array(new StructField("x", new IntegerType())))
+
+    check(
+      "disjoint add / read",
+      conflicts = false,
+      setup = Seq(
+        MetadataJ.builder()
+          .schema(schema)
+          .partitionColumns(Seq("x").asJava)
+          .build()
+      ),
+      reads = Seq(
+        t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      ),
+      concurrentWrites = Seq(
+        new AddFileJ("a", Map("x" -> "2").asJava, 1, 1, true, null, null)
+      ),
+      actions = Seq()
+    )
+  }
 
 }
