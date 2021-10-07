@@ -1,29 +1,28 @@
 /*
- * DATABRICKS CONFIDENTIAL & PROPRIETARY
- * __________________
+ * Copyright (2020) The Delta Lake Project Authors.
  *
- * Copyright 2020-present Databricks, Inc.
- * All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * NOTICE:  All information contained herein is, and remains the property of Databricks, Inc.
- * and its suppliers, if any.  The intellectual and technical concepts contained herein are
- * proprietary to Databricks, Inc. and its suppliers and may be covered by U.S. and foreign Patents,
- * patents in process, and are protected by trade secret and/or copyright law. Dissemination, use,
- * or reproduction of this information is strictly forbidden unless prior written permission is
- * obtained from Databricks, Inc.
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * If you view or obtain a copy of this information and believe Databricks, Inc. may not have
- * intended it to be made available, please promptly report it to Databricks Legal Department
- * @ legal@databricks.com.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package io.delta.standalone.internal
 
 import java.util.{HashMap, Locale}
-import java.time.{Duration, Period}
 
+import io.delta.standalone.util.DateTimeConstants
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
+
 
 import org.apache.hadoop.conf.Configuration
 
@@ -36,8 +35,8 @@ case class DeltaConfig[T](
                            minimumProtocolVersion: Option[Protocol] = None,
                            editable: Boolean = true) {
   /**
-   * Recover the saved value of this configuration from `Metadata`. If undefined, fall back to
-   * alternate keys, returning defaultValue if none match.
+   * Recover the saved value of this configuration from `Metadata`.
+   * If undefined, return defaultValue.
    */
   def fromMetaData(metadata: Metadata): T = {
     fromString(metadata.configuration.getOrElse(key, defaultValue))
@@ -72,7 +71,7 @@ case class DeltaConfig[T](
  */
 trait DeltaConfigsBase {
 
-  // TODO: rewrite this without spark & update docs
+  // todo: update the docs when done
   /**
    * Convert a string to [[CalendarInterval]]. This method is case-insensitive and will throw
    * [[IllegalArgumentException]] when the input string is not a valid interval.
@@ -83,7 +82,7 @@ trait DeltaConfigsBase {
    *
    * @throws IllegalArgumentException if the string is not a valid internal.
    */
-  def parseCalendarInterval(s: String): (Period, Duration) = {
+  def parseCalendarInterval(s: String): CalendarInterval = {
     if (s == null || s.trim.isEmpty) {
       throw new IllegalArgumentException("Interval cannot be null or blank.")
     }
@@ -136,7 +135,7 @@ trait DeltaConfigsBase {
           }
       case keyvalue @ (key, _) =>
         if (entries.containsKey(key.toLowerCase(Locale.ROOT))) {
-          // todo: how to log?
+          // TODO: how do we log in connectors?
           logConsole(
             s"""
                |You are trying to set a property the key of which is the same as Delta config: $key.
@@ -147,7 +146,10 @@ trait DeltaConfigsBase {
     }
   }
 
-  /** TODO docs
+  /**
+   * TODO docs
+   *
+   * User provided configs take precedence.
    */
   def mergeGlobalConfigs(hadoopConf: Configuration, tableConf: Map[String, String]):
   Map[String, String] = {
