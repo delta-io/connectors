@@ -37,9 +37,11 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
   /** Get the persisted commit info for the given delta file. */
   def getCommitInfo(version: Long): CommitInfo = {
+    import io.delta.standalone.internal.util.Implicits._
+
     val info = deltaLog.store
       .read(FileNames.deltaFile(deltaLog.logPath, version), deltaLog.hadoopConf)
-      .asScala
+      .toAutoClosedList
       .map(Action.fromJson)
       .collectFirst { case c: CommitInfo => c }
     if (info.isEmpty) {

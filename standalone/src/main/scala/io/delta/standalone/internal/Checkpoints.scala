@@ -25,10 +25,10 @@ import scala.util.control.NonFatal
 import io.delta.standalone.internal.actions.SingleAction
 import io.delta.standalone.internal.util.JsonUtils
 import io.delta.standalone.internal.util.FileNames._
-
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import com.github.mjakubowski84.parquet4s.ParquetWriter
+import io.delta.standalone.data.CloseableIterator
 
 /**
  * Records information about a checkpoint.
@@ -128,8 +128,9 @@ private[internal] trait Checkpoints {
 
   /** Loads the checkpoint metadata from the _last_checkpoint file. */
   private def loadMetadataFromFile(tries: Int): Option[CheckpointMetaData] = {
+    var checkpointMetadataJson: CloseableIterator[String] = null
     try {
-      val checkpointMetadataJson = store.read(LAST_CHECKPOINT, hadoopConf).asScala
+      checkpointMetadataJson = store.read(LAST_CHECKPOINT, hadoopConf)
       val checkpointMetadata =
         JsonUtils.mapper.readValue[CheckpointMetaData](checkpointMetadataJson.next())
       Some(checkpointMetadata)
@@ -153,6 +154,10 @@ private[internal] trait Checkpoints {
         // CheckpointMetaData from it.
         val verifiedCheckpoint = findLastCompleteCheckpoint(CheckpointInstance(-1L, None))
         verifiedCheckpoint.map(manuallyLoadCheckpoint)
+    } finally {
+      if (null != checkpointMetadataJson) {
+        checkpointMetadataJson.close()
+      }
     }
   }
 

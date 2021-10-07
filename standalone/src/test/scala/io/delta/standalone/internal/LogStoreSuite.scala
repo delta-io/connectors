@@ -61,11 +61,14 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
 
   test("read") {
     withGoldenTable("log-store-read") { tablePath =>
+      import io.delta.standalone.internal.util.Implicits._
+
       val logStore = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
-      assert(logStore.read(deltas.head, hadoopConf).asScala.toSeq == Seq("zero", "none"))
-      assert(logStore.read(deltas(1), hadoopConf).asScala.toSeq == Seq("one"))
+      assert(
+        logStore.read(new Path(deltas.head), hadoopConf).toAutoClosedList == Seq("zero", "none"))
+      assert(logStore.read(new Path(deltas(1)), hadoopConf).toAutoClosedList == Seq("one"))
     }
   }
 

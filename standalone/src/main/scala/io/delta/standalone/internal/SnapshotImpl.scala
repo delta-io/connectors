@@ -108,9 +108,10 @@ private[internal] class SnapshotImpl(
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
       if (path.endsWith("json")) {
+        import io.delta.standalone.internal.util.Implicits._
         deltaLog.store
-          .read(path, hadoopConf)
-          .asScala
+          .read(new Path(path), hadoopConf)
+          .toAutoClosedList
           .map { line => JsonUtils.mapper.readValue[SingleAction](line) }
       } else if (path.endsWith("parquet")) {
         ParquetReader.read[Parquet4sSingleActionWrapper](
