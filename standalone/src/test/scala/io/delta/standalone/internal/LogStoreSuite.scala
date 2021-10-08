@@ -66,9 +66,9 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
       val logStore = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
-      assert(
-        logStore.read(new Path(deltas.head), hadoopConf).toAutoClosedList == Seq("zero", "none"))
-      assert(logStore.read(new Path(deltas(1)), hadoopConf).toAutoClosedList == Seq("one"))
+      assert(logStore.read(new Path(deltas.head), hadoopConf).toArray sameElements
+        Array("zero", "none"))
+      assert(logStore.read(new Path(deltas(1)), hadoopConf).toArray sameElements Array("one"))
     }
   }
 

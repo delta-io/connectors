@@ -17,21 +17,24 @@
 
 package io.delta.standalone.internal.util
 
+import scala.reflect.ClassTag
+
 import io.delta.standalone.data.CloseableIterator
 
-object Implicits {
-  implicit class CloseableIteratorOps[T](private val iter: CloseableIterator[T]) {
+private[internal] object Implicits {
+  implicit class CloseableIteratorOps[T: ClassTag](private val iter: CloseableIterator[T]) {
     import scala.collection.JavaConverters._
 
     /**
-     * Convert the [[CloseableIterator]] (Java) to an in-memory [[List]] (Scala).
+     * Convert the [[CloseableIterator]] (Java) to an in-memory [[Array]] (Scala).
      *
-     * [[List]] is used over [[Seq]] so that the full list is actually generated instead of loaded
-     * lazily, in which case `iter.close()` would be called before the Seq was actually generated.
+     * [[scala.collection.Iterator.toArray]] is used over [[scala.collection.Iterable.toSeq]]
+     * because `toSeq` is lazy, meaning `iter.close()` would be called before the Seq was actually
+     * generated.
      */
-    def toAutoClosedList: List[T] = {
+    def toArray: Array[T] = {
       try {
-        iter.asScala.toList
+        iter.asScala.toArray
       } finally {
         iter.close()
       }

@@ -111,7 +111,7 @@ private[internal] class SnapshotImpl(
         import io.delta.standalone.internal.util.Implicits._
         deltaLog.store
           .read(new Path(path), hadoopConf)
-          .toAutoClosedList
+          .toArray
           .map { line => JsonUtils.mapper.readValue[SingleAction](line) }
       } else if (path.endsWith("parquet")) {
         ParquetReader.read[Parquet4sSingleActionWrapper](

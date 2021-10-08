@@ -41,7 +41,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
     val info = deltaLog.store
       .read(FileNames.deltaFile(deltaLog.logPath, version), deltaLog.hadoopConf)
-      .toAutoClosedList
+      .toArray
       .map(Action.fromJson)
       .collectFirst { case c: CommitInfo => c }
     if (info.isEmpty) {

@@ -122,8 +122,9 @@ private[internal] class DeltaLogImpl private(
       new VersionLog(
         version,
         store.read(p, hadoopConf)
-          .toAutoClosedList
+          .toArray
           .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+          .toList
           .asJava)
     }.asJava
   }

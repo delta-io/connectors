@@ -98,7 +98,7 @@ private[internal] class ConflictChecker(
     val deltaLog = currentTransactionInfo.deltaLog
     val winningCommitActions = deltaLog.store
       .read(FileNames.deltaFile(deltaLog.logPath, winningCommitVersion), deltaLog.hadoopConf)
-      .toAutoClosedList
+      .toArray
       .map(Action.fromJson)
 
     WinningCommitSummary(winningCommitActions, winningCommitVersion)
