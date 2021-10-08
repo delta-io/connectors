@@ -45,11 +45,11 @@ public final class Column extends LeafExpression {
         } else if (dataType instanceof DateType) {
             evaluator = (record -> record.getDate(name));
         } else if (dataType instanceof ArrayType) {
-            evaluator = (record -> record.getList(name));
+            throw new IllegalArgumentException("Can't create a column with DataType: ArrayType");
         } else if (dataType instanceof MapType) {
-            evaluator = (record -> record.getMap(name));
+            throw new IllegalArgumentException("Can't create a column with DataType: MapType");
         } else if (dataType instanceof StructType) {
-            evaluator = (record -> record.getRecord(name));
+            throw new IllegalArgumentException("Can't create a column with DataType: StructType");
         } else {
             throw new IllegalArgumentException("Couldn't find matching rowRecord DataType for column: " + name);
         }
