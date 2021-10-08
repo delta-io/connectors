@@ -125,7 +125,7 @@ class ExpressionSuite extends FunSuite {
       (Literal.of(new DateJ(0)), Literal.of(new DateJ(1000000)),
         Literal.of(new DateJ(0))), // DateType
       (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples")), // StringType
-      (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()), 
+      (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
         Literal.of("apples".getBytes())) // BinaryType
       // todo: add additional tests for custom implemented binary comparisons?
     )
@@ -135,7 +135,7 @@ class ExpressionSuite extends FunSuite {
       ((a: Literal, b: Literal) => new LessThanOrEqual(a, b), (true, false, true)),
       ((a: Literal, b: Literal) => new GreaterThan(a, b), (false, true, false)),
       ((a: Literal, b: Literal) => new GreaterThanOrEqual(a, b), (false, true, true)),
-      ((a: Literal, b: Literal) => new EqualTo(a, b), (false, false, true)),
+      ((a: Literal, b: Literal) => new EqualTo(a, b), (false, false, true))
     )
 
     literals.foreach { case (small, big, small2) =>
@@ -285,7 +285,7 @@ class ExpressionSuite extends FunSuite {
       new Column("testArray", new ArrayType(new BooleanType(), true)),
       "Can't create a column with DataType: ArrayType")
     testException[IllegalArgumentException](
-      new Column("testMap", new MapType(new StringType(), new StringType(),true)),
+      new Column("testMap", new MapType(new StringType(), new StringType(), true)),
       "Can't create a column with DataType: MapType")
     testException[IllegalArgumentException](
       new Column("testStruct", new StructType(Array(new StructField("test", new BooleanType())))),
@@ -319,7 +319,7 @@ class ExpressionSuite extends FunSuite {
       testPartitionRowRecord.getLong("test"),
       "Mismatched DataType for Field")
 
-ala    //primitive types can't be null (per rowrecord interface?)
+    // primitive types can't be null (per rowrecord interface?)
     val primTypes = Seq(
       (new IntegerType(), (x: PartitionRowRecord) => x.getInt("test"), "0", 0),
       (new LongType(), (x: PartitionRowRecord) => x.getLong("test"), "0", 0L),
@@ -349,7 +349,8 @@ ala    //primitive types can't be null (per rowrecord interface?)
       (new DateType(), (x: PartitionRowRecord) => x.getDate("test"), "1970-01-01",
         DateJ.valueOf("1970-01-01"))
     )
-    nonPrimTypes.foreach { case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
+    nonPrimTypes.foreach {
+      case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
       assert(Objects.equals(f(buildPartitionRowRecord(dataType, true, s)), v))
       assert(f(buildPartitionRowRecord(dataType, true, "")) == null)
       testException[NullPointerException](
