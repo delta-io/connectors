@@ -270,6 +270,22 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       intercept[org.apache.spark.sql.delta.MetadataChangedException] {
         ossTxn3.commit(oo.metadata :: Nil, oo.op)
       }
+
+      // case 3a
+      val standaloneTxn4 = standaloneLog.startTransaction()
+      standaloneTxn4.markFilesAsRead(ss.col1PartitionFilter)
+      ossLog.startTransaction().commit(oo.addFiles, oo.op)
+      intercept[io.delta.standalone.exceptions.ConcurrentAppendException] {
+        standaloneTxn4.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 3b
+      val ossTxn5 = ossLog.startTransaction()
+      ossTxn5.filterFiles(oo.col1PartitionFilter :: Nil)
+      standaloneLog.startTransaction().commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
+      intercept[org.apache.spark.sql.delta.ConcurrentAppendException] {
+        ossTxn5.commit(oo.addFiles, oo.op)
+      }
     }
   }
 }

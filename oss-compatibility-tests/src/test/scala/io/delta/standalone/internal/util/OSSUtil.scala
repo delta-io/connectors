@@ -20,6 +20,7 @@ import org.apache.spark.sql.delta.{DeltaLog, DeltaOperations}
 import org.apache.spark.sql.delta.actions._
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo, Literal}
 
 class OSSUtil(now: Long) {
 
@@ -77,4 +78,7 @@ class OSSUtil(now: Long) {
 
     commitInfoOpt.get
   }
+
+  val col1PartitionFilter =
+    EqualTo(AttributeReference("col1_part", IntegerType, nullable = true)(), Literal(1))
 }
