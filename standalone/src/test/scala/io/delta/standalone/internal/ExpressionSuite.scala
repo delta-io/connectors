@@ -125,7 +125,8 @@ class ExpressionSuite extends FunSuite {
       (Literal.of(new DateJ(0)), Literal.of(new DateJ(1000000)),
         Literal.of(new DateJ(0))), // DateType
       (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples")), // StringType
-      (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()), Literal.of("apples".getBytes())), // BinaryType
+      (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()), 
+        Literal.of("apples".getBytes())) // BinaryType
       // todo: add additional tests for custom implemented binary comparisons?
     )
 
