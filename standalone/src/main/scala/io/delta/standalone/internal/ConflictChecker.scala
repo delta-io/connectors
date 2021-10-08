@@ -93,12 +93,13 @@ private[internal] class ConflictChecker(
    * transaction (winning transaction).
    */
   private def createWinningCommitSummary(): WinningCommitSummary = {
+    import io.delta.standalone.internal.util.Implicits._
+
     val deltaLog = currentTransactionInfo.deltaLog
     val winningCommitActions = deltaLog.store
       .read(FileNames.deltaFile(deltaLog.logPath, winningCommitVersion), deltaLog.hadoopConf)
-      .asScala
+      .toArray
       .map(Action.fromJson)
-      .toSeq
 
     WinningCommitSummary(winningCommitActions, winningCommitVersion)
   }

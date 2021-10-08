@@ -79,14 +79,17 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
     }
 
     withTempDir { dir =>
+      import io.delta.standalone.internal.util.Implicits._
+
       val store = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(dir, i.toString)).map(_.getCanonicalPath)
-      store.write(deltas.head, Iterator("zero", "none").asJava, false, hadoopConf)
-      store.write(deltas(1), Iterator("one").asJava, false, hadoopConf)
+      store.write(new Path(deltas.head), Iterator("zero", "none").asJava, false, hadoopConf)
+      store.write(new Path(deltas(1)), Iterator("one").asJava, false, hadoopConf)
 
-      assert(store.read(deltas.head, hadoopConf).asScala.toSeq == Seq("zero", "none"))
-      assert(store.read(deltas(1), hadoopConf).asScala.toSeq == Seq("one"))
+      assert(store.read(new Path(deltas.head), hadoopConf).toArray sameElements
+        Array("zero", "none"))
+      assert(store.read(new Path(deltas(1)), hadoopConf).toArray sameElements Array("one"))
 
       assertNoLeakedCrcFiles(dir)
     }
@@ -97,11 +100,11 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
       val store = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(dir, i.toString)).map(_.getCanonicalPath)
-      store.write(deltas.head, Iterator("zero").asJava, false, hadoopConf)
-      store.write(deltas(1), Iterator("one").asJava, false, hadoopConf)
+      store.write(new Path(deltas.head), Iterator("zero").asJava, false, hadoopConf)
+      store.write(new Path(deltas(1)), Iterator("one").asJava, false, hadoopConf)
 
       intercept[java.nio.file.FileAlreadyExistsException] {
-        store.write(deltas(1), Iterator("uno").asJava, false, hadoopConf)
+        store.write(new Path(deltas(1)), Iterator("uno").asJava, false, hadoopConf)
       }
     }
   }
