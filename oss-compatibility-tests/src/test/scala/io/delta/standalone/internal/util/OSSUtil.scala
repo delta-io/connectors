@@ -43,7 +43,9 @@ class OSSUtil(now: Long) {
     createdTime = Some(now)
   )
 
-  val protocol: Protocol = Protocol(1, 3)
+  val protocol12: Protocol = Protocol(1, 2)
+
+  val protocol13: Protocol = Protocol(1, 3)
 
   val addFiles: Seq[AddFile] = (0 until 50).map { i =>
     AddFile(

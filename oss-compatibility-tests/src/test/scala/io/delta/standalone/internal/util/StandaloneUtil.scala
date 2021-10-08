@@ -21,7 +21,7 @@ import java.util.Collections
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile, Format, Metadata, RemoveFile, SetTransaction}
+import io.delta.standalone.actions.{AddFile, Format, Metadata, Protocol, RemoveFile, SetTransaction}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.Operation
 
@@ -52,6 +52,8 @@ class StandaloneUtil(now: Long) {
     .schema(schema)
     .createdTime(now)
     .build()
+
+  val protocol12: Protocol = new Protocol(1, 2)
 
   val addFiles: Seq[AddFile] = (0 until 50).map { i =>
     new AddFile(

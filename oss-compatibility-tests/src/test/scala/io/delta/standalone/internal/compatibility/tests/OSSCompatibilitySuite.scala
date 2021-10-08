@@ -202,7 +202,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
   test("Standalone writer write to higher protocol OSS table should fail") {
     withTempDirAndLogs { (_, standaloneLog, _, ossLog) =>
-      ossLog.startTransaction().commit(oo.metadata :: oo.protocol :: Nil, oo.op)
+      ossLog.startTransaction().commit(oo.metadata :: oo.protocol13 :: Nil, oo.op)
 
       val e = intercept[InvalidProtocolVersionException] {
         standaloneLog.startTransaction().commit(Iterable().asJava, ss.op, ss.engineInfo)
@@ -216,7 +216,60 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
     }
   }
 
+  /**
+   * For each (logType1, logType2, exception) below, we will test the case of:
+   * logType1 detect exception (caused by logType2)
+   *
+   * case 1a: standalone, oss, protocolChangedException
+   * case 1b: oss, standalone, protocolChangedException
+   *
+   * case 2a: standalone, oss, metadataChangedException
+   * case 2b: oss, standalone, metadataChangedException
+   *
+   * case 3a: standalone, oss, concurrentAppendException
+   * case 3b: oss, standalone, concurrentAppendException
+   *
+   * case 4a: standalone, oss, concurrentDeleteReadException
+   * case 4b: oss, standalone, concurrentDeleteReadException
+   *
+   * case 5a: standalone, oss, concurrentDeleteDeleteException
+   * case 5b: oss, standalone, concurrentDeleteDeleteException
+   *
+   * case 6a: standalone, oss, concurrentTransactionException
+   * case 6b: oss, standalone, concurrentTransactionException
+   */
   test("concurrency conflicts") {
-    // TODO
+    withTempDirAndLogs { (_, standaloneLog, _, ossLog) =>
+      // create table with valid metadata
+      ossLog.startTransaction().commit(oo.metadata :: Nil, oo.op)
+
+      // case 1a
+      val standaloneTxn0 = standaloneLog.startTransaction()
+      ossLog.startTransaction().commit(oo.protocol12 :: Nil, oo.op)
+      intercept[io.delta.standalone.exceptions.ProtocolChangedException] {
+        standaloneTxn0.commit(Iterable(ss.protocol12).asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 1b
+      val ossTxn1 = ossLog.startTransaction()
+      standaloneLog.startTransaction().commit(Iterable(ss.protocol12).asJava, ss.op, ss.engineInfo)
+      intercept[org.apache.spark.sql.delta.ProtocolChangedException] {
+        ossTxn1.commit(oo.protocol12 :: Nil, oo.op)
+      }
+
+      // case 2a
+      val standaloneTxn2 = standaloneLog.startTransaction()
+      ossLog.startTransaction().commit(oo.metadata :: Nil, oo.op)
+      intercept[io.delta.standalone.exceptions.MetadataChangedException] {
+        standaloneTxn2.commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 2b
+      val ossTxn3 = ossLog.startTransaction()
+      standaloneLog.startTransaction().commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
+      intercept[org.apache.spark.sql.delta.MetadataChangedException] {
+        ossTxn3.commit(oo.metadata :: Nil, oo.op)
+      }
+    }
   }
 }
