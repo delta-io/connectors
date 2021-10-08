@@ -26,9 +26,9 @@ import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
 import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
 import io.delta.standalone.internal.util.{ComparisonUtil, OSSUtil, StandaloneUtil}
+
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession

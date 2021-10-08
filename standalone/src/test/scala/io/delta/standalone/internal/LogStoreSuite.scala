@@ -18,12 +18,14 @@ package io.delta.standalone.internal
 
 import java.io.File
 
-import io.delta.standalone.data.{CloseableIterator => CloseableIteratorJ}
-import io.delta.standalone.storage.{LogStore => LogStoreJ}
-import io.delta.standalone.internal.sources.StandaloneHadoopConf
-import io.delta.standalone.internal.storage.{HDFSLogStore, LogStore, LogStoreAdaptor, LogStoreProvider}
-import io.delta.standalone.internal.util.GoldenTableUtils._
 import scala.collection.JavaConverters._
+
+import io.delta.standalone.data.{CloseableIterator => CloseableIteratorJ}
+import io.delta.standalone.storage.LogStore
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
+import io.delta.standalone.internal.storage.{HDFSLogStore, LogStoreProvider}
+import io.delta.standalone.internal.util.GoldenTableUtils._
+import io.delta.standalone.internal.util.TestUtils._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -53,18 +55,57 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
     conf
   }
 
-  test("instantiation") {
-    val expectedClassName = logStoreClassName.getOrElse(LogStore.defaultLogStoreClassName)
+  test("instantiation through HadoopConf") {
+    val expectedClassName = logStoreClassName.getOrElse(LogStoreProvider.defaultLogStoreClassName)
     assert(createLogStore(hadoopConf).getClass.getName == expectedClassName)
   }
 
-  test("read") {
-    withGoldenTable("log-store-read") { tablePath =>
-      val logStore = createLogStore(hadoopConf)
+  test("read / write") {
+    def assertNoLeakedCrcFiles(dir: File): Unit = {
+      // crc file should not be leaked when origin file doesn't exist.
+      // The implementation of Hadoop filesystem may filter out checksum file, so
+      // listing files from local filesystem.
+      val fileNames = dir.listFiles().toSeq.filter(p => p.isFile).map(p => p.getName)
+      val crcFiles = fileNames.filter(n => n.startsWith(".") && n.endsWith(".crc"))
+      val originFileNamesForExistingCrcFiles = crcFiles.map { name =>
+        // remove first "." and last ".crc"
+        name.substring(1, name.length - 4)
+      }
 
-      val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
-      assert(logStore.read(deltas.head) == Seq("zero", "none"))
-      assert(logStore.read(deltas(1)) == Seq("one"))
+      // Check all origin files exist for all crc files.
+      assert(originFileNamesForExistingCrcFiles.toSet.subsetOf(fileNames.toSet),
+        s"Some of origin files for crc files don't exist - crc files: $crcFiles / " +
+          s"expected origin files: $originFileNamesForExistingCrcFiles / actual files: $fileNames")
+    }
+
+    withTempDir { dir =>
+      import io.delta.standalone.internal.util.Implicits._
+
+      val store = createLogStore(hadoopConf)
+
+      val deltas = Seq(0, 1).map(i => new File(dir, i.toString)).map(_.getCanonicalPath)
+      store.write(new Path(deltas.head), Iterator("zero", "none").asJava, false, hadoopConf)
+      store.write(new Path(deltas(1)), Iterator("one").asJava, false, hadoopConf)
+
+      assert(store.read(new Path(deltas.head), hadoopConf).toArray sameElements
+        Array("zero", "none"))
+      assert(store.read(new Path(deltas(1)), hadoopConf).toArray sameElements Array("one"))
+
+      assertNoLeakedCrcFiles(dir)
+    }
+  }
+
+  test("detects conflict") {
+    withTempDir { dir =>
+      val store = createLogStore(hadoopConf)
+
+      val deltas = Seq(0, 1).map(i => new File(dir, i.toString)).map(_.getCanonicalPath)
+      store.write(new Path(deltas.head), Iterator("zero").asJava, false, hadoopConf)
+      store.write(new Path(deltas(1)), Iterator("one").asJava, false, hadoopConf)
+
+      intercept[java.nio.file.FileAlreadyExistsException] {
+        store.write(new Path(deltas(1)), Iterator("uno").asJava, false, hadoopConf)
+      }
     }
   }
 
@@ -77,15 +118,15 @@ abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
         .map(_.toURI)
         .map(new Path(_))
 
-      assert(logStore.listFrom(deltas.head).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas.head, hadoopConf).asScala.map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-      assert(logStore.listFrom(deltas(1)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(1), hadoopConf).asScala.map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-      assert(logStore.listFrom(deltas(2)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(2), hadoopConf).asScala.map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
-      assert(logStore.listFrom(deltas(3)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(3), hadoopConf).asScala.map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
-      assert(logStore.listFrom(deltas(4)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(4), hadoopConf).asScala.map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Nil)
     }
   }
@@ -110,8 +151,7 @@ class DefaultLogStoreSuite extends LogStoreSuiteBase {
  * Test having the user provide their own LogStore.
  */
 class UserDefinedLogStoreSuite extends LogStoreSuiteBase {
-  // The actual type of LogStore created will be LogStoreAdaptor.
-  override def logStoreClassName: Option[String] = Some(classOf[LogStoreAdaptor].getName)
+  override def logStoreClassName: Option[String] = Some(classOf[UserDefinedLogStore].getName)
 
   override def hadoopConf: Configuration = {
     val conf = new Configuration()
@@ -121,17 +161,17 @@ class UserDefinedLogStoreSuite extends LogStoreSuiteBase {
 }
 
 /**
- * Sample user-defined log store implementing [[LogStoreJ]]
+ * Sample user-defined log store implementing [[LogStore]].
  */
 class UserDefinedLogStore(override val initHadoopConf: Configuration)
-  extends LogStoreJ(initHadoopConf) {
+  extends LogStore(initHadoopConf) {
 
   private val mockImpl = new HDFSLogStore(initHadoopConf)
 
   override def read(path: Path, hadoopConf: Configuration): CloseableIteratorJ[String] = {
-    val iter = mockImpl.read(path).iterator
+    val iter = mockImpl.read(path, hadoopConf)
     new CloseableIteratorJ[String] {
-      override def close(): Unit = {}
+      override def close(): Unit = iter.close()
       override def hasNext: Boolean = iter.hasNext
       override def next(): String = iter.next
     }
@@ -142,18 +182,18 @@ class UserDefinedLogStore(override val initHadoopConf: Configuration)
       actions: java.util.Iterator[String],
       overwrite: java.lang.Boolean,
       hadoopConf: Configuration): Unit = {
-    mockImpl.write(path, actions.asScala, overwrite)
+    mockImpl.write(path, actions, overwrite, hadoopConf)
   }
 
   override def listFrom(path: Path, hadoopConf: Configuration): java.util.Iterator[FileStatus] = {
-    mockImpl.listFrom(path).asJava
+    mockImpl.listFrom(path, hadoopConf)
   }
 
   override def resolvePathOnPhysicalStorage(path: Path, hadoopConf: Configuration): Path = {
-    mockImpl.resolvePathOnPhysicalStorage(path)
+    mockImpl.resolvePathOnPhysicalStorage(path, hadoopConf)
   }
 
   override def isPartialWriteVisible(path: Path, hadoopConf: Configuration): java.lang.Boolean = {
-    mockImpl.isPartialWriteVisible(path)
+    mockImpl.isPartialWriteVisible(path, hadoopConf)
   }
 }
