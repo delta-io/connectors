@@ -31,7 +31,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import com.github.mjakubowski84.parquet4s.ParquetWriter
 
-
 /**
  * Records information about a checkpoint.
  *
