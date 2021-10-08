@@ -288,4 +288,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       }
     }
   }
+
+  test("valid concurrent writes") {
+    // TODO
+  }
 }
