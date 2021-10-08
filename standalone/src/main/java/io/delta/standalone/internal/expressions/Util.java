@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.Date;
 
-import io.delta.standalone.expressions.CastingComparator;
 import io.delta.standalone.types.*;
 
 public final class Util {

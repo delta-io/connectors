@@ -1,4 +1,4 @@
-package io.delta.standalone.expressions;
+package io.delta.standalone.internal.expressions;
 
 import java.util.Comparator;
 

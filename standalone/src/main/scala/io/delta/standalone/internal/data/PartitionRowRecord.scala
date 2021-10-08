@@ -76,7 +76,8 @@ private[internal] class PartitionRowRecord(
   // TODO: should this throw an error if field is not nullable?
   override def isNullAt(fieldName: String): Boolean = {
     requireFieldExists(fieldName)
-    // per Delta Protocol an empty string for any type is a null value
+    // per the Delta Protocol an empty string for any type is a null value
+    // ref: https://github.com/delta-io/delta/blob/master/PROTOCOL.md#partition-value-serialization
     null == partitionValues(fieldName) || partitionValues(fieldName).isEmpty()
   }
 

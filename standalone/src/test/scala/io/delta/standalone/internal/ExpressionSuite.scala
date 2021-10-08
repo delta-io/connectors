@@ -23,7 +23,7 @@ import java.sql.{Date => DateJ, Timestamp => TimestampJ}
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.data.RowRecord
-import io.delta.standalone.expressions._
+import io.delta.standalone.expressions.{Column, _}
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -38,16 +38,15 @@ class ExpressionSuite extends FunSuite {
 
   private def testPredicate(
       predicate: Expression,
-      expectedResult: Option[Boolean] = None,
+      expectedResult: Any,
       record: RowRecord = null) = {
 //    println(predicate.toString())
 //    println(predicate.eval(record))
-    assert(predicate.eval(record) == expectedResult.getOrElse(null))
+    assert(predicate.eval(record) == expectedResult)
   }
 
-  private def testException[T <: Throwable](
-                           f: => Any,
-                           messageContains: String)(implicit manifest: Manifest[T]) = {
+  private def testException[T <: Throwable](f: => Any, messageContains: String)
+      (implicit manifest: Manifest[T]) = {
     val e = intercept[T]{
       f;
     }.getMessage
@@ -57,17 +56,17 @@ class ExpressionSuite extends FunSuite {
   test("logical predicates") {
     // AND tests
     testPredicate(
-      new And(Literal.ofNull(new BooleanType()), Literal.False))
+      new And(Literal.ofNull(new BooleanType()), Literal.False), null)
     testPredicate(
-      new And(Literal.False, Literal.ofNull(new BooleanType())))
+      new And(Literal.False, Literal.ofNull(new BooleanType())), null)
     testPredicate(
-      new And(Literal.True, Literal.ofNull(new BooleanType())))
+      new And(Literal.True, Literal.ofNull(new BooleanType())), null)
     testPredicate(
-      new And(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())))
-    testPredicate(new And(Literal.False, Literal.False), expectedResult = Some(false))
-    testPredicate(new And(Literal.True, Literal.False), expectedResult = Some(false))
-    testPredicate(new And(Literal.False, Literal.True), expectedResult = Some(false))
-    testPredicate(new And(Literal.True, Literal.True), expectedResult = Some(true))
+      new And(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())), null)
+    testPredicate(new And(Literal.False, Literal.False), false)
+    testPredicate(new And(Literal.True, Literal.False), false)
+    testPredicate(new And(Literal.False, Literal.True), false)
+    testPredicate(new And(Literal.True, Literal.True), true)
     testException[IllegalArgumentException](
       new And(Literal.of(1), Literal.of(2)).eval(null),
       "'And' expression children.eval results must be Booleans")
@@ -77,17 +76,17 @@ class ExpressionSuite extends FunSuite {
 
     // OR tests
     testPredicate(
-      new Or(Literal.ofNull(new BooleanType()), Literal.False), None)
+      new Or(Literal.ofNull(new BooleanType()), Literal.False), null)
     testPredicate(
-      new Or(Literal.False, Literal.ofNull(new BooleanType())), None)
+      new Or(Literal.False, Literal.ofNull(new BooleanType())), null)
     testPredicate(
-      new Or(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())), None)
+      new Or(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())), null)
     testPredicate(
-      new Or(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())), None)
-    testPredicate(new Or(Literal.False, Literal.False), expectedResult = Some(false))
-    testPredicate(new Or(Literal.True, Literal.False), expectedResult = Some(true))
-    testPredicate(new Or(Literal.False, Literal.True), expectedResult = Some(true))
-    testPredicate(new Or(Literal.True, Literal.True), expectedResult = Some(true))
+      new Or(Literal.ofNull(new BooleanType()), Literal.ofNull(new BooleanType())), null)
+    testPredicate(new Or(Literal.False, Literal.False), false)
+    testPredicate(new Or(Literal.True, Literal.False), true)
+    testPredicate(new Or(Literal.False, Literal.True), true)
+    testPredicate(new Or(Literal.True, Literal.True), true)
     // TODO: is this what we want? should it fail upon creation instead of eval???
     testException[IllegalArgumentException](
       new Or(Literal.of(1), Literal.of(2)).eval(null),
@@ -97,9 +96,9 @@ class ExpressionSuite extends FunSuite {
       "BinaryOperator left and right DataTypes must be the same") // is this desired behavior?
 
     // NOT tests
-    testPredicate(new Not(Literal.False), expectedResult = Some(true))
-    testPredicate(new Not(Literal.True), expectedResult = Some(false))
-    testPredicate(new Not(Literal.ofNull(new BooleanType())), None)
+    testPredicate(new Not(Literal.False), true)
+    testPredicate(new Not(Literal.True), false)
+    testPredicate(new Not(Literal.ofNull(new BooleanType())), null)
     testException[IllegalArgumentException](
       new Not(Literal.of(1)).eval(null),
       "'Not' expression child.eval result must be a Boolean")
@@ -109,7 +108,7 @@ class ExpressionSuite extends FunSuite {
   //  what about for dataType != dataType?
 
   test("comparison predicates") {
-    // (small, big)
+    // (small, big, small)
     val literals = Seq(
       (Literal.of(1), Literal.of(2), Literal.of(1)), // IntegerType
       (Literal.of(1.0F), Literal.of(2.0F), Literal.of(1.0F)), // FloatType
@@ -130,6 +129,9 @@ class ExpressionSuite extends FunSuite {
       // todo: add additional tests for custom implemented binary comparisons?
     )
 
+    // Literal creation: (Literal, Literal) -> Expr(a, b) ,
+    // Expected result: (Expr(small, big).eval(), Expr(big, small).eval(), Expr(small, small).eval()
+    // (Literal creation, Expected result)
     val predicates = Seq(
       ((a: Literal, b: Literal) => new LessThan(a, b), (true, false, false)),
       ((a: Literal, b: Literal) => new LessThanOrEqual(a, b), (true, false, true)),
@@ -140,9 +142,9 @@ class ExpressionSuite extends FunSuite {
 
     literals.foreach { case (small, big, small2) =>
       predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
-        testPredicate(predicateCreator(small, big), Some(smallBig))
-        testPredicate(predicateCreator(big, small), Some(bigSmall))
-        testPredicate(predicateCreator(small, small2), Some(smallSmall))
+        testPredicate(predicateCreator(small, big), smallBig)
+        testPredicate(predicateCreator(big, small), bigSmall)
+        testPredicate(predicateCreator(small, small2), smallSmall)
         }
     }
     // todo: future work--should we support automatic casting between compatible types?
@@ -150,14 +152,14 @@ class ExpressionSuite extends FunSuite {
 
   test("null predicates") {
     // ISNOTNULL tests
-    testPredicate(new IsNotNull(Literal.ofNull(new NullType())), Some(false))
-    testPredicate(new IsNotNull(Literal.ofNull(new BooleanType())), Some(false))
-    testPredicate(new IsNotNull(Literal.False), Some(true))
+    testPredicate(new IsNotNull(Literal.ofNull(new NullType())), false)
+    testPredicate(new IsNotNull(Literal.ofNull(new BooleanType())), false)
+    testPredicate(new IsNotNull(Literal.False), true)
 
     // ISNULL tests
-    testPredicate(new IsNull(Literal.ofNull(new NullType())), Some(true))
-    testPredicate(new IsNull(Literal.ofNull(new BooleanType())), Some(true))
-    testPredicate(new IsNull(Literal.False), Some(false))
+    testPredicate(new IsNull(Literal.ofNull(new NullType())), true)
+    testPredicate(new IsNull(Literal.ofNull(new BooleanType())), true)
+    testPredicate(new IsNull(Literal.False), false)
   }
 
   test("In predicate") {
@@ -179,64 +181,57 @@ class ExpressionSuite extends FunSuite {
       new In(Literal.True, List(Literal.of(1), Literal.True).asJava),
       "In expression 'elems' and 'value' must all be of the same DataType")
     // value.eval() null -> null
-    testPredicate(new In(Literal.ofNull(new BooleanType()), List(Literal.True).asJava), None)
+    testPredicate(new In(Literal.ofNull(new BooleanType()), List(Literal.True).asJava), null)
     // value in list (w/ null in  list)
     testPredicate(new In(Literal.True, List(Literal.True,
-      Literal.ofNull(new BooleanType())).asJava),
-      Some(true))
+      Literal.ofNull(new BooleanType())).asJava), true)
     // value not in list (w/ null in list)
     testPredicate(new In(Literal.False, List(Literal.True,
-      Literal.ofNull(new BooleanType())).asJava),
-      None)
+      Literal.ofNull(new BooleanType())).asJava), null)
     // test correct output
     // todo: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1),
-      (0 to 10).map{Literal.of(_)}.asJava), Some(true))
+      (0 to 10).map{Literal.of(_)}.asJava), true)
     testPredicate( new In(Literal.of(100),
-      (0 to 10).map{Literal.of(_)}.asJava), Some(false))
+      (0 to 10).map{Literal.of(_)}.asJava), false)
     testPredicate( new In(Literal.of(10),
-      (0 to 10).map{Literal.of(_)}.asJava), Some(true))
+      (0 to 10).map{Literal.of(_)}.asJava), true)
   }
 
-  private def testLiteral(literal: Literal, expectedResult: Option[Any]) = {
-//        println(literal.toString())
-//        println(literal.eval(null))
-        println(expectedResult.getOrElse(null))
-    assert(Objects.equals(literal.eval(null), expectedResult.getOrElse(null)))
+  private def testLiteral(literal: Literal, expectedResult: Any) = {
+    assert(Objects.equals(literal.eval(null), expectedResult))
   }
 
   test("Literal tests") {
     // LITERAL tests
-    testLiteral(Literal.True, Some(true))
-    testLiteral(Literal.False, Some(false))
-    testLiteral(Literal.of(8.toByte), Some(8.toByte))
-    testLiteral(Literal.of(1.0), Some(1.0))
-    testLiteral(Literal.of(2.0F), Some(2.0F))
-    testLiteral(Literal.of(5), Some(5))
-    testLiteral(Literal.of(10L), Some(10L))
-    testLiteral(Literal.ofNull(new NullType()), None)
-    testLiteral(Literal.ofNull(new BooleanType()), None)
-    testLiteral(Literal.of(5.toShort), Some(5.toShort))
-    testLiteral(Literal.of("test"), Some("test"))
+    testLiteral(Literal.True, true)
+    testLiteral(Literal.False, false)
+    testLiteral(Literal.of(8.toByte), 8.toByte)
+    testLiteral(Literal.of(1.0), 1.0)
+    testLiteral(Literal.of(2.0F), 2.0F)
+    testLiteral(Literal.of(5), 5)
+    testLiteral(Literal.of(10L), 10L)
+    testLiteral(Literal.ofNull(new NullType()), null)
+    testLiteral(Literal.ofNull(new BooleanType()), null)
+    testLiteral(Literal.of(5.toShort), 5.toShort)
+    testLiteral(Literal.of("test"), "test")
     val curr_time = System.currentTimeMillis()
     testLiteral(
-      Literal.of(new TimestampJ(curr_time)), Some(new TimestampJ(curr_time)))
-    testLiteral(Literal.of(new DateJ(curr_time)), Some(new DateJ(curr_time)))
+      Literal.of(new TimestampJ(curr_time)), new TimestampJ(curr_time))
+    testLiteral(Literal.of(new DateJ(curr_time)), new DateJ(curr_time))
     testLiteral(Literal.of(new BigDecimalJ("0.1")),
-      Some(new BigDecimalJ("0.1")))
+      new BigDecimalJ("0.1"))
     assert(ArraysJ.equals(
       Literal.of("test".getBytes()).eval(null).asInstanceOf[Array[Byte]],
       "test".getBytes()))
   }
 
-  private def testColumn(fieldName: String,
-                         dataType: DataType,
-                         record: RowRecord,
-                        expectedResult: Option[Any]) = {
+  private def testColumn(fieldName: String, dataType: DataType, record: RowRecord,
+      expectedResult: Any) = {
 //    println((new Column(fieldName, dataType)).eval(record))
 //    println(expectedResult.getOrElse(null))
     assert(Objects.equals(new Column(fieldName, dataType).eval(record),
-      expectedResult.getOrElse(null)))
+      expectedResult))
   }
 
   test("Column tests") {
@@ -267,20 +262,19 @@ class ExpressionSuite extends FunSuite {
         "testDecimal" -> "0.123",
         "testTimestamp" -> (new TimestampJ(12345678)).toString(),
         "testDate" -> "1970-01-01"))
-    testColumn("testInt", new IntegerType(), partRowRecord, Some(1))
-    testColumn("testLong", new LongType(), partRowRecord, Some(10L))
-    testColumn("testByte", new ByteType(), partRowRecord, Some(8.toByte))
-    testColumn("testShort", new ShortType(), partRowRecord, Some(100.toShort))
-    testColumn("testBoolean", new BooleanType(), partRowRecord, Some(true))
-    testColumn("testFloat", new FloatType(), partRowRecord, Some(20.0F))
-    testColumn("testDouble", new DoubleType(), partRowRecord, Some(22.0))
-    testColumn("testString", new StringType(), partRowRecord, Some("onetwothree"))
+    testColumn("testInt", new IntegerType(), partRowRecord, 1)
+    testColumn("testLong", new LongType(), partRowRecord, 10L)
+    testColumn("testByte", new ByteType(), partRowRecord, 8.toByte)
+    testColumn("testShort", new ShortType(), partRowRecord, 100.toShort)
+    testColumn("testBoolean", new BooleanType(), partRowRecord, true)
+    testColumn("testFloat", new FloatType(), partRowRecord, 20.0F)
+    testColumn("testDouble", new DoubleType(), partRowRecord, 22.0)
+    testColumn("testString", new StringType(), partRowRecord, "onetwothree")
     assert(Array(1.toByte, 5.toByte, 8.toByte) sameElements
       (new Column("testBinary", new BinaryType())).eval(partRowRecord).asInstanceOf[Array[Byte]])
-    testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord,
-      Some(new BigDecimalJ("0.123")))
-    testColumn("testTimestamp", new TimestampType(), partRowRecord, Some(new TimestampJ(12345678)))
-    testColumn("testDate", new DateType(), partRowRecord, Some(new DateJ(70, 0, 1)))
+    testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord, new BigDecimalJ("0.123"))
+    testColumn("testTimestamp", new TimestampType(), partRowRecord, new TimestampJ(12345678))
+    testColumn("testDate", new DateType(), partRowRecord, new DateJ(70, 0, 1))
     testException[IllegalArgumentException](
       new Column("testArray", new ArrayType(new BooleanType(), true)),
       "Can't create a column with DataType: ArrayType")
@@ -379,11 +373,8 @@ class ExpressionSuite extends FunSuite {
 
   // TODO: add nested expression tree tests?
 
-  private def testPartitionFilter(
-                                   inputSchema: StructType,
-                                   inputFiles: Seq[AddFile],
-                                   filters: Seq[Expression],
-                                   expectedMatchedFiles: Seq[AddFile]) = {
+  private def testPartitionFilter(inputSchema: StructType, inputFiles: Seq[AddFile],
+      filters: Seq[Expression], expectedMatchedFiles: Seq[AddFile]) = {
     println("filters:\n\t" + filters.map(_.toString()).mkString("\n\t"))
     val matchedFiles = DeltaLogImpl.filterFileList(inputSchema, inputFiles, filters)
     assert(matchedFiles.length == expectedMatchedFiles.length)

@@ -1,6 +1,7 @@
 package io.delta.standalone.expressions;
 
 import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.expressions.LeafExpression;
 import io.delta.standalone.types.*;
 
 /**
@@ -8,8 +9,8 @@ import io.delta.standalone.types.*;
  *
  * Usage: {@code new Column(columnName, columnDataType)}.
  *
- * It is recommended that you instantiate using a table schema (StructType).
- * e.g. schema.column(columnName) //todo: ??
+ * It is recommended that you instantiate using a table schema ({@link StructType}).
+ * e.g. {@code schema.column(columnName)} //todo: ??
  */
 public final class Column extends LeafExpression {
     private final String name;
@@ -51,7 +52,7 @@ public final class Column extends LeafExpression {
         } else if (dataType instanceof StructType) {
             throw new IllegalArgumentException("Can't create a column with DataType: StructType");
         } else {
-            throw new IllegalArgumentException("Couldn't find matching rowRecord DataType for column: " + name);
+            throw new IllegalArgumentException("Couldn't find matching DataType for column: " + name);
         }
     }
 

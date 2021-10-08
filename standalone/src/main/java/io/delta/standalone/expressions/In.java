@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Usage: new In(expr, exprList) - Returns true if `expr` is equal to any in `exprList`, else false.
+ * Usage: {@code new In(expr, exprList)} - Returns true if `expr` is equal to any in `exprList`, else false.
  */
 public final class In implements Predicate {
     private final Expression value;
@@ -39,18 +39,34 @@ public final class In implements Predicate {
         // TODO: this only allows certain dataTypes, do we want it to be broader than this?
     }
 
+    /**
+     * This implements the {@code IN} expression functionality outlined by the Databricks SQL Null
+     * semantics reference guide. The logic is as follows:
+     * - TRUE if the non-NULL value is found in the list
+     * - FALSE if the non-NULL value is not found in the list and the list does not contain NULL
+     * values
+     * - NULL if the value is NULL, or the non-NULL value is not found in the list and the list
+     * contains at least one NULL value
+     *
+     * @see <a href="https://docs.databricks.com/spark/latest/spark-sql/language-manual/sql-ref-null-semantics.html#in-and-not-in-subqueries">NULL Semantics</a>
+     */
     @Override
     public Boolean eval(RowRecord record) {
         Object origValue = value.eval(record);
         if (null == origValue) return null;
 
-        Boolean result = false;
+        // null if a null value has been found in list, otherwise false
+        Boolean falseOrNullresult = false;
         for (Expression setElem : elems) {
             Object setElemValue = setElem.eval(record);
-            if (setElemValue == null) result = null;
-            else if (comparator.compare(origValue, setElemValue) == 0) return true;
+            if (setElemValue == null)
+                // null value found but element may still be in list
+                falseOrNullresult = null;
+            else if (comparator.compare(origValue, setElemValue) == 0)
+                // short circuit and return true; we have found the element in the list
+                return true;
         }
-        return result;
+        return falseOrNullresult;
     }
 
     @Override
