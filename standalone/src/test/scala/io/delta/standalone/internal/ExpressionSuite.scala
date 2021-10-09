@@ -126,7 +126,6 @@ class ExpressionSuite extends FunSuite {
       (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples")), // StringType
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
         Literal.of("apples".getBytes())) // BinaryType
-      // todo: add additional tests for custom implemented binary comparisons?
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -148,6 +147,33 @@ class ExpressionSuite extends FunSuite {
         }
     }
     // todo: future work--should we support automatic casting between compatible types?
+
+    // more extensive comparison tests for custom-implemented binary comparison
+    // (small, big, small2)
+    val binaryLiterals = Seq(
+      (Array.empty[Byte], Array(0.toByte), Array.empty[Byte]), // [] < [0]
+      (Array.empty[Byte], Array(1.toByte), Array.empty[Byte]), // [] < [1]
+      (Array(0.toByte), Array(1.toByte), Array(0.toByte)), // [0] < [1]
+      (Array(0.toByte, 1.toByte), Array(1.toByte), Array(0.toByte, 1.toByte)), // [0, 1] < [1]
+      (Array(0.toByte), Array(0.toByte, 0.toByte), Array(0.toByte)), // [0] < [0, 0]
+      (Array(0.toByte), Array(0.toByte, 1.toByte), Array(0.toByte)), // [0] < [0, 1]
+      (Array(0.toByte, 1.toByte), Array(1.toByte, 0.toByte),
+        Array(0.toByte, 1.toByte)), // [0, 1] < [1, 0]
+      (Array(0.toByte, 1.toByte), Array(0.toByte, 2.toByte),
+        Array(0.toByte, 1.toByte)), // [0, 1] < [0, 2]
+      (Array(0.toByte, 0.toByte, 2.toByte), Array(0.toByte, 1.toByte, 0.toByte),
+        Array(0.toByte, 0.toByte, 2.toByte)) // [0, 0, 2] < [0, 1, 0]
+    )
+
+    binaryLiterals.foreach { case (small, big, small2) =>
+      predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
+        println(small.mkString(" "))
+        println(big.mkString(" "))
+        testPredicate(predicateCreator(Literal.of(small), Literal.of(big)), smallBig)
+        testPredicate(predicateCreator(Literal.of(big), Literal.of(small)), bigSmall)
+        testPredicate(predicateCreator(Literal.of(small), Literal.of(small2)), smallSmall)
+      }
+    }
   }
 
   test("null predicates") {
