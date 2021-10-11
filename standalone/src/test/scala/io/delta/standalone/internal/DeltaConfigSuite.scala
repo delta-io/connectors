@@ -30,23 +30,22 @@ class DeltaConfigSuite extends FunSuite {
 
   test("mergeGlobalConfigs") {
 
-    //todo: FIX THIS!
+    // todo: resolve what prefix we expect for hadoop configurations and metadata configurations
+    //  and then update these tests and mergeGlobalConfigs
     val hadoopConf = new Configuration()
-    hadoopConf.set("appendOnly", "foo")
-    hadoopConf.set("enableExpiredLogCleanup", "world")
-    val metadataConf = Map("enableExpiredLogCleanup"-> "no one", "minWriterVersion" -> "avocado")
+    hadoopConf.set("io.delta.standalone.appendonly", "false")
+    hadoopConf.set("io.delta.standalone.enableexpiredlogcleanup", "true")
+    val metadataConf = Map("delta.enableexpiredlogcleanup"-> "no one",
+      "delta.minWriterVersion" -> "avocado")
     val mergedConf = DeltaConfigs.mergeGlobalConfigs(hadoopConf, metadataConf)
-    // scalastyle:off println
-    println(mergedConf)
-    // scalastyle:on println
-    assert(mergedConf.contains("appendOnly") && mergedConf.get("appendOnly") == "foo")
-    assert(mergedConf.contains("enableExpiredLogCleanup") &&
-      mergedConf.get("enableExpiredLogCleanup") == "no one")
+    assert(mergedConf.contains("appendonly") && mergedConf.get("appendonly") == "foo")
+    assert(mergedConf.contains("enableexpiredlogcleanup") &&
+      mergedConf.get("enableexpiredlogcleanup") == "no one")
     assert(mergedConf.contains("minWriterVersion") &&
       mergedConf.get("minWriterVersion") == "avocado")
   }
 
-  // todo: test parsing (WIP)
+  // todo: edge cases for parsing? add test cases?
 
     test("parseCalendarInterval") {
     for (input <- Seq("5 MINUTES", "5 minutes", "5 Minutes", "inTERval 5 minutes")) {

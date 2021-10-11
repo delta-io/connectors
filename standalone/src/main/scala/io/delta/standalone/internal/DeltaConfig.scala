@@ -23,11 +23,9 @@ import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
 
-
 import org.apache.hadoop.conf.Configuration
 
-
-// todo: validate metadata config????
+// todo: do we want to be able to validate a metadata as a whole?
 
 case class DeltaConfig[T](
                            key: String,
@@ -41,6 +39,8 @@ case class DeltaConfig[T](
    * Recover the saved value of this configuration from `Metadata`.
    * If undefined, return defaultValue.
    */
+  // todo: should this have the delta prefix? Delta protocol doesn't have it but its implemented in
+  //  runtime and delta oss with the prefix for this check
   def fromMetaData(metadata: Metadata): T = {
     fromString(metadata.configuration.getOrElse(key, defaultValue))
   }
@@ -110,6 +110,7 @@ trait DeltaConfigsBase {
                                 minimumProtocolVersion: Option[Protocol] = None,
                                 userConfigurable: Boolean = true): DeltaConfig[T] = {
 
+    // todo: is this the prefix we want or should it be io.delta.standalone or something?
     val deltaConfig = DeltaConfig(s"delta.$key",
       defaultValue,
       fromString,
@@ -158,8 +159,11 @@ trait DeltaConfigsBase {
   Map[String, String] = {
     import collection.JavaConverters._
 
+    // todo: is there a hadoop conf prefix? this is based off of combo in OptimisticTransactionImpl
+    // todo: do the metadata configurations have a prefix (see todo above at fromMetadata)
+
     val globalConfs = entries.asScala.flatMap { case (key, config) =>
-      Option(hadoopConf.get(key, null)) match {
+      Option(hadoopConf.get(config.key.stripPrefix("delta."), null)) match {
         case Some(default) => Some(config(default))
         case _ => None
       }
