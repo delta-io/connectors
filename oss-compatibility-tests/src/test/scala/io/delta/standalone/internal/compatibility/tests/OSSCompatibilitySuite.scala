@@ -24,7 +24,6 @@ import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
-import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
 import io.delta.standalone.internal.util.{ComparisonUtil, OSSUtil, StandaloneUtil}
 
 import org.apache.commons.io.FileUtils
@@ -204,7 +203,9 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
     withTempDirAndLogs { (_, standaloneLog, _, ossLog) =>
       ossLog.startTransaction().commit(oo.metadata :: oo.protocol13 :: Nil, oo.op)
 
-      val e = intercept[InvalidProtocolVersionException] {
+      // scalastyle:off line.size.limit
+      val e = intercept[io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException] {
+        // scalastyle:on line.size.limit
         standaloneLog.startTransaction().commit(Iterable().asJava, ss.op, ss.engineInfo)
       }
 
