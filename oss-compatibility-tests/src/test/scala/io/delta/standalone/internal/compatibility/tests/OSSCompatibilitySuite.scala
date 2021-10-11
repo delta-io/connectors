@@ -218,7 +218,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
 
   /**
    * For each (logType1, logType2, exception) below, we will test the case of:
-   * logType1 detect exception (caused by logType2)
+   * logType1 detect exception (caused by logType2), where logType2 commits the winning commit
    *
    * case 1a: standalone, oss, protocolChangedException
    * case 1b: oss, standalone, protocolChangedException
@@ -285,6 +285,69 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       standaloneLog.startTransaction().commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
       intercept[org.apache.spark.sql.delta.ConcurrentAppendException] {
         ossTxn5.commit(oo.addFiles, oo.op)
+      }
+
+      // case 4a
+      val standaloneTxn6 = standaloneLog.startTransaction()
+      standaloneTxn6.markFilesAsRead(ss.col1PartitionFilter)
+      ossLog.startTransaction().commit(oo.removeFiles, oo.op)
+      intercept[io.delta.standalone.exceptions.ConcurrentDeleteReadException] {
+        standaloneTxn6.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 4b
+      // re-add files
+      ossLog.startTransaction().commit(oo.addFiles, oo.op)
+
+      val ossTxn7 = ossLog.startTransaction()
+      ossTxn7.filterFiles(oo.col1PartitionFilter :: Nil)
+      standaloneLog.startTransaction().commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
+      intercept[org.apache.spark.sql.delta.ConcurrentDeleteReadException] {
+        ossTxn7.commit(oo.addFiles, oo.op)
+      }
+
+      // case 5a
+      // re-add files
+      ossLog.startTransaction().commit(oo.addFiles, oo.op)
+
+      val standaloneTxn8 = standaloneLog.startTransaction()
+      ossLog.startTransaction().commit(oo.removeFiles, oo.op)
+      intercept[io.delta.standalone.exceptions.ConcurrentDeleteDeleteException] {
+        standaloneTxn8.commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 5b
+      // re-add files
+      ossLog.startTransaction().commit(oo.addFiles, oo.op)
+
+      val ossTxn9 = ossLog.startTransaction()
+      standaloneLog.startTransaction().commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
+      intercept[org.apache.spark.sql.delta.ConcurrentDeleteDeleteException] {
+        ossTxn9.commit(oo.removeFiles, oo.op)
+      }
+
+      // case 6a
+      val standaloneTxn10 = standaloneLog.startTransaction()
+      standaloneTxn10.txnVersion(ss.setTransaction.getAppId)
+
+      val tmpOssLog = ossLog.startTransaction()
+      tmpOssLog.txnVersion(oo.setTransaction.appId)
+      tmpOssLog.commit(oo.setTransaction :: Nil, oo.op)
+
+      intercept[io.delta.standalone.exceptions.ConcurrentTransactionException] {
+        standaloneTxn10.commit(Iterable().asJava, ss.op, ss.engineInfo)
+      }
+
+      // case 6b
+      val ossTxn11 = ossLog.startTransaction()
+      ossTxn11.txnVersion(oo.setTransaction.appId)
+
+      val tmpStandaloneLog = standaloneLog.startTransaction()
+      tmpStandaloneLog.txnVersion(ss.setTransaction.getAppId)
+      tmpStandaloneLog.commit((ss.setTransaction :: Nil).asJava, ss.op, ss.engineInfo)
+
+      intercept[org.apache.spark.sql.delta.ConcurrentTransactionException] {
+        ossTxn11.commit(Nil, oo.op)
       }
     }
   }
