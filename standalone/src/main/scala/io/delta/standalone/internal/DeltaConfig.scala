@@ -140,11 +140,11 @@ trait DeltaConfigsBase {
       case keyvalue @ (key, _) =>
         if (entries.containsKey(key.toLowerCase(Locale.ROOT))) {
           // TODO: how do we log in connectors?
-//          logConsole(
-//            s"""
-//               |You are trying to set a property the key of which is the same as Delta config: $key.
-//               |If you are trying to set a Delta config, prefix it with "delta.", e.g. 'delta.$key'.
-//            """.stripMargin)
+//        logConsole(
+//          s"""
+//             |You are trying to set a property the key of which is the same as Delta config: $key.
+//             |If you are trying to set a Delta config, prefix it with "delta.", e.g. 'delta.$key'.
+//          """.stripMargin)
         }
         keyvalue
     }
