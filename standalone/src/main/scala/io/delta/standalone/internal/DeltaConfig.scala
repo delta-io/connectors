@@ -26,6 +26,9 @@ import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
 
 import org.apache.hadoop.conf.Configuration
 
+
+// todo: validate metadata config????
+
 case class DeltaConfig[T](
                            key: String,
                            defaultValue: String,
@@ -89,7 +92,7 @@ trait DeltaConfigsBase {
     val sInLowerCase = s.trim.toLowerCase(Locale.ROOT)
     val interval =
       if (sInLowerCase.startsWith("interval ")) sInLowerCase else "interval " + sInLowerCase
-    val cal = IntervalUtils.safeStringToInterval(UTF8String.fromString(interval))
+    val cal = IntervalUtils.safeStringToInterval(interval)
     if (cal == null) {
       throw new IllegalArgumentException("Invalid interval: " + s)
     }
@@ -136,11 +139,11 @@ trait DeltaConfigsBase {
       case keyvalue @ (key, _) =>
         if (entries.containsKey(key.toLowerCase(Locale.ROOT))) {
           // TODO: how do we log in connectors?
-          logConsole(
-            s"""
-               |You are trying to set a property the key of which is the same as Delta config: $key.
-               |If you are trying to set a Delta config, prefix it with "delta.", e.g. 'delta.$key'.
-            """.stripMargin)
+//          logConsole(
+//            s"""
+//               |You are trying to set a property the key of which is the same as Delta config: $key.
+//               |If you are trying to set a Delta config, prefix it with "delta.", e.g. 'delta.$key'.
+//            """.stripMargin)
         }
         keyvalue
     }

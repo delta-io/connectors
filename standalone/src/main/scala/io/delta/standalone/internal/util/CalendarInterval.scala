@@ -36,9 +36,22 @@ private[internal] class CalendarInterval(val months: Int,
                                          val days: Int,
                                          val microseconds: Long) {
 
-    // todo: do we need to override equals?
-    // todo: do we need to override hashCode?
     // todo: do we need to override toString?
+
+  override def hashCode(): Int = {
+    // todo: not correct
+    0
+  }
+
+
+
+  override def equals(other: Any): Boolean = {
+      other match {
+        case interval : CalendarInterval =>
+          months == interval.months && days == interval.days && microseconds == interval.microseconds
+        case _ => false
+      }
+    }
 
   }
 
