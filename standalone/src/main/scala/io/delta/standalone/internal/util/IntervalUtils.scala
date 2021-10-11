@@ -117,13 +117,20 @@ object IntervalUtils {
         state = next
       }
     }
-    // todo: write helper that does "toBytes" or resolve via logic instead of converting each time?
 
     def currentWord: String = {
       val sep = "\\s+"
       val strings = s.split(sep)
-      val lenRight = s.substring(i, s.getBytes(StandardCharsets.UTF_8).length).split(sep) .length
+      val lenRight = s.substring(i, s.length).split(sep) .length
       strings(strings.length - lenRight)
+    }
+
+    def matchAt(i: Int, str: String): Boolean = {
+      if (i + str.length > s.length) {
+        false
+      } else {
+        s.substring(i, i + str.length) == str
+      }
     }
 
     while (i < bytes.length) {
@@ -131,14 +138,14 @@ object IntervalUtils {
       state match {
         case PREFIX =>
           if (s.startsWith(intervalStr)) {
-            if (s.getBytes(StandardCharsets.UTF_8).length ==
-              intervalStr.getBytes(StandardCharsets.UTF_8).length) {
+            if (s.length ==
+              intervalStr.length) {
               throwIAE("interval string cannot be empty")
             } else if (!Character.isWhitespace(
-              bytes(i + intervalStr.getBytes(StandardCharsets.UTF_8).length))) {
+              bytes(i + intervalStr.length))) {
               throwIAE(s"invalid interval prefix $currentWord")
             } else {
-              i += intervalStr.getBytes(StandardCharsets.UTF_8).length + 1
+              i += intervalStr.length + 1
             }
           }
           state = TRIM_BEFORE_SIGN
@@ -216,40 +223,40 @@ object IntervalUtils {
           }
           try {
             b match {
-              case 'y' if s.substring(i, (i + yearStr.length).min(s.length)) == yearStr =>
+              case 'y' if matchAt(i, yearStr) =>
                 val monthsInYears = Math.multiplyExact(MONTHS_PER_YEAR, currentValue)
                 months = Math.toIntExact(Math.addExact(months, monthsInYears))
-                i += yearStr.getBytes(StandardCharsets.UTF_8).length
-              case 'w' if s.substring(i, (i + weekStr.length).min(s.length)) == weekStr =>
+                i += yearStr.length
+              case 'w' if matchAt(i, weekStr) =>
                 val daysInWeeks = Math.multiplyExact(DAYS_PER_WEEK, currentValue)
                 days = Math.toIntExact(Math.addExact(days, daysInWeeks))
-                i += weekStr.getBytes(StandardCharsets.UTF_8).length
-              case 'd' if s.substring(i, (i + dayStr.length).min(s.length)) == dayStr =>
+                i += weekStr.length
+              case 'd' if matchAt(i, dayStr) =>
                 days = Math.addExact(days, Math.toIntExact(currentValue))
-                i += dayStr.getBytes(StandardCharsets.UTF_8).length
-              case 'h' if s.substring(i, (i + hourStr.length).min(s.length)) == hourStr =>
+                i += dayStr.length
+              case 'h' if matchAt(i, hourStr) =>
                 val hoursUs = Math.multiplyExact(currentValue, MICROS_PER_HOUR)
                 microseconds = Math.addExact(microseconds, hoursUs)
-                i += hourStr.getBytes(StandardCharsets.UTF_8).length
-              case 's' if s.substring(i, (i + secondStr.length).min(s.length)) == secondStr =>
+                i += hourStr.length
+              case 's' if matchAt(i, secondStr) =>
                 val secondsUs = Math.multiplyExact(currentValue, MICROS_PER_SECOND)
                 microseconds = Math.addExact(Math.addExact(microseconds, secondsUs), fraction)
-                i += secondStr.getBytes(StandardCharsets.UTF_8).length
+                i += secondStr.length
               case 'm' =>
-                if (s.substring(i, (i + monthStr.length).min(s.length)) == monthStr) {
+                if (matchAt(i, monthStr)) {
                   months = Math.addExact(months, Math.toIntExact(currentValue))
-                  i += monthStr.getBytes(StandardCharsets.UTF_8).length
-                } else if (s.substring(i, (i + minuteStr.length).min(s.length)) == minuteStr) {
+                  i += monthStr.length
+                } else if (matchAt(i, minuteStr)) {
                   val minutesUs = Math.multiplyExact(currentValue, MICROS_PER_MINUTE)
                   microseconds = Math.addExact(microseconds, minutesUs)
-                  i += minuteStr.getBytes(StandardCharsets.UTF_8).length
-                } else if (s.substring(i, (i + millisStr.length).min(s.length)) == millisStr) {
+                  i += minuteStr.length
+                } else if (matchAt(i, millisStr)) {
                   val millisUs = Math.multiplyExact(currentValue, MICROS_PER_MILLIS)
                   microseconds = Math.addExact(microseconds, millisUs)
-                  i += millisStr.getBytes(StandardCharsets.UTF_8).length
-                } else if (s.substring(i, (i + microsStr.length).min(s.length)) == microsStr) {
+                  i += millisStr.length
+                } else if (matchAt(i, microsStr)) {
                   microseconds = Math.addExact(microseconds, currentValue)
-                  i += microsStr.getBytes(StandardCharsets.UTF_8).length
+                  i += microsStr.length
                 } else throwIAE(s"invalid unit '$currentWord'")
               case _ => throwIAE(s"invalid unit '$currentWord'")
             }
