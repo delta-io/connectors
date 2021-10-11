@@ -16,9 +16,6 @@
 
 package io.delta.standalone.internal.util
 
-  // what does the unstable annnotation do?
-  // implements serializable?
-
 // todo: what privacy do we want?
 /**
  * The class representing calendar intervals. The calendar interval is stored internally in
@@ -36,22 +33,18 @@ private[internal] class CalendarInterval(val months: Int,
                                          val days: Int,
                                          val microseconds: Long) {
 
-    // todo: do we need to override toString?
-
   override def hashCode(): Int = {
-    // todo: not correct
+    // todo: implement more exactly? not used
     0
   }
-
-
 
   override def equals(other: Any): Boolean = {
       other match {
         case interval : CalendarInterval =>
-          months == interval.months && days == interval.days && microseconds == interval.microseconds
+          months == interval.months && days == interval.days &&
+            microseconds == interval.microseconds
         case _ => false
       }
     }
-
   }
 
