@@ -20,10 +20,10 @@ import java.util.ConcurrentModificationException
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.{actions => StandaloneActions, DeltaLog => StandaloneDeltaLog, OptimisticTransaction => StandaloneOptTxn}
+import io.delta.standalone.{Operation => StandaloneOperation, actions => StandaloneActions, DeltaLog => StandaloneDeltaLog, OptimisticTransaction => StandaloneOptTxn}
 import io.delta.standalone.internal.util.{OSSUtil, StandaloneUtil}
 
-import org.apache.spark.sql.delta.{actions => OSSActions, DeltaLog => OSSDeltaLog, OptimisticTransaction => OSSOptTxn}
+import org.apache.spark.sql.delta.{DeltaOperations, actions => OSSActions, DeltaLog => OSSDeltaLog, OptimisticTransaction => OSSOptTxn}
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.hadoop.conf.Configuration
@@ -34,6 +34,9 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
   protected val now = System.currentTimeMillis()
   protected val ss = new StandaloneUtil(now)
   protected val oo = new OSSUtil(now)
+
+  private val standaloneConflictOp = new StandaloneOperation(StandaloneOperation.Name.MANUAL_UPDATE)
+  private val ossConflictOp = DeltaOperations.ManualUpdate
 
   /**
    * Tests a DELTA STANDALONE transaction getting conflicted by a DELTA OSS commit (i.e. during the
@@ -65,13 +68,15 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
       reads: Seq[StandaloneOptTxn => Unit],
       concurrentOSSWrites: Seq[OSSActions.Action],
       actions: Seq[StandaloneActions.Action],
+      errorMessageHint: Option[Seq[String]] = None,
       exceptionClass: Option[String] = None): Unit = {
+
     val concurrentTxn: OSSOptTxn => Unit =
-      (opt: OSSOptTxn) => opt.commit(concurrentOSSWrites, oo.op)
+      (opt: OSSOptTxn) => opt.commit(concurrentOSSWrites, ossConflictOp)
 
     def initialSetup(log: StandaloneDeltaLog): Unit = {
       setup.foreach { action =>
-        log.startTransaction().commit(Seq(action).asJava, ss.op, ss.engineInfo)
+        log.startTransaction().commit(Seq(action).asJava, standaloneConflictOp, ss.engineInfo)
       }
     }
 
@@ -98,13 +103,21 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
         // Try commit and check expected conflict behavior
         if (conflicts) {
           val e = intercept[ConcurrentModificationException] {
-            standaloneTxn.commit(actions.asJava, ss.op, ss.engineInfo)
+            standaloneTxn.commit(actions.asJava, standaloneConflictOp, ss.engineInfo)
+          }
+//          // scalastyle:off
+//          println(e)
+//          println(e.getMessage)
+//          println(e.getStackTrace)
+//          // scalastyle:on
+          errorMessageHint.foreach { expectedParts =>
+            assert(expectedParts.forall(part => e.getMessage.contains(part)))
           }
           if (exceptionClass.nonEmpty) {
             assert(e.getClass.getName.contains(exceptionClass.get))
           }
         } else {
-          standaloneTxn.commit(actions.asJava, ss.op, ss.engineInfo)
+          standaloneTxn.commit(actions.asJava, standaloneConflictOp, ss.engineInfo)
         }
       }
     }
@@ -140,13 +153,15 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
       reads: Seq[OSSOptTxn => Unit],
       concurrentStandaloneWrites: Seq[StandaloneActions.Action], // winning Delta Standalone writes
       actions: Seq[OSSActions.Action],
+      errorMessageHint: Option[Seq[String]] = None,
       exceptionClass: Option[String] = None): Unit = {
     val concurrentTxn: StandaloneOptTxn => Unit =
-      (opt: StandaloneOptTxn) => opt.commit(concurrentStandaloneWrites.asJava, ss.op, ss.engineInfo)
+      (opt: StandaloneOptTxn) =>
+        opt.commit(concurrentStandaloneWrites.asJava, standaloneConflictOp, ss.engineInfo)
 
     def initialSetup(log: OSSDeltaLog): Unit = {
       setup.foreach { action =>
-        log.startTransaction().commit(Seq(action), oo.op)
+        log.startTransaction().commit(Seq(action), ossConflictOp)
       }
     }
 
@@ -173,13 +188,16 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
         // Try commit and check expected conflict behavior
         if (conflicts) {
           val e = intercept[ConcurrentModificationException] {
-            ossTxn.commit(actions, oo.op)
+            ossTxn.commit(actions, ossConflictOp)
+          }
+          errorMessageHint.foreach { expectedParts =>
+            assert(expectedParts.forall(part => e.getMessage.contains(part)))
           }
           if (exceptionClass.nonEmpty) {
             assert(e.getClass.getName.contains(exceptionClass.get))
           }
         } else {
-          ossTxn.commit(actions, oo.op)
+          ossTxn.commit(actions, ossConflictOp)
         }
       }
     }

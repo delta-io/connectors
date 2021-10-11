@@ -314,4 +314,68 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
   ///////////////////////////////////////////////////////////////////////////
   // Disallowed concurrent actions
   ///////////////////////////////////////////////////////////////////////////
+
+  checkStandalone(
+    "delete / delete",
+    conflicts = true,
+    reads = Nil,
+    concurrentOSSWrites = Seq(oo.conflict.removeA),
+    actions = Seq(ss.conflict.removeA_time5)
+  )
+
+  checkOSS(
+    "delete / delete",
+    conflicts = true,
+    reads = Nil,
+    concurrentStandaloneWrites = Seq(ss.conflict.removeA),
+    actions = Seq(oo.conflict.removeA_time5)
+  )
+
+  checkStandalone(
+    "add / read + write",
+    conflicts = true,
+    setup = Seq(ss.conflict.metadata_partX),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.addA_partX1),
+    actions = Seq(ss.conflict.addB_partX1),
+    // commit info should show operation as "Manual Update", because that's the operation used by
+    // the harness
+    errorMessageHint = Some("[x=1]" :: "Manual Update" :: Nil))
+
+  checkOSS(
+    "add / read + write",
+    conflicts = true,
+    setup = Seq(oo.conflict.metadata_partX),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.addA_partX1),
+    actions = Seq(oo.conflict.addB_partX1),
+    // commit info should show operation as "Manual Update", because that's the operation used by
+    // the harness
+    errorMessageHint = Some("[x=1]" :: "Manual Update" :: Nil))
+
+  checkStandalone(
+    "delete / read",
+    conflicts = true,
+    setup = Seq(ss.conflict.metadata_partX, ss.conflict.addA_partX1),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.removeA),
+    actions = Seq(),
+    errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
+
+  checkOSS(
+    "delete / read",
+    conflicts = true,
+    setup = Seq(oo.conflict.metadata_partX, oo.conflict.addA_partX1),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.removeA),
+    actions = Seq(),
+    errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
 }

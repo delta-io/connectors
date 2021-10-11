@@ -90,7 +90,7 @@ class OptimisticTransactionSuite
     conflicts = true,
     reads = Nil,
     concurrentWrites = Seq(removeA),
-    actions = Seq(RemoveFileJ.builder("a").deletionTimestamp(5L).build())
+    actions = Seq(removeA_time5)
   )
 
   check(

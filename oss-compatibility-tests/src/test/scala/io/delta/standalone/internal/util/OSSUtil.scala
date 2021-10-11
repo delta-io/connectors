@@ -89,6 +89,7 @@ class OSSUtil(now: Long) {
     val addB = AddFile("b", Map.empty, 1, 1, dataChange = true)
 
     val removeA = RemoveFile("a", Some(4))
+    val removeA_time5 = RemoveFile("a", Some(5))
 
     val addA_partX1 = AddFile("a", Map("x" -> "1"), 1, 1, dataChange = true)
     val addA_partX2 = AddFile("a", Map("x" -> "2"), 1, 1, dataChange = true)
