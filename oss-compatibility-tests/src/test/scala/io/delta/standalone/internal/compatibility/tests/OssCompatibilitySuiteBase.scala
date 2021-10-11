@@ -136,7 +136,7 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
   protected def checkOSS(
       testName: String,
       conflicts: Boolean,
-      setup: Seq[OSSActions.Action] = Seq(OSSActions.Metadata(), OSSActions.Protocol()),
+      setup: Seq[OSSActions.Action] = Seq(OSSActions.Metadata(), OSSActions.Protocol(1, 2)),
       reads: Seq[OSSOptTxn => Unit],
       concurrentStandaloneWrites: Seq[StandaloneActions.Action], // winning Delta Standalone writes
       actions: Seq[OSSActions.Action],

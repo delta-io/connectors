@@ -100,5 +100,7 @@ class OSSUtil(now: Long) {
       schemaString = new StructType().add("x", IntegerType).json,
       partitionColumns = Seq("x")
     )
+
+    val colXEq1Filter = EqualTo(AttributeReference("x", IntegerType, nullable = true)(), Literal(1))
   }
 }

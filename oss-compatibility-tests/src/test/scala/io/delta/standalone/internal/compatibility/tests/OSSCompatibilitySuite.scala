@@ -211,142 +211,9 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     }
   }
 
-  /**
-   * For each (logType1, logType2, exception) below, we will test the case of:
-   * logType1 detect exception (caused by logType2), where logType2 commits the winning commit
-   *
-   * case 1a: standalone, oss, protocolChangedException
-   * case 1b: oss, standalone, protocolChangedException
-   *
-   * case 2a: standalone, oss, metadataChangedException
-   * case 2b: oss, standalone, metadataChangedException
-   *
-   * case 3a: standalone, oss, concurrentAppendException
-   * case 3b: oss, standalone, concurrentAppendException
-   *
-   * case 4a: standalone, oss, concurrentDeleteReadException
-   * case 4b: oss, standalone, concurrentDeleteReadException
-   *
-   * case 5a: standalone, oss, concurrentDeleteDeleteException
-   * case 5b: oss, standalone, concurrentDeleteDeleteException
-   *
-   * case 6a: standalone, oss, concurrentTransactionException
-   * case 6b: oss, standalone, concurrentTransactionException
-   */
-  test("concurrency conflicts") {
-    withTempDirAndLogs { (_, standaloneLog, _, ossLog) =>
-      // create table with valid metadata
-      ossLog.startTransaction().commit(oo.metadata :: Nil, oo.op)
-
-      // case 1a
-      val standaloneTxn0 = standaloneLog.startTransaction()
-      ossLog.startTransaction().commit(oo.protocol12 :: Nil, oo.op)
-      intercept[io.delta.standalone.exceptions.ProtocolChangedException] {
-        standaloneTxn0.commit(Iterable(ss.protocol12).asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 1b
-      val ossTxn1 = ossLog.startTransaction()
-      standaloneLog.startTransaction().commit(Iterable(ss.protocol12).asJava, ss.op, ss.engineInfo)
-      intercept[org.apache.spark.sql.delta.ProtocolChangedException] {
-        ossTxn1.commit(oo.protocol12 :: Nil, oo.op)
-      }
-
-      // case 2a
-      val standaloneTxn2 = standaloneLog.startTransaction()
-      ossLog.startTransaction().commit(oo.metadata :: Nil, oo.op)
-      intercept[io.delta.standalone.exceptions.MetadataChangedException] {
-        standaloneTxn2.commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 2b
-      val ossTxn3 = ossLog.startTransaction()
-      standaloneLog.startTransaction().commit(Iterable(ss.metadata).asJava, ss.op, ss.engineInfo)
-      intercept[org.apache.spark.sql.delta.MetadataChangedException] {
-        ossTxn3.commit(oo.metadata :: Nil, oo.op)
-      }
-
-      // case 3a
-      val standaloneTxn4 = standaloneLog.startTransaction()
-      standaloneTxn4.markFilesAsRead(ss.col1PartitionFilter)
-      ossLog.startTransaction().commit(oo.addFiles, oo.op)
-      intercept[io.delta.standalone.exceptions.ConcurrentAppendException] {
-        standaloneTxn4.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 3b
-      val ossTxn5 = ossLog.startTransaction()
-      ossTxn5.filterFiles(oo.col1PartitionFilter :: Nil)
-      standaloneLog.startTransaction().commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
-      intercept[org.apache.spark.sql.delta.ConcurrentAppendException] {
-        ossTxn5.commit(oo.addFiles, oo.op)
-      }
-
-      // case 4a
-      val standaloneTxn6 = standaloneLog.startTransaction()
-      standaloneTxn6.markFilesAsRead(ss.col1PartitionFilter)
-      ossLog.startTransaction().commit(oo.removeFiles, oo.op)
-      intercept[io.delta.standalone.exceptions.ConcurrentDeleteReadException] {
-        standaloneTxn6.commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 4b
-      // re-add files
-      ossLog.startTransaction().commit(oo.addFiles, oo.op)
-
-      val ossTxn7 = ossLog.startTransaction()
-      ossTxn7.filterFiles(oo.col1PartitionFilter :: Nil)
-      standaloneLog.startTransaction().commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
-      intercept[org.apache.spark.sql.delta.ConcurrentDeleteReadException] {
-        ossTxn7.commit(oo.addFiles, oo.op)
-      }
-
-      // case 5a
-      // re-add files
-      ossLog.startTransaction().commit(oo.addFiles, oo.op)
-
-      val standaloneTxn8 = standaloneLog.startTransaction()
-      ossLog.startTransaction().commit(oo.removeFiles, oo.op)
-      intercept[io.delta.standalone.exceptions.ConcurrentDeleteDeleteException] {
-        standaloneTxn8.commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 5b
-      // re-add files
-      ossLog.startTransaction().commit(oo.addFiles, oo.op)
-
-      val ossTxn9 = ossLog.startTransaction()
-      standaloneLog.startTransaction().commit(ss.removeFiles.asJava, ss.op, ss.engineInfo)
-      intercept[org.apache.spark.sql.delta.ConcurrentDeleteDeleteException] {
-        ossTxn9.commit(oo.removeFiles, oo.op)
-      }
-
-      // case 6a
-      val standaloneTxn10 = standaloneLog.startTransaction()
-      standaloneTxn10.txnVersion(ss.setTransaction.getAppId)
-
-      ossLog.startTransaction().commit(oo.setTransaction :: Nil, oo.op)
-
-      intercept[io.delta.standalone.exceptions.ConcurrentTransactionException] {
-        standaloneTxn10.commit(Iterable().asJava, ss.op, ss.engineInfo)
-      }
-
-      // case 6b
-      val ossTxn11 = ossLog.startTransaction()
-      ossTxn11.txnVersion(oo.setTransaction.appId)
-
-      standaloneLog.startTransaction()
-        .commit((ss.setTransaction :: Nil).asJava, ss.op, ss.engineInfo)
-
-      intercept[org.apache.spark.sql.delta.ConcurrentTransactionException] {
-        ossTxn11.commit(Nil, oo.op)
-      }
-    }
-  }
-
-  /* ************************** *
-   * Allowed concurrent actions *
-   * ************************** */
+  ///////////////////////////////////////////////////////////////////////////
+  // Allowed concurrent actions
+  ///////////////////////////////////////////////////////////////////////////
 
   checkStandalone(
     "append / append",
@@ -362,5 +229,89 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     concurrentStandaloneWrites = Seq(ss.conflict.addA),
     actions = Seq(oo.conflict.addB))
 
-  // TODO: the rest
+  checkStandalone(
+    "disjoint txns",
+    conflicts = false,
+    reads = Seq(
+      t => t.txnVersion("foo")
+    ),
+    concurrentOSSWrites = Seq(oo.setTransaction),
+    actions = Nil)
+
+  checkOSS(
+    "disjoint txns",
+    conflicts = false,
+    reads = Seq(
+      t => t.txnVersion("foo")
+    ),
+    concurrentStandaloneWrites = Seq(ss.setTransaction),
+    actions = Nil)
+
+  checkStandalone(
+    "disjoint delete / read",
+    conflicts = false,
+    setup = Seq(ss.conflict.metadata_partX, ss.conflict.addA_partX2),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.removeA),
+    actions = Seq()
+  )
+
+  checkOSS(
+    "disjoint delete / read",
+    conflicts = false,
+    setup = Seq(oo.conflict.metadata_partX, oo.conflict.addA_partX2),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.removeA),
+    actions = Seq()
+  )
+
+  checkStandalone(
+    "disjoint add / read",
+    conflicts = false,
+    setup = Seq(ss.conflict.metadata_partX),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.addA_partX2),
+    actions = Seq()
+  )
+
+  checkOSS(
+    "disjoint add / read",
+    conflicts = false,
+    setup = Seq(oo.conflict.metadata_partX),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.addA_partX2),
+    actions = Seq()
+  )
+
+  checkStandalone(
+    "add / read + no write",  // no write = no real conflicting change even though data was added
+    conflicts = false,        // so this should not conflict
+    setup = Seq(ss.conflict.metadata_partX),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.addA_partX1),
+    actions = Seq())
+
+  checkOSS(
+    "add / read + no write",  // no write = no real conflicting change even though data was added
+    conflicts = false,        // so this should not conflict
+    setup = Seq(oo.conflict.metadata_partX),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.addA_partX1),
+    actions = Seq())
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Disallowed concurrent actions
+  ///////////////////////////////////////////////////////////////////////////
 }

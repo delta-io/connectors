@@ -21,6 +21,7 @@ import java.util.Collections
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.expressions.{EqualTo, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
 trait OptimisticTransactionTestVals {
@@ -35,6 +36,7 @@ trait OptimisticTransactionTestVals {
   val addC_partX4 = new AddFileJ("c", Map("x" -> "4").asJava, 1, 1, true, null, null)
 
   val schema = new StructType(Array(new StructField("x", new IntegerType())))
+  val colXEq1Filter = new EqualTo(schema.column("x"), Literal.of(1))
   val metadata_colX = MetadataJ.builder().schema(schema).build()
   val metadata_partX =
     MetadataJ.builder().schema(schema).partitionColumns(Seq("x").asJava).build()

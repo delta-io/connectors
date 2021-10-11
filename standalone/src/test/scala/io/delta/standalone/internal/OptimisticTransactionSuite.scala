@@ -19,7 +19,6 @@ package io.delta.standalone.internal
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.actions.{CommitInfo, Protocol, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
-import io.delta.standalone.expressions.{EqualTo, Literal}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.DeltaLog
 
@@ -29,10 +28,9 @@ class OptimisticTransactionSuite
   extends OptimisticTransactionSuiteBase
   with OptimisticTransactionTestVals {
 
-
-  /* ************************** *
-   * Allowed concurrent actions *
-   * ************************** */
+  ///////////////////////////////////////////////////////////////////////////
+  // Allowed concurrent actions
+  ///////////////////////////////////////////////////////////////////////////
 
   check(
     "append / append",
@@ -56,7 +54,7 @@ class OptimisticTransactionSuite
     conflicts = false,
     setup = Seq(metadata_partX, addA_partX2),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      t => t.markFilesAsRead(colXEq1Filter)
     ),
     concurrentWrites = Seq(removeA),
     actions = Seq()
@@ -67,7 +65,7 @@ class OptimisticTransactionSuite
     conflicts = false,
     setup = Seq(metadata_partX),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      t => t.markFilesAsRead(colXEq1Filter)
     ),
     concurrentWrites = Seq(addA_partX2),
     actions = Seq()
@@ -78,14 +76,14 @@ class OptimisticTransactionSuite
     conflicts = false,        // so this should not conflict
     setup = Seq(metadata_partX),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      t => t.markFilesAsRead(colXEq1Filter)
     ),
     concurrentWrites = Seq(addA_partX1),
     actions = Seq())
 
-  /* ***************************** *
-   * Disallowed concurrent actions *
-   * ***************************** */
+  ///////////////////////////////////////////////////////////////////////////
+  // Disallowed concurrent actions
+  ///////////////////////////////////////////////////////////////////////////
 
   check(
     "delete / delete",
@@ -100,7 +98,7 @@ class OptimisticTransactionSuite
     conflicts = true,
     setup = Seq(metadata_partX),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      t => t.markFilesAsRead(colXEq1Filter)
     ),
     concurrentWrites = Seq(addA_partX1),
     actions = Seq(addB_partX1),
@@ -113,7 +111,7 @@ class OptimisticTransactionSuite
     conflicts = true,
     setup = Seq(metadata_partX, addA_partX1),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1)))
+      t => t.markFilesAsRead(colXEq1Filter)
     ),
     concurrentWrites = Seq(removeA),
     actions = Seq(),
@@ -153,7 +151,7 @@ class OptimisticTransactionSuite
     conflicts = true,
     setup = Seq(metadata_partX, addA_partX2),
     reads = Seq(
-      t => t.markFilesAsRead(new EqualTo(schema.column("x"), Literal.of(1))),
+      t => t.markFilesAsRead(colXEq1Filter),
       // `readWholeTable` should disallow any concurrent change, even if the change
       // is disjoint with the earlier filter
       t => t.readWholeTable()
