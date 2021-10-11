@@ -97,6 +97,8 @@ class OSSUtil(now: Long) {
     val addB_partX3 = AddFile("b", Map("x" -> "2"), 1, 1, dataChange = true)
     val addC_partX4 = AddFile("c", Map("x" -> "4"), 1, 1, dataChange = true)
 
+    val metadata_colX = Metadata(schemaString = new StructType().add("x", IntegerType).json)
+
     val metadata_partX = Metadata(
       schemaString = new StructType().add("x", IntegerType).json,
       partitionColumns = Seq("x")

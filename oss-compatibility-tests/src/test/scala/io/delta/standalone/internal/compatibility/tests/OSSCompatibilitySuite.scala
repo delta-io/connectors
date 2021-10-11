@@ -378,4 +378,108 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     concurrentStandaloneWrites = Seq(ss.conflict.removeA),
     actions = Seq(),
     errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
+
+  checkStandalone(
+    "schema change",
+    conflicts = true,
+    reads = Seq(
+      t => t.metadata
+    ),
+    concurrentOSSWrites = Seq(oo.metadata),
+    actions = Nil)
+
+  checkOSS(
+    "schema change",
+    conflicts = true,
+    reads = Seq(
+      t => t.metadata
+    ),
+    concurrentStandaloneWrites = Seq(ss.metadata),
+    actions = Nil)
+
+  checkStandalone(
+    "conflicting txns",
+    conflicts = true,
+    reads = Seq(
+      t => t.txnVersion(oo.setTransaction.appId)
+    ),
+    concurrentOSSWrites = Seq(oo.setTransaction),
+    actions = Nil)
+
+  checkOSS(
+    "conflicting txns",
+    conflicts = true,
+    reads = Seq(
+      t => t.txnVersion(ss.setTransaction.getAppId)
+    ),
+    concurrentStandaloneWrites = Seq(ss.setTransaction),
+    actions = Nil)
+
+  checkStandalone(
+    "upgrade / upgrade",
+    conflicts = true,
+    reads = Seq(
+      t => t.metadata
+    ),
+    concurrentOSSWrites = Seq(oo.protocol12),
+    actions = Seq(ss.protocol12))
+
+  checkOSS(
+    "upgrade / upgrade",
+    conflicts = true,
+    reads = Seq(
+      t => t.metadata
+    ),
+    concurrentStandaloneWrites = Seq(ss.protocol12),
+    actions = Seq(oo.protocol12))
+
+  checkStandalone(
+    "taint whole table",
+    conflicts = true,
+    setup = Seq(ss.conflict.metadata_partX, ss.conflict.addA_partX2),
+    reads = Seq(
+      t => t.markFilesAsRead(ss.conflict.colXEq1Filter),
+      // `readWholeTable` should disallow any concurrent change, even if the change
+      // is disjoint with the earlier filter
+      t => t.readWholeTable()
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.addB_partX3),
+    actions = Seq(ss.conflict.addC_partX4)
+  )
+
+  checkOSS(
+    "taint whole table",
+    conflicts = true,
+    setup = Seq(oo.conflict.metadata_partX, oo.conflict.addA_partX2),
+    reads = Seq(
+      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil),
+      // `readWholeTable` should disallow any concurrent change, even if the change
+      // is disjoint with the earlier filter
+      t => t.readWholeTable()
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.addB_partX3),
+    actions = Seq(oo.conflict.addC_partX4)
+  )
+
+  checkStandalone(
+    "taint whole table + concurrent remove",
+    conflicts = true,
+    setup = Seq(ss.conflict.metadata_colX, ss.conflict.addA),
+    reads = Seq(
+      // `readWholeTable` should disallow any concurrent `RemoveFile`s.
+      t => t.readWholeTable()
+    ),
+    concurrentOSSWrites = Seq(oo.conflict.removeA),
+    actions = Seq(ss.conflict.addB))
+
+  checkOSS(
+    "taint whole table + concurrent remove",
+    conflicts = true,
+    setup = Seq(oo.conflict.metadata_colX, oo.conflict.addA),
+    reads = Seq(
+      // `readWholeTable` should disallow any concurrent `RemoveFile`s.
+      t => t.readWholeTable()
+    ),
+    concurrentStandaloneWrites = Seq(ss.conflict.removeA),
+    actions = Seq(oo.conflict.addB))
 }
