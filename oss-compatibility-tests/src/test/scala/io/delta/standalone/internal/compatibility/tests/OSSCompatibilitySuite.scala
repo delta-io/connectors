@@ -331,9 +331,7 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       val standaloneTxn10 = standaloneLog.startTransaction()
       standaloneTxn10.txnVersion(ss.setTransaction.getAppId)
 
-      val tmpOssLog = ossLog.startTransaction()
-      tmpOssLog.txnVersion(oo.setTransaction.appId)
-      tmpOssLog.commit(oo.setTransaction :: Nil, oo.op)
+      ossLog.startTransaction().commit(oo.setTransaction :: Nil, oo.op)
 
       intercept[io.delta.standalone.exceptions.ConcurrentTransactionException] {
         standaloneTxn10.commit(Iterable().asJava, ss.op, ss.engineInfo)
@@ -343,9 +341,8 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
       val ossTxn11 = ossLog.startTransaction()
       ossTxn11.txnVersion(oo.setTransaction.appId)
 
-      val tmpStandaloneLog = standaloneLog.startTransaction()
-      tmpStandaloneLog.txnVersion(ss.setTransaction.getAppId)
-      tmpStandaloneLog.commit((ss.setTransaction :: Nil).asJava, ss.op, ss.engineInfo)
+      standaloneLog.startTransaction()
+        .commit((ss.setTransaction :: Nil).asJava, ss.op, ss.engineInfo)
 
       intercept[org.apache.spark.sql.delta.ConcurrentTransactionException] {
         ossTxn11.commit(Nil, oo.op)
