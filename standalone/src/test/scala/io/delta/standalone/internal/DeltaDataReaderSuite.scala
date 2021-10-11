@@ -363,7 +363,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   // scalastyle:off line.size.limit
-  test("#170: CloseableParquetDataIterator should not stop iteration when processing an empty file") {
+  test("#125: CloseableParquetDataIterator should not stop iteration when processing an empty file") {
     // scalastyle:on line.size.limit
     withLogForGoldenTable("125-iterator-bug") { log =>
       var datas = new ListBuffer[Int]()
