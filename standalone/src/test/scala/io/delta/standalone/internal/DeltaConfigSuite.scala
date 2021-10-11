@@ -30,19 +30,19 @@ class DeltaConfigSuite extends FunSuite {
 
   test("mergeGlobalConfigs") {
 
-    // todo: resolve what prefix we expect for hadoop configurations and metadata configurations
-    //  and then update these tests and mergeGlobalConfigs
+    // todo: this is kind of tested in OptimisticTransactionSuite?
     val hadoopConf = new Configuration()
-    hadoopConf.set("io.delta.standalone.appendonly", "false")
-    hadoopConf.set("io.delta.standalone.enableexpiredlogcleanup", "true")
-    val metadataConf = Map("delta.enableexpiredlogcleanup"-> "no one",
-      "delta.minWriterVersion" -> "avocado")
+    hadoopConf.set("appendOnly", "false")
+    hadoopConf.set("enableExpiredLogCleanup", "true")
+    val metadataConf = Map("delta.enableExpiredLogCleanup"-> "false",
+      "delta.minWriterVersion" -> "0")
     val mergedConf = DeltaConfigs.mergeGlobalConfigs(hadoopConf, metadataConf)
-    assert(mergedConf.contains("appendonly") && mergedConf.get("appendonly") == "foo")
-    assert(mergedConf.contains("enableexpiredlogcleanup") &&
-      mergedConf.get("enableexpiredlogcleanup") == "no one")
-    assert(mergedConf.contains("minWriterVersion") &&
-      mergedConf.get("minWriterVersion") == "avocado")
+    assert(mergedConf.contains("delta.appendOnly") &&
+      mergedConf.get("delta.appendOnly") == Some("false"))
+    assert(mergedConf.contains("delta.enableExpiredLogCleanup") &&
+      mergedConf.get("delta.enableExpiredLogCleanup") == Some("false"))
+    assert(mergedConf.contains("delta.minWriterVersion") &&
+      mergedConf.get("delta.minWriterVersion") == Some("0"))
   }
 
   // todo: edge cases for parsing? add test cases?

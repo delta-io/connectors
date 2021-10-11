@@ -25,8 +25,6 @@ import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
 
 import org.apache.hadoop.conf.Configuration
 
-// todo: do we want to be able to validate a metadata as a whole?
-
 case class DeltaConfig[T](
                            key: String,
                            defaultValue: String,
@@ -39,8 +37,6 @@ case class DeltaConfig[T](
    * Recover the saved value of this configuration from `Metadata`.
    * If undefined, return defaultValue.
    */
-  // todo: should this have the delta prefix? Delta protocol doesn't have it but its implemented in
-  //  runtime and delta oss with the prefix for this check
   def fromMetaData(metadata: Metadata): T = {
     fromString(metadata.configuration.getOrElse(key, defaultValue))
   }
@@ -74,14 +70,9 @@ case class DeltaConfig[T](
  */
 trait DeltaConfigsBase {
 
-  // todo: update the docs when done
   /**
    * Convert a string to [[CalendarInterval]]. This method is case-insensitive and will throw
    * [[IllegalArgumentException]] when the input string is not a valid interval.
-   *
-   * to/do Remove this method and use `CalendarInterval.fromCaseInsensitiveString` instead when
-   * upgrading Spark. This is a fork version of `CalendarInterval.fromCaseInsensitiveString` which
-   * will be available in the next Spark release (See SPARK-27735).C
    *
    * @throws IllegalArgumentException if the string is not a valid internal.
    */
@@ -109,8 +100,6 @@ trait DeltaConfigsBase {
                                 helpMessage: String,
                                 minimumProtocolVersion: Option[Protocol] = None,
                                 userConfigurable: Boolean = true): DeltaConfig[T] = {
-
-    // todo: is this the prefix we want or should it be io.delta.standalone or something?
     val deltaConfig = DeltaConfig(s"delta.$key",
       defaultValue,
       fromString,
@@ -151,18 +140,16 @@ trait DeltaConfigsBase {
   }
 
   /**
-   * TODO docs
-   *
-   * User provided configs take precedence.
+   * Table properties for new tables can be specified through Hadoop configurations. This method
+   * checks to see if any of the configurations exist among the Hadoop configurations and merges
+   * them with the user provided configurations. User provided configs take precedence.
    */
   def mergeGlobalConfigs(hadoopConf: Configuration, tableConf: Map[String, String]):
   Map[String, String] = {
     import collection.JavaConverters._
 
-    // todo: is there a hadoop conf prefix? this is based off of combo in OptimisticTransactionImpl
-    // todo: do the metadata configurations have a prefix (see todo above at fromMetadata)
-
-    val globalConfs = entries.asScala.flatMap { case (key, config) =>
+    // todo: is there a hadoop conf prefix?
+    val globalConfs = entries.asScala.flatMap { case (_, config) =>
       Option(hadoopConf.get(config.key.stripPrefix("delta."), null)) match {
         case Some(default) => Some(config(default))
         case _ => None

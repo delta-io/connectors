@@ -392,8 +392,6 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Creates new metadata with global Delta configuration defaults. */
   private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
-    // TODO we don't need to set default values in mergeGlobalConfigs as long as we always access
-    //  configuration through DeltaConfigs right?
     metadata.copy(configuration =
       DeltaConfigs.mergeGlobalConfigs(deltaLog.hadoopConf, metadata.configuration))
   }
