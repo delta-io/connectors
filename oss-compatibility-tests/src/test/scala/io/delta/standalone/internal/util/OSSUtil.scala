@@ -81,4 +81,24 @@ class OSSUtil(now: Long) {
 
   val col1PartitionFilter =
     EqualTo(AttributeReference("col1_part", IntegerType, nullable = true)(), Literal(1))
+
+  val conflict = new ConflictVals()
+
+  class ConflictVals {
+    val addA = AddFile("a", Map.empty, 1, 1, dataChange = true)
+    val addB = AddFile("b", Map.empty, 1, 1, dataChange = true)
+
+    val removeA = RemoveFile("a", Some(4))
+
+    val addA_partX1 = AddFile("a", Map("x" -> "1"), 1, 1, dataChange = true)
+    val addA_partX2 = AddFile("a", Map("x" -> "2"), 1, 1, dataChange = true)
+    val addB_partX1 = AddFile("b", Map("x" -> "1"), 1, 1, dataChange = true)
+    val addB_partX3 = AddFile("b", Map("x" -> "2"), 1, 1, dataChange = true)
+    val addC_partX4 = AddFile("c", Map("x" -> "4"), 1, 1, dataChange = true)
+
+    val metadata_partX = Metadata(
+      schemaString = new StructType().add("x", IntegerType).json,
+      partitionColumns = Seq("x")
+    )
+  }
 }

@@ -24,19 +24,13 @@ import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
-import io.delta.standalone.internal.util.{ComparisonUtil, OSSUtil, StandaloneUtil}
+import io.delta.standalone.internal.util.ComparisonUtil
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
-import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.test.SharedSparkSession
 
-class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with ComparisonUtil {
-
-  private val now = System.currentTimeMillis()
-  private val ss = new StandaloneUtil(now)
-  private val oo = new OSSUtil(now)
+class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUtil {
 
   /**
    * Creates a temporary directory, a public Standalone DeltaLog, an internal Standalone DeltaLog,
@@ -350,7 +344,23 @@ class OSSCompatibilitySuite extends QueryTest with SharedSparkSession with Compa
     }
   }
 
-  test("valid concurrent writes") {
-    // TODO
-  }
+  /* ************************** *
+   * Allowed concurrent actions *
+   * ************************** */
+
+  checkStandalone(
+    "append / append",
+    conflicts = false,
+    reads = Seq(t => t.metadata()),
+    concurrentOSSWrites = Seq(oo.conflict.addA),
+    actions = Seq(ss.conflict.addB))
+
+  checkOSS(
+    "append / append",
+    conflicts = false,
+    reads = Seq(t => t.metadata),
+    concurrentStandaloneWrites = Seq(ss.conflict.addA),
+    actions = Seq(oo.conflict.addB))
+
+  // TODO: the rest
 }

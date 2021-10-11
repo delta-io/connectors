@@ -16,33 +16,19 @@
 
 package io.delta.standalone.internal
 
-import java.util.Collections
-
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.actions.{CommitInfo, Protocol, AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
+import io.delta.standalone.actions.{CommitInfo, Protocol, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
 import io.delta.standalone.expressions.{EqualTo, Literal}
-import io.delta.standalone.types.{IntegerType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.DeltaLog
 
 import org.apache.hadoop.conf.Configuration
 
-class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
-  private val addA = new AddFileJ("a", Collections.emptyMap(), 1, 1, true, null, null)
-  private val addB = new AddFileJ("b", Collections.emptyMap(), 1, 1, true, null, null)
+class OptimisticTransactionSuite
+  extends OptimisticTransactionSuiteBase
+  with OptimisticTransactionTestVals {
 
-  private val removeA = RemoveFileJ.builder("a").deletionTimestamp(4L).build()
-  private val addA_partX1 = new AddFileJ("a", Map("x" -> "1").asJava, 1, 1, true, null, null)
-  private val addA_partX2 = new AddFileJ("a", Map("x" -> "2").asJava, 1, 1, true, null, null)
-  private val addB_partX1 = new AddFileJ("b", Map("x" -> "1").asJava, 1, 1, true, null, null)
-  private val addB_partX3 = new AddFileJ("b", Map("x" -> "3").asJava, 1, 1, true, null, null)
-  private val addC_partX4 = new AddFileJ("c", Map("x" -> "4").asJava, 1, 1, true, null, null)
-
-  private val schema = new StructType(Array(new StructField("x", new IntegerType())))
-  private val metadata_colX = MetadataJ.builder().schema(schema).build()
-  private val metadata_partX =
-    MetadataJ.builder().schema(schema).partitionColumns(Seq("x").asJava).build()
 
   /* ************************** *
    * Allowed concurrent actions *

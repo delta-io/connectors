@@ -24,6 +24,7 @@ import io.delta.standalone.actions.{AddFile, Format, Metadata, Protocol, RemoveF
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.Operation
 import io.delta.standalone.expressions.{EqualTo, Literal}
+import io.delta.standalone.internal.OptimisticTransactionTestVals
 
 class StandaloneUtil(now: Long) {
 
@@ -83,4 +84,7 @@ class StandaloneUtil(now: Long) {
 
   val col1PartitionFilter = new EqualTo(schema.column("col1_part"), Literal.of(1))
 
+  val conflict = new ConflictVals()
+
+  class ConflictVals extends OptimisticTransactionTestVals
 }
