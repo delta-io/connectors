@@ -476,9 +476,10 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   test("can't have duplicate column names") {
     val schema = new StructType(Array(
       new StructField("col1", new IntegerType(), true),
-      new StructField("col1", new StringType(), true),
+      new StructField("col1", new StringType(), true)
     ))
-    testMetadata[RuntimeException](Metadata(schemaString = schema.toJson), "Found duplicate column(s)")
+    testMetadata[RuntimeException](Metadata(schemaString = schema.toJson),
+      "Found duplicate column(s)")
   }
 
   test("column names (both data and partition) must be acceptable by parquet") {
@@ -726,13 +727,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
     }
   }
 
-  // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
-
-  // TODO: readWholeTable tests
-
   // TODO: test Checkpoint > partialWriteVisible (==> useRename)
 
   // TODO: test Checkpoint > !partialWriteVisible (==> !useRename)
-
-  // TODO: test Checkpoint > correctly checkpoints all action types
 }

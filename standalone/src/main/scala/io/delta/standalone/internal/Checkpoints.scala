@@ -228,11 +228,13 @@ private[internal] object Checkpoints {
     // Use the string in the closure as Path is not Serializable.
     val path = checkpointFileSingular(snapshot.path, snapshot.version).toString
 
-     val actions: Seq[SingleAction] = (
-       Seq(snapshot.metadataScala, snapshot.protocolScala) ++
-       snapshot.setTransactionsScala ++
-       snapshot.allFilesScala ++
-       snapshot.tombstonesScala).map(_.wrap)
+    // Exclude commitInfo, CDC
+    val actions: Seq[SingleAction] = (
+        Seq(snapshot.metadataScala, snapshot.protocolScala) ++
+        snapshot.setTransactionsScala ++
+        snapshot.allFilesScala ++
+        snapshot.tombstonesScala
+      ).map(_.wrap)
 
     val writtenPath =
       if (useRename) {
