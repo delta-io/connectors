@@ -27,6 +27,7 @@ import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
+import meta.BuildInfo
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -121,7 +122,7 @@ private[internal] class OptimisticTransactionImpl(
       Some(isBlindAppend),
       Some(op.getOperationMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(engineInfo) // TODO: engineInfo-standalone-standaloneVersion
+      Some(s"$engineInfo-${BuildInfo.name}-${BuildInfo.version}")
     )
 
     preparedActions = commitInfo +: preparedActions
