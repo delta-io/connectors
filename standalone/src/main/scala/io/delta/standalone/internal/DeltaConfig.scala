@@ -18,11 +18,9 @@ package io.delta.standalone.internal
 
 import java.util.{HashMap, Locale}
 
-import io.delta.standalone.util.DateTimeConstants
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
-
 import org.apache.hadoop.conf.Configuration
 
 case class DeltaConfig[T](
@@ -64,7 +62,6 @@ case class DeltaConfig[T](
   }
 }
 
-// TODO: do we want to extend and include DeltaLogging?
 /**
  * Contains list of reservoir configs and validation checks.
  */
@@ -165,7 +162,7 @@ trait DeltaConfigsBase {
 
   private def getMicroSeconds(i: CalendarInterval): Long = {
     assert(i.months == 0)
-    i.days * DateTimeConstants.MICROS_PER_DAY + i.microseconds
+    i.days * util.DateTimeConstants.MICROS_PER_DAY + i.microseconds
   }
 
   /**

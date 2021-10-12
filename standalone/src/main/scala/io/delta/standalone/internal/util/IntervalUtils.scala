@@ -18,8 +18,6 @@ package io.delta.standalone.internal.util
 
 import java.nio.charset.StandardCharsets
 
-import io.delta.standalone.util.DateTimeConstants._
-
 object IntervalUtils {
 
   object IntervalUnit extends Enumeration {
@@ -106,7 +104,7 @@ object IntervalUtils {
     var days: Int = 0
     var microseconds: Long = 0
     var fractionScale: Int = 0
-    val initialFractionScale = (NANOS_PER_SECOND / 10).toInt
+    val initialFractionScale = (DateTimeConstants.NANOS_PER_SECOND / 10).toInt
     var fraction: Int = 0
     var pointPrefixed: Boolean = false
 
@@ -202,7 +200,7 @@ object IntervalUtils {
             fractionScale /= 10
           } else if (Character.isWhitespace(b) &&
             (!pointPrefixed || fractionScale < initialFractionScale)) {
-            fraction /= NANOS_PER_MICROS.toInt
+            fraction /= DateTimeConstants.NANOS_PER_MICROS.toInt
             state = TRIM_BEFORE_UNIT
           } else if ('0' <= b && b <= '9') {
             throwIAE(s"interval can only support nanosecond precision, '$currentWord' is out" +
@@ -224,22 +222,26 @@ object IntervalUtils {
           try {
             b match {
               case 'y' if matchAt(i, yearStr) =>
-                val monthsInYears = Math.multiplyExact(MONTHS_PER_YEAR, currentValue)
+                val monthsInYears = Math.multiplyExact(
+                  DateTimeConstants.MONTHS_PER_YEAR,
+                  currentValue)
                 months = Math.toIntExact(Math.addExact(months, monthsInYears))
                 i += yearStr.length
               case 'w' if matchAt(i, weekStr) =>
-                val daysInWeeks = Math.multiplyExact(DAYS_PER_WEEK, currentValue)
+                val daysInWeeks = Math.multiplyExact(DateTimeConstants.DAYS_PER_WEEK, currentValue)
                 days = Math.toIntExact(Math.addExact(days, daysInWeeks))
                 i += weekStr.length
               case 'd' if matchAt(i, dayStr) =>
                 days = Math.addExact(days, Math.toIntExact(currentValue))
                 i += dayStr.length
               case 'h' if matchAt(i, hourStr) =>
-                val hoursUs = Math.multiplyExact(currentValue, MICROS_PER_HOUR)
+                val hoursUs = Math.multiplyExact(currentValue, DateTimeConstants.MICROS_PER_HOUR)
                 microseconds = Math.addExact(microseconds, hoursUs)
                 i += hourStr.length
               case 's' if matchAt(i, secondStr) =>
-                val secondsUs = Math.multiplyExact(currentValue, MICROS_PER_SECOND)
+                val secondsUs = Math.multiplyExact(
+                  currentValue,
+                  DateTimeConstants.MICROS_PER_SECOND)
                 microseconds = Math.addExact(Math.addExact(microseconds, secondsUs), fraction)
                 i += secondStr.length
               case 'm' =>
@@ -247,11 +249,15 @@ object IntervalUtils {
                   months = Math.addExact(months, Math.toIntExact(currentValue))
                   i += monthStr.length
                 } else if (matchAt(i, minuteStr)) {
-                  val minutesUs = Math.multiplyExact(currentValue, MICROS_PER_MINUTE)
+                  val minutesUs = Math.multiplyExact(
+                    currentValue,
+                    DateTimeConstants.MICROS_PER_MINUTE)
                   microseconds = Math.addExact(microseconds, minutesUs)
                   i += minuteStr.length
                 } else if (matchAt(i, millisStr)) {
-                  val millisUs = Math.multiplyExact(currentValue, MICROS_PER_MILLIS)
+                  val millisUs = Math.multiplyExact(
+                    currentValue,
+                    DateTimeConstants.MICROS_PER_MILLIS)
                   microseconds = Math.addExact(microseconds, millisUs)
                   i += millisStr.length
                 } else if (matchAt(i, microsStr)) {

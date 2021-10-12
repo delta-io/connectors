@@ -30,7 +30,6 @@ class DeltaConfigSuite extends FunSuite {
 
   test("mergeGlobalConfigs") {
 
-    // todo: this is kind of tested in OptimisticTransactionSuite?
     val hadoopConf = new Configuration()
     hadoopConf.set("appendOnly", "false")
     hadoopConf.set("enableExpiredLogCleanup", "true")
