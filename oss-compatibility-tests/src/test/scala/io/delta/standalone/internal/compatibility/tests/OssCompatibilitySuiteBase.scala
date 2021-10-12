@@ -105,11 +105,6 @@ trait OssCompatibilitySuiteBase extends QueryTest with SharedSparkSession {
           val e = intercept[ConcurrentModificationException] {
             standaloneTxn.commit(actions.asJava, standaloneConflictOp, ss.engineInfo)
           }
-//          // scalastyle:off
-//          println(e)
-//          println(e.getMessage)
-//          println(e.getStackTrace)
-//          // scalastyle:on
           errorMessageHint.foreach { expectedParts =>
             assert(expectedParts.forall(part => e.getMessage.contains(part)))
           }
