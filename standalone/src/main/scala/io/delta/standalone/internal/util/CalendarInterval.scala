@@ -29,9 +29,7 @@ package io.delta.standalone.internal.util
  * @param days  an integer value representing the number of days in this interval
  * @param microseconds  a long value representing the  number of microseconds in this interval
  */
-private[internal] class CalendarInterval(val months: Int,
-                                         val days: Int,
-                                         val microseconds: Long) {
+private[internal] class CalendarInterval(val months: Int, val days: Int, val microseconds: Long) {
 
   override def hashCode(): Int = {
     // todo: implement more exactly? not used

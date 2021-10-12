@@ -23,14 +23,14 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{CalendarInterval, IntervalUtils}
 import org.apache.hadoop.conf.Configuration
 
-case class DeltaConfig[T](
-                           key: String,
-                           defaultValue: String,
-                           fromString: String => T,
-                           validationFunction: T => Boolean,
-                           helpMessage: String,
-                           minimumProtocolVersion: Option[Protocol] = None,
-                           editable: Boolean = true) {
+private[internal] case class DeltaConfig[T](
+    key: String,
+    defaultValue: String,
+    fromString: String => T,
+    validationFunction: T => Boolean,
+    helpMessage: String,
+    minimumProtocolVersion: Option[Protocol] = None,
+    editable: Boolean = true) {
   /**
    * Recover the saved value of this configuration from `Metadata`.
    * If undefined, return defaultValue.
@@ -90,14 +90,15 @@ trait DeltaConfigsBase {
   private val entries = new HashMap[String, DeltaConfig[_]]
 
   protected def buildConfig[T](
-                                key: String,
-                                defaultValue: String,
-                                fromString: String => T,
-                                validationFunction: T => Boolean,
-                                helpMessage: String,
-                                minimumProtocolVersion: Option[Protocol] = None,
-                                userConfigurable: Boolean = true): DeltaConfig[T] = {
-    val deltaConfig = DeltaConfig(s"delta.$key",
+      key: String,
+      defaultValue: String,
+      fromString: String => T,
+      validationFunction: T => Boolean,
+      helpMessage: String,
+      minimumProtocolVersion: Option[Protocol] = None,
+      userConfigurable: Boolean = true): DeltaConfig[T] = {
+    val deltaConfig = DeltaConfig(
+      s"delta.$key",
       defaultValue,
       fromString,
       validationFunction,
@@ -141,8 +142,9 @@ trait DeltaConfigsBase {
    * checks to see if any of the configurations exist among the Hadoop configurations and merges
    * them with the user provided configurations. User provided configs take precedence.
    */
-  def mergeGlobalConfigs(hadoopConf: Configuration, tableConf: Map[String, String]):
-  Map[String, String] = {
+  def mergeGlobalConfigs(
+      hadoopConf: Configuration,
+      tableConf: Map[String, String]): Map[String, String] = {
     import collection.JavaConverters._
 
     // todo: is there a hadoop conf prefix?
@@ -262,5 +264,5 @@ trait DeltaConfigsBase {
     Some(new Protocol(0, 2)))
 }
 
-object DeltaConfigs extends DeltaConfigsBase
+private[internal] object DeltaConfigs extends DeltaConfigsBase
 

@@ -18,7 +18,7 @@ package io.delta.standalone.internal.util
 
 import java.nio.charset.StandardCharsets
 
-object IntervalUtils {
+private[internal] object IntervalUtils {
 
   object IntervalUnit extends Enumeration {
     type IntervalUnit = Value
