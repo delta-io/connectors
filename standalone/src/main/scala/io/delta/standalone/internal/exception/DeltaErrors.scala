@@ -273,6 +273,11 @@ private[internal] object DeltaErrors {
       s"Parsed $nestType type:\n${nested.toPrettyJson}")
   }
 
+  def checkpointNonExistTable(path: Path): Throwable = {
+    new IllegalStateException(s"Cannot checkpoint a non-exist table $path. Did you manually " +
+      s"delete files in the _delta_log directory?")
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////
