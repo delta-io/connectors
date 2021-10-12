@@ -24,7 +24,7 @@ import io.delta.standalone.actions.{AddFile, Format, Metadata, Protocol, RemoveF
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.Operation
 import io.delta.standalone.expressions.{EqualTo, Literal}
-import io.delta.standalone.internal.OptimisticTransactionTestVals
+import io.delta.standalone.internal.OptimisticTransactionSuiteTestVals
 
 class StandaloneUtil(now: Long) {
 
@@ -86,5 +86,5 @@ class StandaloneUtil(now: Long) {
 
   val conflict = new ConflictVals()
 
-  class ConflictVals extends OptimisticTransactionTestVals
+  class ConflictVals extends OptimisticTransactionSuiteTestVals
 }

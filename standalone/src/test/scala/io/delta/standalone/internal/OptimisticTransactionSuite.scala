@@ -26,7 +26,7 @@ import org.apache.hadoop.conf.Configuration
 
 class OptimisticTransactionSuite
   extends OptimisticTransactionSuiteBase
-  with OptimisticTransactionTestVals {
+  with OptimisticTransactionSuiteTestVals {
 
   ///////////////////////////////////////////////////////////////////////////
   // Allowed concurrent actions

@@ -28,7 +28,7 @@ import io.delta.standalone.types.{IntegerType, StructField, StructType}
  * By bundling these variables into a trait, we make it easier for other projects (specifically, the
  * Delta Standalone / Delta OSS compatibility project) so test concurrent writes.
  */
-trait OptimisticTransactionTestVals {
+trait OptimisticTransactionSuiteTestVals {
   val addA = new AddFileJ("a", Collections.emptyMap(), 1, 1, true, null, null)
   val addB = new AddFileJ("b", Collections.emptyMap(), 1, 1, true, null, null)
 
