@@ -33,7 +33,7 @@ trait DeltaRetentionSuiteBase extends FunSuite {
 
   protected def hadoopConf: Configuration = {
     val conf = new Configuration()
-    conf.set("enableExpiredLogCleanup", "false")
+    conf.set(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key, "false")
     conf
   }
 

@@ -16,10 +16,14 @@
 
 package io.delta.standalone.internal.util
 
-// todo: what privacy do we want?
 /**
  * The class representing calendar intervals. The calendar interval is stored internally in
  * three components.
+ * <ul>
+ *   <li>an integer value representing the number of `months` in this interval,</li>
+ *   <li>an integer value representing the number of `days` in this interval,</li>
+ *   <li>a long value representing the number of `microseconds` in this interval.</li>
+ * </ul>
  *
  * The `months` and `days` are not units of time with a constant length (unlike hours, seconds), so
  * they are two separated fields from microseconds. One month may be equal to 28, 29, 30 or 31 days
@@ -32,8 +36,7 @@ package io.delta.standalone.internal.util
 private[internal] class CalendarInterval(val months: Int, val days: Int, val microseconds: Long) {
 
   override def hashCode(): Int = {
-    // todo: implement more exactly? not used
-    0
+    months.hashCode() + 31*days.hashCode() + 31*31*microseconds.hashCode()
   }
 
   override def equals(other: Any): Boolean = {

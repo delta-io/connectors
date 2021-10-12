@@ -135,12 +135,16 @@ class DeltaRetentionSuite extends DeltaRetentionSuiteBase {
     withTempDir { tempDir =>
       val log = DeltaLogImpl.forTable(hadoopConf, tempDir.getCanonicalPath)
       log.startTransaction().commit(
-          Metadata(configuration = Map("delta.enableExpiredLogCleanup" -> "true")) :: Nil,
+          Metadata(configuration = Map(
+            DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key ->"true"
+          )) :: Nil,
           manualUpdate, writerId)
       assert(log.enableExpiredLogCleanup)
 
       log.startTransaction().commit(
-        Metadata(configuration = Map("delta.enableExpiredLogCleanup" -> "false")) :: Nil,
+        Metadata(configuration = Map(
+          DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key -> "false"
+        )) :: Nil,
         manualUpdate, writerId)
       assert(!log.enableExpiredLogCleanup)
 

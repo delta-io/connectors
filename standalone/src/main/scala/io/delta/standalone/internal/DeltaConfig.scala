@@ -65,7 +65,7 @@ private[internal] case class DeltaConfig[T](
 /**
  * Contains list of reservoir configs and validation checks.
  */
-trait DeltaConfigsBase {
+private[internal] trait DeltaConfigsBase {
 
   /**
    * Convert a string to [[CalendarInterval]]. This method is case-insensitive and will throw
@@ -149,7 +149,7 @@ trait DeltaConfigsBase {
 
     // todo: is there a hadoop conf prefix?
     val globalConfs = entries.asScala.flatMap { case (_, config) =>
-      Option(hadoopConf.get(config.key.stripPrefix("delta."), null)) match {
+      Option(hadoopConf.get(config.key, null)) match {
         case Some(default) => Some(config(default))
         case _ => None
       }

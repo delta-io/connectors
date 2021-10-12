@@ -31,17 +31,14 @@ class DeltaConfigSuite extends FunSuite {
   test("mergeGlobalConfigs") {
 
     val hadoopConf = new Configuration()
-    hadoopConf.set("appendOnly", "false")
-    hadoopConf.set("enableExpiredLogCleanup", "true")
+    hadoopConf.set("delta.appendOnly", "false")
+    hadoopConf.set("delta.enableExpiredLogCleanup", "true")
     val metadataConf = Map("delta.enableExpiredLogCleanup"-> "false",
       "delta.minWriterVersion" -> "0")
     val mergedConf = DeltaConfigs.mergeGlobalConfigs(hadoopConf, metadataConf)
-    assert(mergedConf.contains("delta.appendOnly") &&
-      mergedConf.get("delta.appendOnly") == Some("false"))
-    assert(mergedConf.contains("delta.enableExpiredLogCleanup") &&
-      mergedConf.get("delta.enableExpiredLogCleanup") == Some("false"))
-    assert(mergedConf.contains("delta.minWriterVersion") &&
-      mergedConf.get("delta.minWriterVersion") == Some("0"))
+    assert(mergedConf.get("delta.appendOnly") == Some("false"))
+    assert(mergedConf.get("delta.enableExpiredLogCleanup") == Some("false"))
+    assert(mergedConf.get("delta.minWriterVersion") == Some("0"))
   }
 
   // todo: edge cases for parsing? add test cases?

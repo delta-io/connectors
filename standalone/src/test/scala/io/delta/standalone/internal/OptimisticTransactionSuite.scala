@@ -247,7 +247,7 @@ class OptimisticTransactionSuite extends FunSuite {
   test("Removing from an append-only table") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      val metadata = Metadata(configuration = Map("delta.appendOnly" -> "true"))
+      val metadata = Metadata(configuration = Map(DeltaConfigs.IS_APPEND_ONLY.key  -> "true"))
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
 
       val removeWithDataChange = addA_P1.remove.copy(dataChange = true)
@@ -457,9 +457,9 @@ class OptimisticTransactionSuite extends FunSuite {
     withTempDir { dir =>
       // note that the default for logRetentionDuration is 2592000000
       val hadoopConf = new Configuration()
-      hadoopConf.set("logRetentionDuration", "1000 milliseconds")
+      hadoopConf.set(DeltaConfigs.LOG_RETENTION.key, "1000 milliseconds")
       val metadata = Metadata(
-        configuration = Map("delta.logRetentionDuration" -> "2000 millisecond"))
+        configuration = Map(DeltaConfigs.LOG_RETENTION.key -> "2000 millisecond"))
 
       val log = DeltaLogImpl.forTable(hadoopConf, dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
