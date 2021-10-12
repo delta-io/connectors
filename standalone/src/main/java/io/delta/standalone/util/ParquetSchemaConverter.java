@@ -181,18 +181,105 @@ public class ParquetSchemaConverter {
                 }
             }
         } else if (field.getDataType() instanceof ArrayType) {
-            // todo
-            // legacy
-                // nullable
-                // not nullable
-            // non legacy
+            ArrayType dataType = (ArrayType) field.getDataType();
+            if (writeLegacyParquetFormat) {
+                // Spark 1.4.x and prior versions convert `ArrayType` with nullable elements into a 3-level
+                // `LIST` structure.  This behavior is somewhat a hybrid of parquet-hive and parquet-avro
+                // (1.6.0rc3): the 3-level structure is similar to parquet-hive while the 3rd level element
+                // field name "array" is borrowed from parquet-avro.
+                if (dataType.containsNull()) {
+                    // <list-repetition> group <name> (LIST) {
+                    //   optional group bag {
+                    //     repeated <element-type> array;
+                    //   }
+                    // }
+                    // todo: review this comments and code below
 
+                    // This should not use `listOfElements` here because this new method checks if the
+                    // element name is `element` in the `GroupType` and throws an exception if not.
+                    // As mentioned above, Spark prior to 1.4.x writes `ArrayType` as `LIST` but with
+                    // `array` as its element name as below. Therefore, we build manually
+                    // the correct group type here via the builder. (See SPARK-16777)
+                    return Types
+                            .buildGroup(repetition).as(OriginalType.LIST)
+                            .addFields(Types
+                                    .buildGroup(Type.Repetition.REPEATED)
+                                    // "array" is the name chosen by parquet-hive (1.7.0 and prior version)
+                                    .addField(convertField(
+                                            new StructField("array", dataType.getElementType(), true)))
+                                    .named("bag"))
+                            .named(field.getName());
+                } else {
+                    // Spark 1.4.x and prior versions convert ArrayType with non-nullable elements into a 2-level
+                    // LIST structure.  This behavior mimics parquet-avro (1.6.0rc3).  Note that this case is
+                    // covered by the backwards-compatibility rules implemented in `isElementType()`.
+                    // todo: review this comments and code below
+
+                    // <list-repetition> group <name> (LIST) {
+                    //   repeated <element-type> element;
+                    // }
+
+                    // Here too, we should not use `listOfElements`. (See SPARK-16777)
+                    return Types
+                            .buildGroup(repetition).as(OriginalType.LIST)
+                            // "array" is the name chosen by parquet-avro (1.7.0 and prior version)
+                            .addField(convertField(
+                                    new StructField("array", dataType.getElementType(), false),
+                                    Type.Repetition.REPEATED))
+                            .named(field.getName());
+                }
+            } else {
+                // <list-repetition> group <name> (LIST) {
+                //   repeated group list {
+                //     <element-repetition> <element-type> element;
+                //   }
+                // }
+               return Types
+                        .buildGroup(repetition).as(OriginalType.LIST)
+                       .addField(
+                               Types.repeatedGroup()
+                               .addField(convertField(
+                                       new StructField("element", dataType.getElementType(), dataType.containsNull())))
+                                       .named("list"))
+                               .named(field.getName());
+            }
         } else if (field.getDataType() instanceof MapType) {
-            // todo
-            // legacy
-            // non legacy
+            MapType dataType = (MapType) field.getDataType();
+            if (writeLegacyParquetFormat) {
+                // Spark 1.4.x and prior versions convert MapType into a 3-level group annotated by
+                // MAP_KEY_VALUE.  This is covered by `convertGroupField(field: GroupType): DataType`.
+                // <map-repetition> group <name> (MAP) {
+                //   repeated group map (MAP_KEY_VALUE) {
+                //     required <key-type> key;
+                //     <value-repetition> <value-type> value;
+                //   }
+                // }
+                return ConversionPatterns.mapType(
+                        repetition,
+                        field.getName(),
+                        convertField(new StructField("key", dataType.getKeyType(), false)),
+                        convertField(new StructField("value", dataType.getValueType(), dataType.valueContainsNull())));
+            } else {
+                // <map-repetition> group <name> (MAP) {
+                //   repeated group key_value {
+                //     required <key-type> key;
+                //     <value-repetition> <value-type> value;
+                //   }
+                // }
+                return Types
+                        .buildGroup(repetition).as(OriginalType.MAP)
+                        .addField(Types
+                                .repeatedGroup()
+                                .addField(convertField(new StructField("key", dataType.getKeyType(), false)))
+                                .addField(convertField(new StructField("value", dataType.getValueType(), dataType.valueContainsNull())))
+                                .named("key_value"))
+                        .named(field.getName());
+            }
         } else if (field.getDataType() instanceof StructType) {
             // todo
+//            fields.foldLeft(Types.buildGroup(repetition)) { (builder, field) =>
+//                builder.addField(convertField(field))
+//            }.named(field.name)
         } else {
             // todo: analysis exception?
             throw new IllegalArgumentException("Unsupported data type " +
