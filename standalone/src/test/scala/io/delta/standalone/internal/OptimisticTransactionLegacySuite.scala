@@ -474,20 +474,18 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   ///////////////////////////////////////////////////////////////////////////
 
   test("can't have duplicate column names") {
-    // TODO: just call myStruct.getJson()
-    // scalastyle:off
-    val schemaStr = """{"type":"struct","fields":[{"name":"col1","type":"integer","nullable":true,"metadata":{}},{"name":"col1","type":"integer","nullable":true,"metadata":{}}]}"""
-    // scalastyle:on
-    testMetadata[RuntimeException](Metadata(schemaString = schemaStr), "Found duplicate column(s)")
+    val schema = new StructType(Array(
+      new StructField("col1", new IntegerType(), true),
+      new StructField("col1", new StringType(), true),
+    ))
+    testMetadata[RuntimeException](Metadata(schemaString = schema.toJson), "Found duplicate column(s)")
   }
 
   test("column names (both data and partition) must be acceptable by parquet") {
-    // TODO: just call myStruct.getJson()
+    val schema = new StructType(Array(new StructField("bad;column,name", new IntegerType(), true)))
+
     // test DATA columns
-    // scalastyle:off
-    val schemaStr1 = """{"type":"struct","fields":[{"name":"bad;column,name","type":"integer","nullable":true,"metadata":{}}]}"""
-    // scalastyle:on
-    testMetadata[RuntimeException](Metadata(schemaString = schemaStr1),
+    testMetadata[RuntimeException](Metadata(schemaString = schema.toJson),
       """Attribute name "bad;column,name" contains invalid character(s)""")
 
     // test PARTITION columns
