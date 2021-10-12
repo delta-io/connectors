@@ -36,13 +36,13 @@ public class ParquetSchemaConverter {
         TIMESTAMP_MILLIS
     }
 
-    // todo: where do we want this? construction? method argument?
     static OutputTimestampType outputTimestampType;
     static boolean writeLegacyParquetFormat;
 
-    // todo: or is this just as part of the function def
-    // todo: what constructors should we have? (writeLegacyParquetFormat, OuptutTimestampType,
-    //  hadoop Conf, combos etc)
+    // todo: where do we want OutputTimestampType and writeLegacyParquetFormat? construction or method argument
+
+    // todo: what constructors or methods should we have in terms of default values?
+    //  (writeLegacyParquetFormat, OuptutTimestampType, hadoop Conf, combos etc)
 
     public static MessageType convertToParquet(StructType schema) {
         return convert(schema, false, OutputTimestampType.INT96);
