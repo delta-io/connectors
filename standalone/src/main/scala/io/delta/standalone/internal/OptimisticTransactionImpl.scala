@@ -27,6 +27,7 @@ import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
+
 import meta.BuildInfo
 
 private[internal] class OptimisticTransactionImpl(

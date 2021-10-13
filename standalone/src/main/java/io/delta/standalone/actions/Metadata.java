@@ -94,7 +94,7 @@ public final class Metadata implements Action {
      *         options for this metadata
      */
     public Map<String, String> getConfiguration() {
-        return Collections.unmodifiableMap(configuration);
+        return configuration != null ? Collections.unmodifiableMap(configuration) : null;
     }
 
     /**
