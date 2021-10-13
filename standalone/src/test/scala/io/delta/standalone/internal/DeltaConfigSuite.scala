@@ -19,9 +19,9 @@ package io.delta.standalone.internal
 import java.util.concurrent.TimeUnit
 
 import org.apache.hadoop.conf.Configuration
-
+import io.delta.standalone.internal.actions.Metadata
 import io.delta.standalone.internal.DeltaConfigs.{isValidIntervalConfigValue, parseCalendarInterval}
-import io.delta.standalone.internal.util.CalendarInterval
+import io.delta.standalone.internal.util.{CalendarInterval, DateTimeConstants}
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -39,9 +39,24 @@ class DeltaConfigSuite extends FunSuite {
     assert(mergedConf.get("delta.appendOnly") == Some("false"))
     assert(mergedConf.get("delta.enableExpiredLogCleanup") == Some("false"))
     assert(mergedConf.get("delta.minWriterVersion") == Some("0"))
+    assert(!mergedConf.contains("delta.deletedFileRetentionDuration")) // we didn't add other keys
   }
 
-  // todo: edge cases for parsing? add test cases?
+  test("check DeltaConfig defaults") {
+    val emptyMetadata = new Metadata()
+    assert(
+      DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetaData(emptyMetadata)) ==
+      DateTimeConstants.MILLIS_PER_DAY*DateTimeConstants.DAYS_PER_WEEK) // default is 1 week
+
+    assert(DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetaData(emptyMetadata)) ==
+        DateTimeConstants.MILLIS_PER_DAY*30) // default is 30 days
+
+    assert(DeltaConfigs.CHECKPOINT_INTERVAL.fromMetaData(emptyMetadata) == 10)
+
+    assert(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetaData(emptyMetadata))
+
+    assert(!DeltaConfigs.IS_APPEND_ONLY.fromMetaData(emptyMetadata))
+  }
 
   test("parseCalendarInterval") {
     for (input <- Seq("5 MINUTES", "5 minutes", "5 Minutes", "inTERval 5 minutes")) {
