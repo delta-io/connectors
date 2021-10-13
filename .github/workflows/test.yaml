@@ -31,3 +31,4 @@ jobs:
           build/sbt "++ 2.11.12 hive/test"
           build/sbt "++ 2.11.12 hiveMR/test"
           build/sbt "++ 2.11.12 hiveTez/test"
+          
