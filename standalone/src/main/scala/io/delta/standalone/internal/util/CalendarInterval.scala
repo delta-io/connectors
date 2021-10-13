@@ -33,19 +33,8 @@ package io.delta.standalone.internal.util
  * @param days  an integer value representing the number of days in this interval
  * @param microseconds  a long value representing the  number of microseconds in this interval
  */
-private[internal] class CalendarInterval(val months: Int, val days: Int, val microseconds: Long) {
-
-  override def hashCode(): Int = {
-    months.hashCode() + 31*days.hashCode() + 31*31*microseconds.hashCode()
-  }
-
-  override def equals(other: Any): Boolean = {
-      other match {
-        case interval : CalendarInterval =>
-          months == interval.months && days == interval.days &&
-            microseconds == interval.microseconds
-        case _ => false
-      }
-    }
-  }
+private[internal] case class CalendarInterval(
+    val months: Int,
+    val days: Int,
+    val microseconds: Long)
 

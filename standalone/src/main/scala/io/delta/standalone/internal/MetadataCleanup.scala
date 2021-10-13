@@ -28,14 +28,14 @@ private[internal] trait MetadataCleanup {
 
   /** Whether to clean up expired log files and checkpoints. */
   def enableExpiredLogCleanup: Boolean =
-    DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetaData(metadata)
+    DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetadata(metadata)
 
   /**
    * Returns the duration in millis for how long to keep around obsolete logs. We may keep logs
    * beyond this duration until the next calendar day to avoid constantly creating checkpoints.
    */
   def deltaRetentionMillis: Long = {
-    DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetaData(metadata))
+    DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetadata(metadata))
   }
 
   def doLogCleanup(): Unit = {

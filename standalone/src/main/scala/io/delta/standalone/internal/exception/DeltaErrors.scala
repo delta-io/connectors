@@ -278,7 +278,6 @@ private[internal] object DeltaErrors {
       s"The Delta table configuration $prop cannot be specified by the user")
 
   def unknownConfigurationKeyException(confKey: String): Throwable = {
-    // TODO: AnalysisException ?
     new IllegalArgumentException(s"Unknown configuration was specified: $confKey")
   }
 

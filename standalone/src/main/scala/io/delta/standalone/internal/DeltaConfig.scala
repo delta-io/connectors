@@ -35,7 +35,7 @@ private[internal] case class DeltaConfig[T](
    * Recover the saved value of this configuration from `Metadata`.
    * If undefined, return defaultValue.
    */
-  def fromMetaData(metadata: Metadata): T = {
+  def fromMetadata(metadata: Metadata): T = {
     // todo: how to fail gracefully for an invalid value (see validate() below)
     fromString(metadata.configuration.getOrElse(key, defaultValue))
   }
@@ -66,7 +66,7 @@ private[internal] case class DeltaConfig[T](
 /**
  * Contains list of reservoir configs and validation checks.
  */
-private[internal] trait DeltaConfigsBase {
+private[internal] object DeltaConfigs {
 
   /**
    * Convert a string to [[CalendarInterval]]. This method is case-insensitive and will throw
@@ -87,6 +87,18 @@ private[internal] trait DeltaConfigsBase {
     }
     cal
   }
+
+  /**
+   * A global default value set as a HadoopConf will overwrite the default value of a DeltaConfig.
+   * For example, user can run:
+   *   hadoopConf.set(spark.databricks.delta.properties.defaults.isAppendOnly, true)
+   * This setting will be populated to a Delta table during its creation time and overwrites
+   * the default value of delta.isAppendOnly
+   *
+   * We accept these HadoopConfs as strings and only perform validation in DeltaConfig. All the
+   * DeltaConfigs set in HadoopConf should adopt the same prefix.
+   */
+  val hadoopConfPrefix = "spark.databricks.delta.properties.defaults."
 
   private val entries = new HashMap[String, DeltaConfig[_]]
 
@@ -117,8 +129,7 @@ private[internal] trait DeltaConfigsBase {
   def validateConfigurations(configurations: Map[String, String]): Map[String, String] = {
     configurations.map {
       case kv @ (key, value) if key.toLowerCase(Locale.ROOT).startsWith("delta.constraints.") =>
-        // This is a CHECK constraint, we should allow it.
-        kv
+        throw new IllegalArgumentException(s"Unsupported CHECK constraint configuration ${key} set")
       case (key, value) if key.toLowerCase(Locale.ROOT).startsWith("delta.") =>
         Option(entries.get(key.toLowerCase(Locale.ROOT).stripPrefix("delta.")))
           .map(_(value))
@@ -127,7 +138,6 @@ private[internal] trait DeltaConfigsBase {
           }
       case keyvalue @ (key, _) =>
         if (entries.containsKey(key.toLowerCase(Locale.ROOT))) {
-          // TODO: how do we log in connectors?
 //        logConsole(
 //          s"""
 //             |You are trying to set a property the key of which is the same as Delta config: $key.
@@ -148,9 +158,9 @@ private[internal] trait DeltaConfigsBase {
       tableConf: Map[String, String]): Map[String, String] = {
     import collection.JavaConverters._
 
-    // todo: is there a hadoop conf prefix?
     val globalConfs = entries.asScala.flatMap { case (_, config) =>
-      Option(hadoopConf.get(config.key, null)) match {
+      val hadoopConfKey = hadoopConfPrefix + config.key.stripPrefix("delta.")
+      Option(hadoopConf.get(hadoopConfKey, null)) match {
         case Some(default) => Some(config(default))
         case _ => None
       }
@@ -240,6 +250,3 @@ private[internal] trait DeltaConfigsBase {
     "needs to be a boolean.",
     Some(new Protocol(0, 2)))
 }
-
-private[internal] object DeltaConfigs extends DeltaConfigsBase
-

@@ -457,7 +457,9 @@ class OptimisticTransactionSuite extends FunSuite {
     withTempDir { dir =>
       // note that the default for logRetentionDuration is 2592000000
       val hadoopConf = new Configuration()
-      hadoopConf.set(DeltaConfigs.LOG_RETENTION.key, "1000 milliseconds")
+      hadoopConf.set(
+        DeltaConfigs.hadoopConfPrefix + DeltaConfigs.LOG_RETENTION.key.stripPrefix("delta."),
+        "1000 milliseconds")
       val metadata = Metadata(
         configuration = Map(DeltaConfigs.LOG_RETENTION.key -> "2000 millisecond"))
 

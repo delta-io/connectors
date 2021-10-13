@@ -31,31 +31,36 @@ class DeltaConfigSuite extends FunSuite {
   test("mergeGlobalConfigs") {
 
     val hadoopConf = new Configuration()
-    hadoopConf.set("delta.appendOnly", "false")
-    hadoopConf.set("delta.enableExpiredLogCleanup", "true")
-    val metadataConf = Map("delta.enableExpiredLogCleanup"-> "false",
-      "delta.minWriterVersion" -> "0")
+    hadoopConf.set(
+      DeltaConfigs.hadoopConfPrefix + DeltaConfigs.IS_APPEND_ONLY.key.stripPrefix("delta."),
+      "true")
+    hadoopConf.set(
+      DeltaConfigs.hadoopConfPrefix +
+        DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key.stripPrefix("delta."),
+      "true")
+    val metadataConf = Map(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key -> "false",
+      DeltaConfigs.CHECKPOINT_INTERVAL.key -> "1 day")
     val mergedConf = DeltaConfigs.mergeGlobalConfigs(hadoopConf, metadataConf)
-    assert(mergedConf.get("delta.appendOnly") == Some("false"))
-    assert(mergedConf.get("delta.enableExpiredLogCleanup") == Some("false"))
-    assert(mergedConf.get("delta.minWriterVersion") == Some("0"))
+    assert(mergedConf.get(DeltaConfigs.IS_APPEND_ONLY.key) == Some("true"))
+    assert(mergedConf.get(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key) == Some("false"))
+    assert(mergedConf.get(DeltaConfigs.CHECKPOINT_INTERVAL.key) == Some("1 day"))
     assert(!mergedConf.contains("delta.deletedFileRetentionDuration")) // we didn't add other keys
   }
 
   test("check DeltaConfig defaults") {
     val emptyMetadata = new Metadata()
     assert(
-      DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetaData(emptyMetadata)) ==
+      DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetadata(emptyMetadata)) ==
       DateTimeConstants.MILLIS_PER_DAY*DateTimeConstants.DAYS_PER_WEEK) // default is 1 week
 
-    assert(DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetaData(emptyMetadata)) ==
+    assert(DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetadata(emptyMetadata)) ==
         DateTimeConstants.MILLIS_PER_DAY*30) // default is 30 days
 
-    assert(DeltaConfigs.CHECKPOINT_INTERVAL.fromMetaData(emptyMetadata) == 10)
+    assert(DeltaConfigs.CHECKPOINT_INTERVAL.fromMetadata(emptyMetadata) == 10)
 
-    assert(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetaData(emptyMetadata))
+    assert(DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetadata(emptyMetadata))
 
-    assert(!DeltaConfigs.IS_APPEND_ONLY.fromMetaData(emptyMetadata))
+    assert(!DeltaConfigs.IS_APPEND_ONLY.fromMetadata(emptyMetadata))
   }
 
   test("parseCalendarInterval") {

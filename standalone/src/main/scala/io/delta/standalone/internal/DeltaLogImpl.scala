@@ -56,7 +56,7 @@ private[internal] class DeltaLogImpl private(
 
   /** How long to keep around logically deleted files before physically deleting them. */
   def tombstoneRetentionMillis: Long =
-    DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetaData(metadata))
+    DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetadata(metadata))
 
   /**
    * Tombstones before this timestamp will be dropped from the state and the files can be
@@ -71,7 +71,7 @@ private[internal] class DeltaLogImpl private(
   protected lazy val history = DeltaHistoryManager(this)
 
   /** Returns the checkpoint interval for this log. Not transactional. */
-  def checkpointInterval: Int = DeltaConfigs.CHECKPOINT_INTERVAL.fromMetaData(metadata)
+  def checkpointInterval: Int = DeltaConfigs.CHECKPOINT_INTERVAL.fromMetadata(metadata)
 
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
@@ -163,7 +163,7 @@ private[internal] class DeltaLogImpl private(
    * can remove data such as DELETE/UPDATE/MERGE.
    */
   def assertRemovable(): Unit = {
-    if (DeltaConfigs.IS_APPEND_ONLY.fromMetaData(metadata)) {
+    if (DeltaConfigs.IS_APPEND_ONLY.fromMetadata(metadata)) {
       throw DeltaErrors.modifyAppendOnlyTableException
     }
   }
