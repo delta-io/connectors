@@ -25,7 +25,7 @@ import java.util.Objects;
  *
  * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
-public final class Format implements Action {
+public final class Format {
     private final String provider;
     private final Map<String, String> options;
 

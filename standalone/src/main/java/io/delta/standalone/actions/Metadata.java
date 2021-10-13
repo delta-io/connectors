@@ -86,7 +86,7 @@ public final class Metadata implements Action {
      *         columns by which the data should be partitioned
      */
     public List<String> getPartitionColumns() {
-        return Collections.unmodifiableList(partitionColumns);
+        return partitionColumns != null ? Collections.unmodifiableList(partitionColumns) : null;
     }
 
     /**
