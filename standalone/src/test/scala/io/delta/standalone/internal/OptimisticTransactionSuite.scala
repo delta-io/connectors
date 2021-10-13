@@ -42,9 +42,7 @@ class OptimisticTransactionSuite
   check(
     "disjoint txns",
     conflicts = false,
-    reads = Seq(
-      t => t.txnVersion("t1")
-    ),
+    reads = Seq(t => t.txnVersion("t1")),
     concurrentWrites = Seq(
       new SetTransactionJ("t2", 0, java.util.Optional.of(1234L))),
     actions = Nil)
@@ -53,9 +51,7 @@ class OptimisticTransactionSuite
     "disjoint delete / read",
     conflicts = false,
     setup = Seq(metadata_partX, addA_partX2),
-    reads = Seq(
-      t => t.markFilesAsRead(colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(colXEq1Filter)),
     concurrentWrites = Seq(removeA),
     actions = Seq()
   )
@@ -64,9 +60,7 @@ class OptimisticTransactionSuite
     "disjoint add / read",
     conflicts = false,
     setup = Seq(metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(colXEq1Filter)),
     concurrentWrites = Seq(addA_partX2),
     actions = Seq()
   )
@@ -75,9 +69,7 @@ class OptimisticTransactionSuite
     "add / read + no write",  // no write = no real conflicting change even though data was added
     conflicts = false,        // so this should not conflict
     setup = Seq(metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(colXEq1Filter)),
     concurrentWrites = Seq(addA_partX1),
     actions = Seq())
 
@@ -97,9 +89,7 @@ class OptimisticTransactionSuite
     "add / read + write",
     conflicts = true,
     setup = Seq(metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(colXEq1Filter)),
     concurrentWrites = Seq(addA_partX1),
     actions = Seq(addB_partX1),
     // commit info should show operation as "Manual Update", because that's the operation used by
@@ -110,9 +100,7 @@ class OptimisticTransactionSuite
     "delete / read",
     conflicts = true,
     setup = Seq(metadata_partX, addA_partX1),
-    reads = Seq(
-      t => t.markFilesAsRead(colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(colXEq1Filter)),
     concurrentWrites = Seq(removeA),
     actions = Seq(),
     errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
@@ -120,18 +108,14 @@ class OptimisticTransactionSuite
   check(
     "schema change",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentWrites = Seq(MetadataJ.builder().build()),
     actions = Nil)
 
   check(
     "conflicting txns",
     conflicts = true,
-    reads = Seq(
-      t => t.txnVersion("t1")
-    ),
+    reads = Seq(t => t.txnVersion("t1")),
     concurrentWrites = Seq(
       new SetTransactionJ("t1", 0, java.util.Optional.of(1234L))
     ),
@@ -140,9 +124,7 @@ class OptimisticTransactionSuite
   check(
     "upgrade / upgrade",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentWrites = Seq(new Protocol()),
     actions = Seq(new Protocol()))
 

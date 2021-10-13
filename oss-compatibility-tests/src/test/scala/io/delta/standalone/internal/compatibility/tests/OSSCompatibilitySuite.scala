@@ -232,18 +232,14 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
   checkStandalone(
     "disjoint txns",
     conflicts = false,
-    reads = Seq(
-      t => t.txnVersion("foo")
-    ),
+    reads = Seq(t => t.txnVersion("foo")),
     concurrentOSSWrites = Seq(oo.setTransaction),
     actions = Nil)
 
   checkOSS(
     "disjoint txns",
     conflicts = false,
-    reads = Seq(
-      t => t.txnVersion("foo")
-    ),
+    reads = Seq(t => t.txnVersion("foo")),
     concurrentStandaloneWrites = Seq(ss.setTransaction),
     actions = Nil)
 
@@ -251,9 +247,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "disjoint delete / read",
     conflicts = false,
     setup = Seq(ss.conflict.metadata_partX, ss.conflict.addA_partX2),
-    reads = Seq(
-      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(ss.conflict.colXEq1Filter)),
     concurrentOSSWrites = Seq(oo.conflict.removeA),
     actions = Seq()
   )
@@ -262,9 +256,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "disjoint delete / read",
     conflicts = false,
     setup = Seq(oo.conflict.metadata_partX, oo.conflict.addA_partX2),
-    reads = Seq(
-      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
-    ),
+    reads = Seq(t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)),
     concurrentStandaloneWrites = Seq(ss.conflict.removeA),
     actions = Seq()
   )
@@ -273,9 +265,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "disjoint add / read",
     conflicts = false,
     setup = Seq(ss.conflict.metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(ss.conflict.colXEq1Filter)),
     concurrentOSSWrites = Seq(oo.conflict.addA_partX2),
     actions = Seq()
   )
@@ -284,9 +274,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "disjoint add / read",
     conflicts = false,
     setup = Seq(oo.conflict.metadata_partX),
-    reads = Seq(
-      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
-    ),
+    reads = Seq(t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)),
     concurrentStandaloneWrites = Seq(ss.conflict.addA_partX2),
     actions = Seq()
   )
@@ -295,9 +283,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "add / read + no write",  // no write = no real conflicting change even though data was added
     conflicts = false,        // so this should not conflict
     setup = Seq(ss.conflict.metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(ss.conflict.colXEq1Filter)),
     concurrentOSSWrites = Seq(oo.conflict.addA_partX1),
     actions = Seq())
 
@@ -305,9 +291,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "add / read + no write",  // no write = no real conflicting change even though data was added
     conflicts = false,        // so this should not conflict
     setup = Seq(oo.conflict.metadata_partX),
-    reads = Seq(
-      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
-    ),
+    reads = Seq(t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)),
     concurrentStandaloneWrites = Seq(ss.conflict.addA_partX1),
     actions = Seq())
 
@@ -335,9 +319,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "add / read + write",
     conflicts = true,
     setup = Seq(ss.conflict.metadata_partX),
-    reads = Seq(
-      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(ss.conflict.colXEq1Filter)),
     concurrentOSSWrites = Seq(oo.conflict.addA_partX1),
     actions = Seq(ss.conflict.addB_partX1),
     // commit info should show operation as "Manual Update", because that's the operation used by
@@ -348,9 +330,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "add / read + write",
     conflicts = true,
     setup = Seq(oo.conflict.metadata_partX),
-    reads = Seq(
-      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
-    ),
+    reads = Seq(t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)),
     concurrentStandaloneWrites = Seq(ss.conflict.addA_partX1),
     actions = Seq(oo.conflict.addB_partX1),
     // commit info should show operation as "Manual Update", because that's the operation used by
@@ -361,9 +341,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "delete / read",
     conflicts = true,
     setup = Seq(ss.conflict.metadata_partX, ss.conflict.addA_partX1),
-    reads = Seq(
-      t => t.markFilesAsRead(ss.conflict.colXEq1Filter)
-    ),
+    reads = Seq(t => t.markFilesAsRead(ss.conflict.colXEq1Filter)),
     concurrentOSSWrites = Seq(oo.conflict.removeA),
     actions = Seq(),
     errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
@@ -372,9 +350,7 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     "delete / read",
     conflicts = true,
     setup = Seq(oo.conflict.metadata_partX, oo.conflict.addA_partX1),
-    reads = Seq(
-      t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)
-    ),
+    reads = Seq(t => t.filterFiles(oo.conflict.colXEq1Filter :: Nil)),
     concurrentStandaloneWrites = Seq(ss.conflict.removeA),
     actions = Seq(),
     errorMessageHint = Some("a in partition [x=1]" :: "Manual Update" :: Nil))
@@ -382,54 +358,42 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
   checkStandalone(
     "schema change",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentOSSWrites = Seq(oo.metadata),
     actions = Nil)
 
   checkOSS(
     "schema change",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentStandaloneWrites = Seq(ss.metadata),
     actions = Nil)
 
   checkStandalone(
     "conflicting txns",
     conflicts = true,
-    reads = Seq(
-      t => t.txnVersion(oo.setTransaction.appId)
-    ),
+    reads = Seq(t => t.txnVersion(oo.setTransaction.appId)),
     concurrentOSSWrites = Seq(oo.setTransaction),
     actions = Nil)
 
   checkOSS(
     "conflicting txns",
     conflicts = true,
-    reads = Seq(
-      t => t.txnVersion(ss.setTransaction.getAppId)
-    ),
+    reads = Seq(t => t.txnVersion(ss.setTransaction.getAppId)),
     concurrentStandaloneWrites = Seq(ss.setTransaction),
     actions = Nil)
 
   checkStandalone(
     "upgrade / upgrade",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentOSSWrites = Seq(oo.protocol12),
     actions = Seq(ss.protocol12))
 
   checkOSS(
     "upgrade / upgrade",
     conflicts = true,
-    reads = Seq(
-      t => t.metadata
-    ),
+    reads = Seq(t => t.metadata),
     concurrentStandaloneWrites = Seq(ss.protocol12),
     actions = Seq(oo.protocol12))
 
