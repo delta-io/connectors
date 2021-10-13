@@ -28,11 +28,11 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.{DeltaLog, Operation, Snapshot}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.types.{IntegerType, StructField => StructFieldJ, StructType => StructTypeJ}
-import io.delta.standalone.internal.actions.{Action, Protocol}
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.internal.util.TestUtils._
-
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -151,7 +151,49 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // TODO: update should pick up checkpoints
+  test("update shouldn't pick up delta files earlier than checkpoint") {
+    withTempDir { tempDir =>
+      val log1 = DeltaLog.forTable(new Configuration(), new Path(tempDir.getCanonicalPath))
+
+      (1 to 5).foreach { i =>
+        val txn = log1.startTransaction()
+        val metadata = if (i == 1) Metadata() :: Nil else Nil
+        val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
+        val delete: Seq[Action] = if (i > 1) {
+          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+        } else {
+          Nil
+        }
+
+        val filesToCommit = (metadata ++ delete ++ file).map(ConversionUtils.convertAction)
+
+        txn.commit(filesToCommit.asJava, manualUpdate, engineInfo)
+      }
+
+      // DeltaOSS performs `DeltaLog.clearCache()` here, but we can't
+      val log2 = DeltaLogImpl.forTable(new Configuration(), new Path(tempDir.getCanonicalPath))
+
+      (6 to 15).foreach { i =>
+        val txn = log1.startTransaction()
+        val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
+        val delete = RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+
+        val filesToCommit = (delete ++ file).map(ConversionUtils.convertAction)
+
+        txn.commit(filesToCommit.asJava, manualUpdate, engineInfo)
+      }
+
+      // Since log2 is a separate instance, it shouldn't be updated to version 15
+      assert(log2.snapshot.getVersion == 4)
+      val updateLog2 = log2.update()
+      assert(updateLog2.getVersion == log1.snapshot.getVersion, "Did not update to correct version")
+
+      val deltas = log2.snapshot.logSegment.deltas
+      assert(deltas.length === 4, "Expected 4 files starting at version 11 to 14")
+      val versions = deltas.map(f => FileNames.deltaVersion(f.getPath)).sorted
+      assert(versions === Seq[Long](11, 12, 13, 14), "Received the wrong files for update")
+    }
+  }
 
   test("handle corrupted '_last_checkpoint' file") {
     withLogImplForGoldenTable("corrupted-last-checkpoint") { log1 =>
