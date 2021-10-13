@@ -7,10 +7,9 @@ import io.delta.standalone.types.*;
 /**
  * A column whose row-value will be computed based on the data in a {@link RowRecord}.
  *
- * Usage: {@code new Column(columnName, columnDataType)}.
+ * Usage: {@code schema.column(columnName)}
  *
  * It is recommended that you instantiate using a table schema ({@link StructType}).
- * e.g. {@code schema.column(columnName)} //todo: ??
  */
 public final class Column extends LeafExpression {
     private final String name;
@@ -45,14 +44,9 @@ public final class Column extends LeafExpression {
             evaluator = (record -> record.getTimestamp(name));
         } else if (dataType instanceof DateType) {
             evaluator = (record -> record.getDate(name));
-        } else if (dataType instanceof ArrayType) {
-            throw new IllegalArgumentException("Can't create a column with DataType: ArrayType");
-        } else if (dataType instanceof MapType) {
-            throw new IllegalArgumentException("Can't create a column with DataType: MapType");
-        } else if (dataType instanceof StructType) {
-            throw new IllegalArgumentException("Can't create a column with DataType: StructType");
         } else {
-            throw new IllegalArgumentException("Couldn't find matching DataType for column: " + name);
+            throw new UnsupportedOperationException("The data type of column " + name +
+                    " is " + dataType + ". This is not supported yet");
         }
     }
 

@@ -123,7 +123,6 @@ private[standalone] object DeltaLogImpl {
       files: Seq[AddFile],
       partitionFilters: Seq[Expression]): Seq[AddFile] = {
     val expr = partitionFilters.reduceLeftOption(new And(_, _)).getOrElse(Literal.True)
-    // TODO: compressedExpr = ...
 
     files.filter { addFile =>
       val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)

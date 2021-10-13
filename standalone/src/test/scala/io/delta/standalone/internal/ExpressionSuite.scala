@@ -104,28 +104,27 @@ class ExpressionSuite extends FunSuite {
       "'Not' expression child.eval result must be a Boolean")
   }
 
-  // TODO: do we need to test the (x,  null), (null, x) = null for every BinaryComparison?
-  //  what about for dataType != dataType?
-
   test("comparison predicates") {
-    // (small, big, small)
+    // (small, big, small, null)
     val literals = Seq(
-      (Literal.of(1), Literal.of(2), Literal.of(1)), // IntegerType
-      (Literal.of(1.0F), Literal.of(2.0F), Literal.of(1.0F)), // FloatType
-      (Literal.of(1L), Literal.of(2L), Literal.of(1L)), // LongType
-      (Literal.of(1.toShort), Literal.of(2.toShort), Literal.of(1.toShort)), // ShortType
-      (Literal.of(1.0), Literal.of(2.0), Literal.of(1.0)), // DoubleType
-      (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte)), // ByteType
+      (Literal.of(1), Literal.of(2), Literal.of(1), Literal.ofNull(new IntegerType())),
+      (Literal.of(1.0F), Literal.of(2.0F), Literal.of(1.0F), Literal.ofNull(new FloatType())),
+      (Literal.of(1L), Literal.of(2L), Literal.of(1L), Literal.ofNull(new LongType())),
+      (Literal.of(1.toShort), Literal.of(2.toShort), Literal.of(1.toShort),
+        Literal.ofNull(new ShortType())),
+      (Literal.of(1.0), Literal.of(2.0), Literal.of(1.0), Literal.ofNull(new DoubleType())),
+      (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte), Literal.ofNull(new ByteType())),
       (Literal.of(new BigDecimalJ("0.1")), Literal.of(new BigDecimalJ("0.2")),
-        Literal.of(new BigDecimalJ("0.1"))), // DecimalType
-      (Literal.False, Literal.True, Literal.False), // BooleanType
+        Literal.of(new BigDecimalJ("0.1")), Literal.ofNull(DecimalType.USER_DEFAULT)),
+      (Literal.False, Literal.True, Literal.False, Literal.ofNull(new BooleanType())),
       (Literal.of(new TimestampJ(0)), Literal.of(new TimestampJ(1000000)),
-      Literal.of(new TimestampJ(0))), // TimestampType
+      Literal.of(new TimestampJ(0)), Literal.ofNull(new TimestampType())),
       (Literal.of(new DateJ(0)), Literal.of(new DateJ(1000000)),
-        Literal.of(new DateJ(0))), // DateType
-      (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples")), // StringType
+        Literal.of(new DateJ(0)), Literal.ofNull(new DateType())),
+      (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples"),
+        Literal.ofNull(new StringType())),
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
-        Literal.of("apples".getBytes())) // BinaryType
+        Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType()))
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -139,14 +138,15 @@ class ExpressionSuite extends FunSuite {
       ((a: Literal, b: Literal) => new EqualTo(a, b), (false, false, true))
     )
 
-    literals.foreach { case (small, big, small2) =>
+    literals.foreach { case (small, big, small2, nullLit) =>
       predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
         testPredicate(predicateCreator(small, big), smallBig)
         testPredicate(predicateCreator(big, small), bigSmall)
         testPredicate(predicateCreator(small, small2), smallSmall)
-        }
+        testPredicate(predicateCreator(small, nullLit), null)
+        testPredicate(predicateCreator(nullLit, small), null)
+      }
     }
-    // todo: future work--should we support automatic casting between compatible types?
 
     // more extensive comparison tests for custom-implemented binary comparison
     // (small, big, small2)
