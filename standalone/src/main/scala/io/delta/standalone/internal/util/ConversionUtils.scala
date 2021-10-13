@@ -190,9 +190,7 @@ private[internal] object ConversionUtils {
     case x: RemoveFile => convertRemoveFile(x)
     case x: CommitInfo => convertCommitInfo(x)
     case x: Format => convertFormat(x)
-    case x: JobInfo => convertJobInfo(x)
     case x: Metadata => convertMetadata(x)
-    case x: NotebookInfo => convertNotebookInfo(x)
     case x: SetTransaction => convertSetTransaction(x)
     case x: Protocol => convertProtocol(x)
   }
@@ -200,12 +198,6 @@ private[internal] object ConversionUtils {
   ///////////////////////////////////////////////////////////////////////////
   // Java to Scala conversions
   ///////////////////////////////////////////////////////////////////////////
-
-//  private implicit def toScalaLongOption(opt: OptionalJ[java.lang.Long]): Option[Long] =
-//    if (opt.isPresent) Some(opt.get()) else None
-//
-//  private implicit def toScalaStringOption(opt: OptionalJ[StringJ]): Option[String] =
-//    if (opt.isPresent) Some(opt.get()) else None
 
   // TODO verify this actually works
   private implicit def toScalaOption[J, S](opt: OptionalJ[J]): Option[S] =
@@ -218,7 +210,6 @@ private[internal] object ConversionUtils {
     case x: MetadataJ => convertMetadataJ(x)
     case x: ProtocolJ => convertProtocolJ(x)
     case x: SetTransactionJ => convertSetTransactionJ(x)
-    // TODO others
     case _ => throw new UnsupportedOperationException("cannot convert this Java Action")
   }
 
@@ -260,8 +251,12 @@ private[internal] object ConversionUtils {
       if (external.getOperationParameters != null) {
         external.getOperationParameters.asScala.toMap
       } else null,
-      None, // TODO: Option[JobInfo]
-      None, // TODO: Option[NotebookInfo]
+      if (external.getJobInfo.isDefined) {
+        Some(convertJobInfoJ(external.getJobInfo.get()))
+      } else None,
+      if (external.getNotebookInfo.isDefined) {
+        Some(convertNotebookInfoJ(external.getNotebookInfo.get()))
+      } else None,
       external.getClusterId, // implicit check this!
       external.getReadVersion, // implicit check this!
       external.getIsolationLevel, // implicit check this!
@@ -305,6 +300,20 @@ private[internal] object ConversionUtils {
       external.getVerion,
       external.getLastUpdated // implicit check this!
     )
+  }
+
+  def convertJobInfoJ(external: JobInfoJ): JobInfo = {
+    JobInfo(
+      external.getJobId,
+      external.getJobName,
+      external.getRunId,
+      external.getJobOwnerId,
+      external.getTriggerType
+    )
+  }
+
+  def convertNotebookInfoJ(external: NotebookInfoJ): NotebookInfo = {
+    NotebookInfo(external.getNotebookId)
   }
 
 }

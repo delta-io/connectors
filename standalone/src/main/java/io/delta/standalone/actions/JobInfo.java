@@ -19,7 +19,7 @@ package io.delta.standalone.actions;
 import java.util.Objects;
 
 /** Represents the Databricks Job information that committed to the Delta table. */
-public class JobInfo implements Action {
+public class JobInfo {
     private final String jobId;
     private final String jobName;
     private final String runId;

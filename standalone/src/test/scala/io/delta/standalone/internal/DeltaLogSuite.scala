@@ -61,8 +61,6 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // TODO: another checkpoint test
-
   test("snapshot") {
     def getDirDataFiles(tablePath: String): Array[File] = {
       val correctTablePath =
