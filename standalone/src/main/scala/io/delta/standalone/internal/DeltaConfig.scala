@@ -138,6 +138,7 @@ private[internal] object DeltaConfigs {
           }
       case keyvalue @ (key, _) =>
         if (entries.containsKey(key.toLowerCase(Locale.ROOT))) {
+          // TODO: add log
 //        logConsole(
 //          s"""
 //             |You are trying to set a property the key of which is the same as Delta config: $key.
