@@ -58,7 +58,6 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   private val addD_P2 = AddFile(D_P2, Map("part" -> "2"), 1, 1, dataChange = true)
   private val addE_P3 = AddFile(E_P3, Map("part" -> "3"), 1, 1, dataChange = true)
   private val addF_P3 = AddFile(F_P3, Map("part" -> "3"), 1, 1, dataChange = true)
-  private val addG_P4 = AddFile(G_P4, Map("part" -> "4"), 1, 1, dataChange = true)
 
   def withLog(
       actions: Seq[Action],

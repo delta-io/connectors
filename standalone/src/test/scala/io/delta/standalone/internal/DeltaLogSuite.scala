@@ -25,18 +25,17 @@ import java.util.UUID
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.{DeltaLog, Snapshot}
-import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ,
-  Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ,
-  RemoveFile => RemoveFileJ}
+import io.delta.standalone.{DeltaLog, Operation, Snapshot}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.types.{IntegerType, StructField => StructFieldJ, StructType => StructTypeJ}
 import io.delta.standalone.internal.actions.{Action, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.GoldenTableUtils._
-import io.delta.standalone.types.{IntegerType, StructField => StructFieldJ, StructType => StructTypeJ}
+import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-
 import org.scalatest.FunSuite
 
 /**
@@ -49,6 +48,10 @@ import org.scalatest.FunSuite
  * been generated.
  */
 class DeltaLogSuite extends FunSuite {
+
+  val engineInfo = "test-engine-info"
+  val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
+
   // scalastyle:on funsuite
   test("checkpoint") {
     withLogForGoldenTable("checkpoint") { log =>
@@ -195,7 +198,26 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // TODO: do not relativize paths in RemoveFiles
+  test("do not relativize paths in RemoveFiles") {
+    withTempDir { dir =>
+      val log = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath)
+      assert(new File(log.logPath.toUri).mkdirs())
+      val path = new File(dir, "a/b/c").getCanonicalPath
+
+      val removeFile = RemoveFileJ
+        .builder(path)
+        .deletionTimestamp(System.currentTimeMillis())
+        .dataChange(true)
+        .build()
+      val metadata = MetadataJ.builder().build()
+      val actions = java.util.Arrays.asList(removeFile, metadata)
+
+      log.startTransaction().commit(actions, manualUpdate, engineInfo)
+
+      val committedRemove = log.update().tombstonesScala
+      assert(committedRemove.head.path === s"file://$path")
+    }
+  }
 
   test("delete and re-add the same file in different transactions") {
     withLogForGoldenTable("delete-re-add-same-file-different-transactions") { log =>
