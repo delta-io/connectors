@@ -17,7 +17,7 @@ public interface OptimisticTransaction {
      * @param actions  Set of actions to commit.
      * @param op  Details of operation that is performing this transactional commit.
      * @param engineInfo  String used to identify the writer engine. It should resemble
-     *                 "{engineName}-{engineVersion}".
+     *                 "{engineName}/{engineVersion}".
      * @return a {@link CommitResult}, wrapping the table version that was committed.
      */
      <T extends Action> CommitResult commit(Iterable<T> actions, Operation op, String engineInfo);

@@ -21,14 +21,12 @@ import java.nio.file.FileAlreadyExistsException
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
+import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction, NAME, VERSION}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
 import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
-
-import meta.BuildInfo
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -123,7 +121,7 @@ private[internal] class OptimisticTransactionImpl(
       Some(isBlindAppend),
       Some(op.getOperationMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(s"$engineInfo-${BuildInfo.name}-${BuildInfo.version}")
+      Some(s"$engineInfo $NAME/$VERSION")
     )
 
     preparedActions = commitInfo +: preparedActions

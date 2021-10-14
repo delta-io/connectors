@@ -19,7 +19,7 @@ package io.delta.standalone.internal
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-import io.delta.standalone.{DeltaLog, Operation}
+import io.delta.standalone.{DeltaLog, Operation, NAME, VERSION}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDeleteDeleteException, ConcurrentDeleteReadException, ConcurrentTransactionException, MetadataChangedException, ProtocolChangedException}
 import io.delta.standalone.expressions.{EqualTo, Literal}
@@ -28,8 +28,6 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
 import io.delta.standalone.types._
 import io.delta.standalone.internal.util.TestUtils._
-
-import meta.BuildInfo
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -505,8 +503,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val commitInfo = log2.getCommitInfoAt(0)
       assert(commitInfo.getEngineInfo.isPresent)
-      assert(commitInfo.getEngineInfo.get() ==
-        s"$engineInfo-${BuildInfo.name}-${BuildInfo.version}")
+      assert(commitInfo.getEngineInfo.get() == s"$engineInfo $NAME/$VERSION")
       assert(commitInfo.getOperation == manualUpdate.getName.toString)
 
       // TODO: test commitInfo.operationParameters

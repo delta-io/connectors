@@ -266,13 +266,13 @@ lazy val standalone = (project in file("standalone"))
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     ),
     sourceGenerators in Compile += Def.task {
-      val file = (sourceManaged in Compile).value / "meta" / "BuildInfo.scala"
+      val file = (sourceManaged in Compile).value / "meta" / "package.scala"
       IO.write(file,
-        s"""package io.delta.standalone.internal.meta
+        s"""package io.delta
           |
-          |object BuildInfo {
-          |  val version = "${version.value}"
-          |  val name = "${name.value}"
+          |package object standalone {
+          |  val VERSION = "${version.value}"
+          |  val NAME = "Delta Standalone"
           |}
           |""".stripMargin)
       Seq(file)
