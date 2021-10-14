@@ -18,6 +18,7 @@ package io.delta.standalone.internal
 
 import java.io.IOException
 import java.util.concurrent.locks.ReentrantLock
+import java.util.TimeZone
 
 import scala.collection.JavaConverters._
 
@@ -27,6 +28,7 @@ import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.storage.LogStoreProvider
 import io.delta.standalone.internal.util.{Clock, ConversionUtils, FileNames, SystemClock}
 
@@ -73,6 +75,15 @@ private[internal] class DeltaLogImpl private(
   /** Returns the checkpoint interval for this log. Not transactional. */
   def checkpointInterval: Int = DeltaConfigs.CHECKPOINT_INTERVAL.fromMetadata(metadata)
 
+  /** Convert the timeZoneId to an actual timeZone that can be used for decoding. */
+  def timezone: TimeZone = {
+    if (hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID) == null) {
+      TimeZone.getDefault
+    } else {
+      TimeZone.getTimeZone(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -87,9 +98,12 @@ private[internal] class DeltaLogImpl private(
   override def getChanges(
       startVersion: Long,
       failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
+    import io.delta.standalone.internal.util.Implicits._
+
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
 
-    val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion))
+    val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion), hadoopConf)
+      .asScala
       .filter(f => FileNames.isDeltaFile(f.getPath))
 
     // Subtract 1 to ensure that we have the same check for the inclusive startVersion
@@ -102,8 +116,13 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionLog(version,
-        store.read(p).map(x => ConversionUtils.convertAction(Action.fromJson(x))).toList.asJava)
+      new VersionLog(
+        version,
+        store.read(p, hadoopConf)
+          .toArray
+          .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+          .toList
+          .asJava)
     }.asJava
   }
 

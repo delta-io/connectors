@@ -148,7 +148,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val txn = log.startTransaction()
       txn.commit(Metadata() :: Nil, manualUpdate, engineInfo)
       val e = intercept[AssertionError] {
-        txn.commit(Nil, manualUpdate, engineInfo)
+        txn.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
       assert(e.getMessage.contains("Transaction already committed."))
     }
@@ -197,7 +197,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val e = intercept[IllegalStateException] {
-        txn.commit(Nil, manualUpdate, engineInfo)
+        txn.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
       assert(e.getMessage == DeltaErrors.metadataAbsentException().getMessage)
     }
@@ -265,7 +265,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   // updateMetadata() tests
   ///////////////////////////////////////////////////////////////////////////
 
-  test("can't update metadata more than once in a transaction") {
+  test("initial commit with multiple metadata actions should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
@@ -298,7 +298,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
         Protocol.MIN_WRITER_VERSION_PROP -> "2"
       ))
       txn.updateMetadata(ConversionUtils.convertMetadata(metadata))
-      txn.commit(Nil, manualUpdate, engineInfo)
+      txn.commit(Iterable().asJava, manualUpdate, engineInfo)
 
       val writtenConfig = log.update().getMetadata.getConfiguration
       assert(!writtenConfig.containsKey(Protocol.MIN_READER_VERSION_PROP))
@@ -510,6 +510,8 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       assert(commitInfo.getEngineInfo.isPresent)
       assert(commitInfo.getEngineInfo.get() == engineInfo)
       assert(commitInfo.getOperation == manualUpdate.getName.toString)
+
+      // TODO: test commitInfo.operationParameters
     }
   }
 
@@ -575,11 +577,11 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val tx1 = log.startTransaction()
       val tx2 = log.startTransaction()
       tx2.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "foo")))
-      tx2.commit(Nil, manualUpdate, engineInfo)
+      tx2.commit(Iterable().asJava, manualUpdate, engineInfo)
 
       assertThrows[MetadataChangedException] {
         tx1.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "bar")))
-        tx1.commit(Nil, manualUpdate, engineInfo)
+        tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
     }
   }
@@ -717,11 +719,10 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       tx1.txnVersion("t1")
 
       val winningTxn = log.startTransaction()
-      winningTxn.txnVersion("t1")
       winningTxn.commit(SetTransaction("t1", 1, Some(1234L)) :: Nil, manualUpdate, engineInfo)
 
       intercept[ConcurrentTransactionException] {
-        tx1.commit(Nil, manualUpdate, engineInfo)
+        tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
     }
   }

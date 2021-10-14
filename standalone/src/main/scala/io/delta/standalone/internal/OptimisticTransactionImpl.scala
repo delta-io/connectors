@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
-import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -74,7 +74,7 @@ private[internal] class OptimisticTransactionImpl(
    * Returns the metadata for this transaction. The metadata refers to the metadata of the snapshot
    * at the transaction's read version unless updated during the transaction.
    */
-  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
+  def metadataScala: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
 
   /** The version that this transaction is reading from. */
   private def readVersion: Long = snapshot.version
@@ -83,8 +83,10 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def commit(
-      actionsJ: java.lang.Iterable[ActionJ],
+  override def metadata(): MetadataJ = ConversionUtils.convertMetadata(metadataScala)
+
+  override def commit[T <: ActionJ](
+      actionsJ: java.lang.Iterable[T],
       op: Operation,
       engineInfo: String): CommitResult = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
@@ -233,7 +235,7 @@ private[internal] class OptimisticTransactionImpl(
         s"Currently only Protocol readerVersion 1 and writerVersion 2 is supported.")
     }
 
-    val partitionColumns = metadata.partitionColumns.toSet
+    val partitionColumns = metadataScala.partitionColumns.toSet
     finalActions.foreach {
       case a: AddFile if partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
@@ -301,7 +303,9 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.lockInterruptibly {
       deltaLog.store.write(
         FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-        actions.map(_.json).toIterator
+        actions.map(_.json).toIterator.asJava,
+        false, // overwrite = false
+        deltaLog.hadoopConf
       )
 
       val postCommitSnapshot = deltaLog.update()
@@ -343,7 +347,7 @@ private[internal] class OptimisticTransactionImpl(
       readFiles = readFiles.toSet,
       readWholeTable = readTheWholeTable,
       readAppIds = readTxn.toSet,
-      metadata = metadata,
+      metadata = metadataScala,
       actions = actions,
       deltaLog = deltaLog)
 
