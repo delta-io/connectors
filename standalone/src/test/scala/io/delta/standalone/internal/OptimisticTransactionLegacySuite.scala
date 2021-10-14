@@ -35,7 +35,7 @@ import org.apache.hadoop.fs.Path
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
 
-class OptimisticTransactionSuite extends FunSuite {
+class OptimisticTransactionLegacySuite extends FunSuite {
   // scalastyle:on funsuite
 
   val engineInfo = "test-engine-info"
