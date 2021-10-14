@@ -46,7 +46,7 @@ public final class Column extends LeafExpression {
             evaluator = (record -> record.getDate(name));
         } else {
             throw new UnsupportedOperationException("The data type of column " + name +
-                    " is " + dataType + ". This is not supported yet");
+                    " is " + dataType.getTypeName() + ". This is not supported yet");
         }
     }
 

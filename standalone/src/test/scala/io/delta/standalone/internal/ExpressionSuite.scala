@@ -113,7 +113,8 @@ class ExpressionSuite extends FunSuite {
       (Literal.of(1.toShort), Literal.of(2.toShort), Literal.of(1.toShort),
         Literal.ofNull(new ShortType())),
       (Literal.of(1.0), Literal.of(2.0), Literal.of(1.0), Literal.ofNull(new DoubleType())),
-      (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte), Literal.ofNull(new ByteType())),
+      (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte),
+        Literal.ofNull(new ByteType())),
       (Literal.of(new BigDecimalJ("0.1")), Literal.of(new BigDecimalJ("0.2")),
         Literal.of(new BigDecimalJ("0.1")), Literal.ofNull(DecimalType.USER_DEFAULT)),
       (Literal.False, Literal.True, Literal.False, Literal.ofNull(new BooleanType())),
@@ -167,8 +168,6 @@ class ExpressionSuite extends FunSuite {
 
     binaryLiterals.foreach { case (small, big, small2) =>
       predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
-        println(small.mkString(" "))
-        println(big.mkString(" "))
         testPredicate(predicateCreator(Literal.of(small), Literal.of(big)), smallBig)
         testPredicate(predicateCreator(Literal.of(big), Literal.of(small)), bigSmall)
         testPredicate(predicateCreator(Literal.of(small), Literal.of(small2)), smallSmall)
@@ -301,45 +300,36 @@ class ExpressionSuite extends FunSuite {
     testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord, new BigDecimalJ("0.123"))
     testColumn("testTimestamp", new TimestampType(), partRowRecord, new TimestampJ(12345678))
     testColumn("testDate", new DateType(), partRowRecord, new DateJ(70, 0, 1))
-    testException[IllegalArgumentException](
+    testException[UnsupportedOperationException](
       new Column("testArray", new ArrayType(new BooleanType(), true)),
-      "Can't create a column with DataType: ArrayType")
-    testException[IllegalArgumentException](
+      "The data type of column testArray is array. This is not supported yet")
+    testException[UnsupportedOperationException](
       new Column("testMap", new MapType(new StringType(), new StringType(), true)),
-      "Can't create a column with DataType: MapType")
-    testException[IllegalArgumentException](
+      "The data type of column testMap is map. This is not supported yet")
+    testException[UnsupportedOperationException](
       new Column("testStruct", new StructType(Array(new StructField("test", new BooleanType())))),
-      "Can't create a column with DataType: StructType")
+      "The data type of column testStruct is struct. This is not supported yet")
   }
 
-  private def buildPartitionRowRecord(dataType: DataType, nullable: Boolean, value: String) = {
-    new PartitionRowRecord(new StructType(Array(new StructField("test", dataType, nullable))),
-      Map("test" -> value))
+  private def buildPartitionRowRecord(
+      dataType: DataType,
+      nullable: Boolean,
+      value: String,
+      name: String = "test") = {
+    new PartitionRowRecord(new StructType(Array(new StructField(name, dataType, nullable))),
+      Map(name -> value))
   }
 
   test("PartitionRowRecord tests") {
     val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), true, "5")
-    assert(buildPartitionRowRecord(new IntegerType(), true, "").isNullAt("test"))
     assert(buildPartitionRowRecord(new IntegerType(), true, null).isNullAt("test"))
 
     assert(!testPartitionRowRecord.isNullAt("test"))
     testException[IllegalArgumentException](
       testPartitionRowRecord.isNullAt("foo"),
-      "requirement failed")
+      "Field \"foo\" does not exist.")
 
-    // field does not exist
-    // should this be tested for every getter?
-    testException[IllegalArgumentException](
-      testPartitionRowRecord.getInt("foo"),
-      "requirement failed")
-
-    // test wrong DataType
-    // should this be tested for every getter?
-    testException[ClassCastException](
-      testPartitionRowRecord.getLong("test"),
-      "Mismatched DataType for Field")
-
-    // primitive types can't be null (per rowrecord interface?)
+    // primitive types can't be null
     val primTypes = Seq(
       (new IntegerType(), (x: PartitionRowRecord) => x.getInt("test"), "0", 0),
       (new LongType(), (x: PartitionRowRecord) => x.getLong("test"), "0", 0L),
@@ -353,9 +343,14 @@ class ExpressionSuite extends FunSuite {
     primTypes.foreach { case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
       assert(f(buildPartitionRowRecord(dataType, true, s)) == v)
       testException[NullPointerException](
-        f(buildPartitionRowRecord(dataType, true, "")),
-        "null value found for primitive DataType"
-      )
+        f(buildPartitionRowRecord(dataType, true, null)),
+        s"Read a null value for field test which is a primitive type")
+      testException[ClassCastException](
+        f(buildPartitionRowRecord(new StringType(), true, "test")),
+        s"The data type of field test is string. Cannot cast it to ${dataType.getTypeName()}")
+      testException[IllegalArgumentException](
+        f(buildPartitionRowRecord(dataType, true, s, "foo")),
+        "Field \"test\" does not exist.")
     }
 
     val curr_time = System.currentTimeMillis()
@@ -371,20 +366,32 @@ class ExpressionSuite extends FunSuite {
     )
     nonPrimTypes.foreach {
       case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
-      assert(Objects.equals(f(buildPartitionRowRecord(dataType, true, s)), v))
-      assert(f(buildPartitionRowRecord(dataType, true, "")) == null)
-      testException[NullPointerException](
-        f(buildPartitionRowRecord(dataType, false, "")),
-        "null value found for non-nullable Field"
-      )
+        assert(Objects.equals(f(buildPartitionRowRecord(dataType, true, s)), v))
+        assert(f(buildPartitionRowRecord(dataType, true, null)) == null)
+        testException[NullPointerException](
+          f(buildPartitionRowRecord(dataType, false, null)),
+          "Read a null value for field test, yet schema indicates that this field can't be null.")
+        testException[ClassCastException](
+          f(buildPartitionRowRecord(new IntegerType(), true, "test")),
+          s"The data type of field test is integer. Cannot cast it to ${dataType.getTypeName()}")
+        testException[IllegalArgumentException](
+          f(buildPartitionRowRecord(dataType, true, s, "foo")),
+          "Field \"test\" does not exist.")
     }
 
-    assert(buildPartitionRowRecord(new BinaryType(), true, "").getBinary("test") == null)
+    // todo: should an empty binary string "" be parsed as Array() or null?
+    assert(buildPartitionRowRecord(new BinaryType(), true, "").getBinary("test").isEmpty)
     assert(buildPartitionRowRecord(new BinaryType(), true, "\u0001\u0002").getBinary("test")
       sameElements Array(1.toByte, 2.toByte))
     testException[NullPointerException](
-      buildPartitionRowRecord(new BinaryType(), false, "").getBinary("test"),
-      "null value found for non-nullable Field")
+      buildPartitionRowRecord(new BinaryType(), false, null).getBinary("test"),
+      "Read a null value for field test, yet schema indicates that this field can't be null.")
+    testException[ClassCastException](
+      buildPartitionRowRecord(new IntegerType(), true, "test").getBinary("test"),
+      s"The data type of field test is integer. Cannot cast it to binary")
+    testException[IllegalArgumentException](
+      buildPartitionRowRecord(new BinaryType, true, "", "foo").getBinary("test"),
+      "Field \"test\" does not exist.")
 
     testException[UnsupportedOperationException](
       testPartitionRowRecord.getRecord("test"),

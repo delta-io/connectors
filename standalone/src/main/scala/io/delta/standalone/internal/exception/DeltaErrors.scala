@@ -20,7 +20,7 @@ import java.io.FileNotFoundException
 
 import org.apache.hadoop.fs.Path
 
-import io.delta.standalone.types.StructType
+import io.delta.standalone.types.{DataType, StructType}
 
 /** A holder object for Delta errors. */
 private[internal] object DeltaErrors {
@@ -98,6 +98,15 @@ private[internal] object DeltaErrors {
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
     new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
+  }
+
+  def fieldTypeMismatch(
+      fieldName: String,
+      expectedType: DataType,
+      actualType: String): Throwable = {
+    new ClassCastException(
+      s"The data type of field $fieldName is ${expectedType.getTypeName}. " +
+        s"Cannot cast it to $actualType")
   }
 
   def failOnDataLossException(expectedVersion: Long, seenVersion: Long): Throwable = {
