@@ -91,8 +91,8 @@ private[internal] object DeltaConfigs {
   /**
    * A global default value set as a HadoopConf will overwrite the default value of a DeltaConfig.
    * For example, user can run:
-   *   hadoopConf.set(spark.databricks.delta.properties.defaults.isAppendOnly, true)
-   * This setting will be populated to a Delta table during its creation time and overwrites
+   *   hadoopConf.set("spark.databricks.delta.properties.defaults.isAppendOnly", "true")
+   * This setting will be populated to a Delta table during its creation and overwrites
    * the default value of delta.isAppendOnly
    *
    * We accept these HadoopConfs as strings and only perform validation in DeltaConfig. All the
