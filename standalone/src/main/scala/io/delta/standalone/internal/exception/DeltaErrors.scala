@@ -278,6 +278,15 @@ private[internal] object DeltaErrors {
       s"delete files in the _delta_log directory?")
   }
 
+  def cannotModifyTableProperty(prop: String): Throwable = {
+    throw new UnsupportedOperationException(
+      s"The Delta table configuration $prop cannot be specified by the user")
+  }
+
+  def unknownConfigurationKeyException(confKey: String): Throwable = {
+    new IllegalArgumentException(s"Unknown configuration was specified: $confKey")
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////
