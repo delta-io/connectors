@@ -89,7 +89,7 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def metadata(): MetadataJ = ConversionUtils.convertMetadata(metadataScala)
+  override def metadata: MetadataJ = ConversionUtils.convertMetadata(metadataScala)
 
   override def commit[T <: ActionJ](
       actionsJ: java.lang.Iterable[T],
@@ -318,6 +318,12 @@ private[internal] class OptimisticTransactionImpl(
       s"Attempting to commit version $attemptVersion with ${actions.size} actions with " +
         s"$isolationLevel isolation level")
 
+    if (readVersion > -1 && metadata.getId != snapshot.getMetadata.getId) {
+      logError(s"Change in the table id detected in txn. Table id for txn on table at " +
+        s"${deltaLog.dataPath} was ${snapshot.getMetadata.getId} when the txn was created and " +
+        s"is now changed to ${metadata.getId}.")
+    }
+
     deltaLog.store.write(
       FileNames.deltaFile(deltaLog.logPath, attemptVersion),
       actions.map(_.json).toIterator.asJava,
@@ -342,9 +348,14 @@ private[internal] class OptimisticTransactionImpl(
     committed = true
 
     if (shouldCheckpoint(commitVersion)) {
-      // We checkpoint the version to be committed to so that no two transactions will checkpoint
-      // the same version.
-      deltaLog.checkpoint(deltaLog.getSnapshotForVersionAsOf(commitVersion))
+      try {
+        // We checkpoint the version to be committed to so that no two transactions will checkpoint
+        // the same version.
+        deltaLog.checkpoint(deltaLog.getSnapshotForVersionAsOf(commitVersion))
+      } catch {
+        case e: IllegalStateException => logWarning("Failed to checkpoint table state.", e)
+      }
+
     }
   }
 
@@ -442,7 +453,7 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Logging Override Methods
+  // Logging Helper Methods
   ///////////////////////////////////////////////////////////////////////////
 
   private lazy val logPrefix: String = {
@@ -454,10 +465,6 @@ private[internal] class OptimisticTransactionImpl(
     LOG.info(logPrefix + msg)
   }
 
-  def logWarning(msg: => String): Unit = {
-    LOG.warn(logPrefix + msg)
-  }
-
   def logWarning(msg: => String, throwable: Throwable): Unit = {
     LOG.warn(logPrefix + msg, throwable)
   }
@@ -465,14 +472,10 @@ private[internal] class OptimisticTransactionImpl(
   def logError(msg: => String): Unit = {
     LOG.error(logPrefix + msg)
   }
-
-  def logError(msg: => String, throwable: Throwable): Unit = {
-    LOG.error(logPrefix + msg, throwable)
-  }
 }
 
 private[internal] object OptimisticTransactionImpl {
-  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000 // TODO: DeltaConfig this
 
 //  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
 //    op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
