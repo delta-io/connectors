@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal.util
 
+import java.util.Locale
+
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.expressions.{And, Expression, Literal}
@@ -81,8 +83,12 @@ private[internal] object PartitionUtils {
    * Check if condition can be evaluated using only metadata (i.e. partition columns)
    */
   def isPredicateMetadataOnly(condition: Expression, partitionColumns: Seq[String]): Boolean = {
-    // TODO: name equality resolver ?
-    condition.references().asScala.forall(partitionColumns.contains(_))
+    val lowercasePartCols = partitionColumns.map(_.toLowerCase(Locale.ROOT))
+
+    condition.references()
+      .asScala
+      .map(_.toLowerCase(Locale.ROOT))
+      .forall(lowercasePartCols.contains(_))
   }
 
   private def splitConjunctivePredicates(condition: Expression): Seq[Expression] = {
