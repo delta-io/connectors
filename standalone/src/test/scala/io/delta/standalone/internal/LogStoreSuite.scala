@@ -28,10 +28,10 @@ import io.delta.standalone.internal.storage.{HDFSLogStore, LogStoreProvider}
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.Operation
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path, RawLocalFileSystem}
 
-// scalastyle:off funsuite
 import org.scalatest.FunSuite
 
 /**
@@ -44,7 +44,6 @@ import org.scalatest.FunSuite
  * been generated.
  */
 abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
-  // scalastyle:on funsuite
 
   def logStoreClassName: Option[String]
 
