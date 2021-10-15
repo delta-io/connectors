@@ -43,8 +43,6 @@ private[internal] object PartitionUtils {
       partitionSchema: StructType,
       files: Seq[AddFile],
       partitionFilter: Expression): Seq[AddFile] = {
-    // TODO: compressedExpr = ...
-
     files.filter { addFile =>
       val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
       val result = partitionFilter.eval(partitionRowRecord)

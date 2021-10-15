@@ -21,9 +21,9 @@ package io.delta.standalone.internal.sources
  */
 private[internal] object StandaloneHadoopConf {
 
-  /** time zone as which time-based parquet values will be encoded and decoded */
+  /** Time zone as which time-based parquet values will be encoded and decoded. */
   val PARQUET_DATA_TIME_ZONE_ID = "io.delta.standalone.PARQUET_DATA_TIME_ZONE_ID"
 
-  /** TODO */
+  /** Class name for the desired [[LogStore]] implementation to be used. */
   val LOG_STORE_CLASS_KEY = "io.delta.standalone.LOG_STORE_CLASS_KEY"
 }

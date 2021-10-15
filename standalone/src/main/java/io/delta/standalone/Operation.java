@@ -116,15 +116,14 @@ public final class Operation {
      * @return operation parameters
      */
     public Map<String, Object> getParameters() {
-        // TODO: be consistent with AddFile getter ternary
-        return null == parameters ? null : Collections.unmodifiableMap(parameters);
+        return parameters != null ? Collections.unmodifiableMap(parameters) : null;
     }
 
     /**
      * @return operation metrics
      */
     public Map<String, String> getOperationMetrics() {
-        return null == operationMetrics ? null : Collections.unmodifiableMap(operationMetrics);
+        return operationMetrics != null ? Collections.unmodifiableMap(operationMetrics) : null;
     }
 
     /**
