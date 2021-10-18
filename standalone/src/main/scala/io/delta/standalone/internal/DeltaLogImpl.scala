@@ -69,6 +69,9 @@ private[internal] class DeltaLogImpl private(
    */
   def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
 
+  /** The unique identifier for this table. */
+  def tableId: String = metadata.id
+
   /** Use ReentrantLock to allow us to call `lockInterruptibly`. */
   private val deltaLogLock = new ReentrantLock()
 
