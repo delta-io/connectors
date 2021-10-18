@@ -35,12 +35,8 @@ private[internal] class OptimisticTransactionImpl(
     snapshot: SnapshotImpl) extends OptimisticTransaction with Logging {
   import OptimisticTransactionImpl._
 
+  /** Used for logging */
   private val txnId = UUID.randomUUID().toString
-
-  override protected val logPrefix: Option[String] = {
-    def truncate(uuid: String): String = uuid.split("-").head
-    Some(s"[tableId=${truncate(snapshot.getMetadata.getId)},txnId=${truncate(txnId)}] ")
-  }
 
   /** Tracks the appIds that have been seen by this transaction. */
   private val readTxn = new ArrayBuffer[String]
@@ -401,7 +397,8 @@ private[internal] class OptimisticTransactionImpl(
       val conflictChecker = new ConflictChecker(
         currentTransactionInfo,
         otherCommitVersion,
-        commitIsolationLevel)
+        commitIsolationLevel,
+        logPrefixStr)
 
       conflictChecker.checkConflicts()
 
@@ -451,6 +448,35 @@ private[internal] class OptimisticTransactionImpl(
   private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
     metadata.copy(configuration =
       DeltaConfigs.mergeGlobalConfigs(deltaLog.hadoopConf, metadata.configuration))
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Logging Override Methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  protected lazy val logPrefix: String = {
+    def truncate(uuid: String): String = uuid.split("-").head
+    s"[tableId=${truncate(snapshot.metadataScala.id)},txnId=${truncate(txnId)}] "
+  }
+
+  override def logInfo(msg: => String): Unit = {
+    super.logInfo(logPrefix + msg)
+  }
+
+  override def logWarning(msg: => String): Unit = {
+    super.logWarning(logPrefix + msg)
+  }
+
+  override def logWarning(msg: => String, throwable: Throwable): Unit = {
+    super.logWarning(logPrefix + msg, throwable)
+  }
+
+  override def logError(msg: => String): Unit = {
+    super.logError(logPrefix + msg)
+  }
+
+  override def logError(msg: => String, throwable: Throwable): Unit = {
+    super.logError(logPrefix + msg, throwable)
   }
 
 }

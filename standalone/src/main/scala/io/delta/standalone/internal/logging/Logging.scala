@@ -43,52 +43,29 @@ private[internal] trait Logging {
     log_
   }
 
-  /**
-   * Optional prefix that will be prepended to each log message.
-   */
-  protected val logPrefix: Option[String] = None
-
   // Log methods that take only a String
   protected def logInfo(msg: => String): Unit = {
-    if (log.isInfoEnabled) logPrefix match {
-      case Some(prefix) => log.info(prefix + msg)
-      case _ => log.info(msg)
-    }
+    if (log.isInfoEnabled) log.info(msg)
   }
 
   protected def logWarning(msg: => String): Unit = {
-    if (log.isWarnEnabled) logPrefix match {
-      case Some(prefix) => log.warn(prefix + msg)
-      case _ => log.warn(msg)
-    }
+    if (log.isWarnEnabled) log.warn(msg)
   }
 
   protected def logError(msg: => String): Unit = {
-    if (log.isErrorEnabled) logPrefix match {
-      case Some(prefix) => log.error(prefix + msg)
-      case _ => log.error(msg)
-    }
+    if (log.isErrorEnabled) log.error(msg)
   }
 
   // Log methods that take Throwables (Exceptions/Errors) too
   protected def logInfo(msg: => String, throwable: Throwable): Unit = {
-    if (log.isInfoEnabled) logPrefix match {
-      case Some(prefix) => log.info(prefix + msg, throwable)
-      case _ => log.info(msg, throwable)
-    }
+    if (log.isInfoEnabled) log.info(msg, throwable)
   }
 
   protected def logWarning(msg: => String, throwable: Throwable): Unit = {
-    if (log.isWarnEnabled) logPrefix match {
-      case Some(prefix) => log.warn(prefix + msg, throwable)
-      case _ => log.warn(msg, throwable)
-    }
+    if (log.isWarnEnabled) log.warn(msg, throwable)
   }
 
   protected def logError(msg: => String, throwable: Throwable): Unit = {
-    if (log.isErrorEnabled) logPrefix match {
-      case Some(prefix) => log.error(prefix + msg, throwable)
-      case _ => log.error(msg, throwable)
-    }
+    if (log.isErrorEnabled) log.error(msg, throwable)
   }
 }
