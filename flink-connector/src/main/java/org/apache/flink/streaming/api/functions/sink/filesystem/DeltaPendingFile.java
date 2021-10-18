@@ -18,40 +18,36 @@
 
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
-import javax.annotation.Nullable;
-
 
 public class DeltaPendingFile {
 
-    @Nullable
     private final String fileName;
 
-    @Nullable
     private final InProgressFileWriter.PendingFileRecoverable pendingFile;
 
-    @Nullable
     private final long recordCount;
 
-    @Nullable
     private final long fileSize;
 
+    private final long lastUpdateTime;
 
-    public DeltaPendingFile(@Nullable String fileName,
-                            @Nullable InProgressFileWriter.PendingFileRecoverable pendingFile,
+
+    public DeltaPendingFile(String fileName,
+                            InProgressFileWriter.PendingFileRecoverable pendingFile,
                             long recordCount,
-                            long fileSize) {
+                            long fileSize,
+                            long lastUpdateTime) {
         this.fileName = fileName;
         this.pendingFile = pendingFile;
         this.fileSize = fileSize;
         this.recordCount = recordCount;
+        this.lastUpdateTime = lastUpdateTime;
     }
 
-    @Nullable
     public String getFileName() {
         return fileName;
     }
 
-    @Nullable
     public InProgressFileWriter.PendingFileRecoverable getPendingFile() {
         return pendingFile;
     }
@@ -62,5 +58,9 @@ public class DeltaPendingFile {
 
     public long getRecordCount() {
         return recordCount;
+    }
+
+    public long getLastUpdateTime() {
+        return lastUpdateTime;
     }
 }

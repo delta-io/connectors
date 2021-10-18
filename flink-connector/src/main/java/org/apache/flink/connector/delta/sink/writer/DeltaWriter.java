@@ -20,6 +20,7 @@ package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
@@ -88,6 +89,8 @@ public class DeltaWriter<IN>
 
     private final String appId;
 
+    private long nextCheckpointId;
+
     public DeltaWriter(
             final Path basePath,
             final BucketAssigner<IN, String> bucketAssigner,
@@ -97,7 +100,8 @@ public class DeltaWriter<IN>
             final OutputFileConfig outputFileConfig,
             final Sink.ProcessingTimeService processingTimeService,
             final long bucketCheckInterval,
-            String appId) {
+            final String appId,
+            final long nextCheckpointId) {
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketFactory = checkNotNull(bucketFactory);
@@ -115,6 +119,7 @@ public class DeltaWriter<IN>
                 "Bucket checking interval for processing time should be positive.");
         this.bucketCheckInterval = bucketCheckInterval;
         this.appId = appId;
+        this.nextCheckpointId = nextCheckpointId;
     }
 
     /**
@@ -190,11 +195,16 @@ public class DeltaWriter<IN>
             if (!entry.getValue().isActive()) {
                 activeBucketIt.remove();
             } else {
-                committables.addAll(entry.getValue().prepareCommit(flush));
+                committables.addAll(entry.getValue().prepareCommit(flush, nextCheckpointId));
             }
         }
 
+        incrementNextCheckpointId();
         return committables;
+    }
+
+    private void incrementNextCheckpointId() {
+        nextCheckpointId += 1;
     }
 
     @Override

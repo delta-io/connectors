@@ -135,7 +135,7 @@ class DeltaWriterBucket<IN> {
                             bucketId,
                             inProgressFileRecoverable,
                             state.getInProgressFileCreationTime());
-            deltaInProgressPart = new DeltaInProgressPart<IN>(
+            deltaInProgressPart = new DeltaInProgressPart<>(
                     state.getInProgressPartFileName(),
                     inProgressPart
             );
@@ -144,7 +144,8 @@ class DeltaWriterBucket<IN> {
                     state.getInProgressPartFileName(),
                     inProgressFileRecoverable,
                     state.getRecordCount(),
-                    state.getInProgressPartFileSize()
+                    state.getInProgressPartFileSize(),
+                    state.getLastUpdateTime()
             );
             pendingFiles.add(deltaPendingFile);
         }
@@ -195,7 +196,8 @@ class DeltaWriterBucket<IN> {
     }
 
 
-    List<DeltaCommittable> prepareCommit(boolean flush) throws IOException {
+    List<DeltaCommittable> prepareCommit(boolean flush,
+                                         long checkpointId) throws IOException {
         if (deltaInProgressPart != null
                 && (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush)) {
             if (LOG.isDebugEnabled()) {
@@ -206,11 +208,11 @@ class DeltaWriterBucket<IN> {
         }
 
         List<DeltaCommittable> committables = new ArrayList<>();
-        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile)));
+        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile, appId, checkpointId)));
         pendingFiles.clear();
 
         if (inProgressFileToCleanup != null) {
-            committables.add(new DeltaCommittable(inProgressFileToCleanup));
+            committables.add(new DeltaCommittable(inProgressFileToCleanup, appId, checkpointId));
             inProgressFileToCleanup = null;
         }
 
@@ -223,7 +225,8 @@ class DeltaWriterBucket<IN> {
         long inProgressFileCreationTime = Long.MAX_VALUE;
         String inProgressPartFileName = null;
         long recordCount = 0;
-        long inProgressPartFileSize = 0;
+        long inProgressPartFileSize = -1L;
+        long  lastUpdateTime = -1L;
 
         if (deltaInProgressPart != null) {
             InProgressFileWriter<IN, String> inProgressPart = deltaInProgressPart.getInProgressPart();
@@ -233,6 +236,7 @@ class DeltaWriterBucket<IN> {
             inProgressPartFileName = deltaInProgressPart.getFileName();
             recordCount = this.inProgressPartRecordCount;
             inProgressPartFileSize = inProgressPart.getSize();
+            lastUpdateTime = inProgressPart.getLastUpdateTime();
         }
 
         return new DeltaWriterBucketState(
@@ -243,6 +247,7 @@ class DeltaWriterBucket<IN> {
                 inProgressPartFileName,
                 recordCount,
                 inProgressPartFileSize,
+                lastUpdateTime,
                 appId
         );
     }
@@ -306,23 +311,19 @@ class DeltaWriterBucket<IN> {
 
     private void closePartFile() throws IOException {
         if (deltaInProgressPart != null) {
-            //deltaInProgressPart.getInProgressPart().persist();
+            // we need to close the explicitly before calling closeForCommit() in order to get
+            // the actual file size
             deltaInProgressPart.getInProgressPart().closeWriter();
-            long fileSize = deltaInProgressPart.getInProgressPart().getSize(); //TODO this doesn't work
+            long fileSize = deltaInProgressPart.getInProgressPart().getSize();
             InProgressFileWriter.PendingFileRecoverable pendingFileRecoverable =
                     deltaInProgressPart.getInProgressPart().closeForCommit();
-
-
-            // deltaInProgressPart.getInProgressPart().getSize();
-
-            Path inProgressFilePath = new Path(this.bucketPath, deltaInProgressPart.getFileName());
-            //long fileSize = fs.getFileStatus(inProgressFilePath).getLen();
 
             DeltaPendingFile pendingFile = new DeltaPendingFile(
                     deltaInProgressPart.getFileName(),
                     pendingFileRecoverable,
                     this.inProgressPartRecordCount,
-                    fileSize
+                    fileSize,
+                    deltaInProgressPart.getInProgressPart().getLastUpdateTime()
             );
             pendingFiles.add(pendingFile);
             deltaInProgressPart = null;
@@ -338,20 +339,15 @@ class DeltaWriterBucket<IN> {
         }
     }
 
-    // --------------------------- Testing Methods -----------------------------
-
-    @VisibleForTesting
     public String getUniqueId() {
         return uniqueId;
     }
 
     @Nullable
-    @VisibleForTesting
     DeltaInProgressPart<IN> getDeltaInProgressPart() {
         return deltaInProgressPart;
     }
 
-    @VisibleForTesting
     public List<DeltaPendingFile> getPendingFiles() {
         return pendingFiles;
     }

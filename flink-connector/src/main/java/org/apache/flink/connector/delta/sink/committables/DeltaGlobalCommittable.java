@@ -29,14 +29,14 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @Internal
 public class DeltaGlobalCommittable {
 
-    private final List<DeltaPendingFile> pendingFiles;
+    private final List<DeltaCommittable> deltaCommittables;
 
-    public DeltaGlobalCommittable(List<DeltaPendingFile> pendingFiles) {
-        this.pendingFiles = checkNotNull(pendingFiles);
+    public DeltaGlobalCommittable(List<DeltaCommittable> deltaCommittables) {
+        this.deltaCommittables = checkNotNull(deltaCommittables);
     }
 
-    public List<DeltaPendingFile> getPendingFiles() {
-        return pendingFiles;
-    }
 
+    public List<DeltaCommittable> getDeltaCommittables() {
+        return deltaCommittables;
+    }
 }

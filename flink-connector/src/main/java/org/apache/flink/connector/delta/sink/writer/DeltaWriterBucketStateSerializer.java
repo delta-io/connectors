@@ -80,6 +80,7 @@ public class DeltaWriterBucketStateSerializer
                 SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
         dataOutputView.writeUTF(state.getBucketPath().toString());
         dataOutputView.writeLong(state.getInProgressFileCreationTime());
+        dataOutputView.writeLong(state.getLastUpdateTime());
         dataOutputView.writeUTF(state.getAppId());
 
 
@@ -121,6 +122,7 @@ public class DeltaWriterBucketStateSerializer
 
         String bucketPathStr = dataInputView.readUTF();
         long creationTime = dataInputView.readLong();
+        long lastUpdateTime = dataInputView.readLong();
         String appId = dataInputView.readUTF();
 
         // then get the current resumable stream
@@ -143,6 +145,7 @@ public class DeltaWriterBucketStateSerializer
                 inprogressFileName,
                 recordCount,
                 inProgressPartFileSize,
+                lastUpdateTime,
                 appId
         );
     }

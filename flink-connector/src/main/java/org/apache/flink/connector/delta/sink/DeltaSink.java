@@ -19,17 +19,18 @@
 package org.apache.flink.connector.delta.sink;
 
 
+import io.delta.standalone.DeltaLog;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import org.apache.flink.connector.delta.sink.committer.DeltaCommitter;
-import org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittableSerializer;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittableSerializer;
+import org.apache.flink.connector.delta.sink.committer.DeltaCommitter;
+import org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter;
 import org.apache.flink.connector.delta.sink.writer.DefaultDeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketFactory;
@@ -40,6 +41,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.utils.SerializableConfiguration;
+import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
@@ -47,9 +49,9 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
@@ -99,20 +101,34 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
             List<DeltaWriterBucketState> states
     ) throws IOException {
         String appId = restoreOrCreateAppId(context, states);
-        DeltaWriter<IN> writer = bucketsBuilder.createWriter(context, appId);
+        long nextCheckpointId = restoreOrGetNextCheckpointId(appId);
+        DeltaWriter<IN> writer = bucketsBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
         return writer;
     }
 
     private String restoreOrCreateAppId(InitContext context,
                                         List<DeltaWriterBucketState> states) {
+        String jobIdMetricName = ScopeFormat.SCOPE_JOB_ID;
+
+        if (context.metricGroup().getAllVariables().containsKey(jobIdMetricName)) {
+            return context.metricGroup().getAllVariables().get(jobIdMetricName);
+        }
+
         if (states.isEmpty()) {
-            if (context.metricGroup().getAllVariables().containsKey("<job_id>")) {
-                return context.metricGroup().getAllVariables().get("<job_id>");
-            }
             return UUID.randomUUID().toString();
         }
         return states.get(0).getAppId();
+    }
+
+    private long restoreOrGetNextCheckpointId(String appId) {
+        DeltaLog deltaLog = DeltaLog.forTable(this.bucketsBuilder.configuration.conf(), this.bucketsBuilder.basePath.getPath());
+        long lastCommittedCheckpointId = deltaLog.startTransaction().txnVersion(appId);
+        if (lastCommittedCheckpointId < 0) {
+            return 1;
+        } else {
+            return lastCommittedCheckpointId + 1;
+        }
     }
 
     @Override
@@ -177,7 +193,8 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
     public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(
             final Path basePath,
             final Configuration conf,
-            final ParquetWriterFactory<IN> writerFactory
+            final ParquetWriterFactory<IN> writerFactory,
+            RowType rowType
     ) {
         return new DefaultDeltaFormatBuilder<>(
                 basePath,
@@ -314,7 +331,9 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
             return new DeltaSink<>(this);
         }
 
-        DeltaWriter<IN> createWriter(InitContext context, String appId) throws IOException {
+        DeltaWriter<IN> createWriter(InitContext context,
+                                     String appId,
+                                     long nextCheckpointId) throws IOException {
             return new DeltaWriter<IN>(
                     basePath,
                     bucketAssigner,
@@ -324,7 +343,8 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
                     outputFileConfig,
                     context.getProcessingTimeService(),
                     bucketCheckInterval,
-                    appId);
+                    appId,
+                    nextCheckpointId);
         }
 
         DeltaCommitter createCommitter() throws IOException {

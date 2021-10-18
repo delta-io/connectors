@@ -37,6 +37,10 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
         this.writerFactory = writerFactory;
     }
 
+    private void a(BulkWriter.Factory<IN> writerFactory){
+
+    }
+
     @Override
     public DeltaBulkPartWriter<IN, BucketID> resumeFrom(
             final BucketID bucketId,
@@ -48,6 +52,7 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
         Preconditions.checkNotNull(resumable);
 
         final BulkWriter<IN> writer = writerFactory.create(stream);
+
         return new DeltaBulkPartWriter<>(bucketId, stream, writer, creationTime);
     }
 

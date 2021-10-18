@@ -54,6 +54,8 @@ public class DeltaWriterBucketState {
 
     private final long inProgressPartFileSize;
 
+    private final long lastUpdateTime;
+
     private final String appId;
 
     public DeltaWriterBucketState(
@@ -64,6 +66,7 @@ public class DeltaWriterBucketState {
             @Nullable String inProgressPartFileName,
             long recordCount,
             long inProgressPartFileSize,
+            long lastUpdateTime,
             String appId) {
         this.bucketId = bucketId;
         this.bucketPath = bucketPath;
@@ -72,6 +75,7 @@ public class DeltaWriterBucketState {
         this.inProgressPartFileName = inProgressPartFileName;
         this.recordCount = recordCount;
         this.inProgressPartFileSize = inProgressPartFileSize;
+        this.lastUpdateTime = lastUpdateTime;
         this.appId = appId;
     }
 
@@ -130,5 +134,9 @@ public class DeltaWriterBucketState {
 
     public String getAppId() {
         return appId;
+    }
+
+    public long getLastUpdateTime() {
+        return lastUpdateTime;
     }
 }

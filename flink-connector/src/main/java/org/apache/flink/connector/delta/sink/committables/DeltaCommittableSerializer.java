@@ -54,6 +54,13 @@ public class DeltaCommittableSerializer
         this.inProgressFileSerializer = checkNotNull(inProgressFileSerializer);
     }
 
+    public DeltaCommittableSerializer(
+            SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+                    pendingFileSerializer) {
+        this.pendingFileSerializer = checkNotNull(pendingFileSerializer);
+        this.inProgressFileSerializer = null;
+    }
+
     @Override
     public int getVersion() {
         return 1;
@@ -78,8 +85,10 @@ public class DeltaCommittableSerializer
         throw new IOException("Unrecognized version or corrupt state: " + version);
     }
 
-    private void serializeV1(DeltaCommittable committable, DataOutputView dataOutputView)
+    void serializeV1(DeltaCommittable committable, DataOutputView dataOutputView)
             throws IOException {
+        dataOutputView.writeUTF(committable.getAppId());
+        dataOutputView.writeLong(committable.getCheckpointId());
 
         if (committable.hasDeltaPendingFile()) {
             dataOutputView.writeBoolean(true);
@@ -105,7 +114,10 @@ public class DeltaCommittableSerializer
         }
     }
 
-    private DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
+    DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
+        String appId = dataInputView.readUTF();
+        long checkpointId = dataInputView.readLong();
+
         DeltaPendingFile deltaPendingFile = null;
         if (dataInputView.readBoolean()) {
             deltaPendingFile = DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer);
@@ -118,7 +130,7 @@ public class DeltaCommittableSerializer
                             inProgressFileSerializer, dataInputView);
         }
 
-        return new DeltaCommittable(deltaPendingFile, inProgressFileToCleanup);
+        return new DeltaCommittable(deltaPendingFile, inProgressFileToCleanup, appId, checkpointId);
     }
 
     private static void validateMagicNumber(DataInputView in) throws IOException {

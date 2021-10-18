@@ -24,6 +24,9 @@ import io.delta.standalone.OptimisticTransaction;
 import io.delta.standalone.actions.Action;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
+import io.delta.standalone.actions.SetTransaction;
+import io.delta.standalone.types.StringType;
+import io.delta.standalone.types.StructType;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
@@ -37,6 +40,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
 
@@ -54,36 +59,52 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
 
     @Override
-    public List<DeltaGlobalCommittable> filterRecoveredCommittables(List<DeltaGlobalCommittable> globalCommittables) throws IOException {
+    public List<DeltaGlobalCommittable> filterRecoveredCommittables(List<DeltaGlobalCommittable> globalCommittables) {
         return globalCommittables;
     }
 
     @Override
-    public DeltaGlobalCommittable combine(List<DeltaCommittable> committables) throws IOException {
-        List<DeltaPendingFile> pendingFiles = new ArrayList<>();
-        for (DeltaCommittable committable : committables) {
-            if (committable.hasDeltaPendingFile()) {
-                assert committable.getDeltaPendingFile() != null;
-                assert committable.getDeltaPendingFile().getFileName() != null;
-                pendingFiles.add(committable.getDeltaPendingFile());
+    public DeltaGlobalCommittable combine(List<DeltaCommittable> committables) {
+        return new DeltaGlobalCommittable(committables);
+    }
+
+    // TODO when confirmed that we can resolve flink's jobId globally then this function won't be needed
+    private String resolveAppId(List<DeltaGlobalCommittable> globalCommittables) {
+        for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
+            for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
+                return deltaCommittable.getAppId();
             }
         }
-        return new DeltaGlobalCommittable(pendingFiles);
+        return null;
     }
 
     @Override
-    public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) throws IOException {
+    public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         if (!globalCommittables.isEmpty()) {
-            List<Action> addFileActions = prepareAddFileActions(globalCommittables);
+            String appId = resolveAppId(globalCommittables);
 
-            Operation operation = prepareDeltaLogOperation(globalCommittables, addFileActions.size());
-            DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
+            Map<Long, List<Action>> addFileActionsPerCheckpoint = prepareAddFileActionsPerCheckpoint(globalCommittables);
 
-            Metadata metadata = deltaLog.snapshot().getMetadata();
+            for (long checkpointId : addFileActionsPerCheckpoint.keySet().stream().sorted().collect(Collectors.toList())) {
+                DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
+                OptimisticTransaction transaction = deltaLog.startTransaction();
+                long lastCommittedVersion = transaction.txnVersion(appId);
 
-            OptimisticTransaction transaction = deltaLog.startTransaction();
+                if (checkpointId > lastCommittedVersion) {
+                    List<Action> actions = new ArrayList<>();
 
-            transaction.commit(addFileActions, operation, this.engineInfo);
+                    SetTransaction setTransaction = new SetTransaction(appId, checkpointId, Optional.of(System.currentTimeMillis()));
+                    actions.add(setTransaction);
+                    List<Action> addFileActions = addFileActionsPerCheckpoint.get(checkpointId);
+                    actions.addAll(addFileActions);
+
+                    Operation operation = prepareDeltaLogOperation(globalCommittables, addFileActions.size());
+                    StructType structType = deltaLog.snapshot().getMetadata().getSchema();
+                    // TODO add schema validation / comparison using org.apache.flink.connector.delta.sink.SchemaConverter
+
+                    transaction.commit(actions, operation, this.engineInfo);
+                }
+            }
 
         }
         return Collections.emptyList();
@@ -96,17 +117,31 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         return new Operation(Operation.Name.STREAMING_UPDATE, operationParameters, operationMetrics);
     }
 
-    private List<Action> prepareAddFileActions(List<DeltaGlobalCommittable> globalCommittables) {
-        List<Action> actions = new ArrayList<>();
+    private Map<Long, List<Action>> prepareAddFileActionsPerCheckpoint(List<DeltaGlobalCommittable> globalCommittables) {
+        Map<Long, List<Action>> addFilesPerCheckpoint = new HashMap<>();
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
-            for (DeltaPendingFile deltaPendingFile : globalCommittable.getPendingFiles()) {
-                Map<String, String> partitionValues = Collections.emptyMap(); // TODO
-                long modificationTime = System.currentTimeMillis(); // TODO
-                Action action = new AddFile(deltaPendingFile.getFileName(), partitionValues, deltaPendingFile.getFileSize(), modificationTime, true, null, null);
-                actions.add(action);
+            for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
+                if (deltaCommittable.hasDeltaPendingFile()) {
+                    DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+
+                    if (!addFilesPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
+                        addFilesPerCheckpoint.put(deltaCommittable.getCheckpointId(), new ArrayList<>());
+                    }
+
+                    AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
+
+                    addFilesPerCheckpoint.get(deltaCommittable.getCheckpointId()).add(action);
+                }
             }
         }
-        return actions;
+        return addFilesPerCheckpoint;
+    }
+
+    private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
+        Map<String, String> partitionValues = Collections.emptyMap(); // TODO
+        long modificationTime = deltaPendingFile.getLastUpdateTime();
+        return new AddFile(deltaPendingFile.getFileName(), partitionValues, deltaPendingFile.getFileSize(), modificationTime, true, null, null);
+
     }
 
     private Map<String, String> prepareOperationMetrics(List<DeltaGlobalCommittable> globalCommittables,
@@ -114,9 +149,12 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         long cumulatedRecordCount = 0;
         long cumulatedSize = 0;
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
-            for (DeltaPendingFile deltaPendingFile : globalCommittable.getPendingFiles()) {
-                cumulatedRecordCount += deltaPendingFile.getRecordCount();
-                cumulatedSize += deltaPendingFile.getFileSize();
+            for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
+                if (deltaCommittable.hasDeltaPendingFile()) {
+                    DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+                    cumulatedRecordCount += deltaPendingFile.getRecordCount();
+                    cumulatedSize += deltaPendingFile.getFileSize();
+                }
             }
         }
 

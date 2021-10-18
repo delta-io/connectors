@@ -21,6 +21,7 @@ public final class DeltaPendingFileSerdeUtil {
         dataOutputView.writeUTF(deltaPendingFile.getFileName());
         dataOutputView.writeLong(deltaPendingFile.getRecordCount());
         dataOutputView.writeLong(deltaPendingFile.getFileSize());
+        dataOutputView.writeLong(deltaPendingFile.getLastUpdateTime());
         SimpleVersionedSerialization.writeVersionAndSerialize(
                 pendingFileSerializer,
                 deltaPendingFile.getPendingFile(),
@@ -34,10 +35,11 @@ public final class DeltaPendingFileSerdeUtil {
         String pendingFileName = dataInputView.readUTF();
         long pendingFileRecordCount = dataInputView.readLong();
         long pendingFileSize = dataInputView.readLong();
+        long lastUpdateTime = dataInputView.readLong();
         InProgressFileWriter.PendingFileRecoverable pendingFile =
                 SimpleVersionedSerialization.readVersionAndDeSerialize(
                         pendingFileSerializer, dataInputView);
-        return new DeltaPendingFile(pendingFileName, pendingFile, pendingFileRecordCount, pendingFileSize);
+        return new DeltaPendingFile(pendingFileName, pendingFile, pendingFileRecordCount, pendingFileSize, lastUpdateTime);
     }
 
 }
