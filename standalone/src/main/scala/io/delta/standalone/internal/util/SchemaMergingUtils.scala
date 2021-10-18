@@ -16,7 +16,7 @@
 
 package io.delta.standalone.internal.util
 
-import io.delta.standalone.types.{ArrayType, DataType, MapType, StructField, StructType}
+import io.delta.standalone.types.{ArrayType, DataType, MapType, StructType}
 
 /**
  * Utils to merge table schema with data schema.

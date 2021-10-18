@@ -27,18 +27,20 @@ import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
 import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
-import org.slf4j.LoggerFactory
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
-    snapshot: SnapshotImpl) extends OptimisticTransaction {
+    snapshot: SnapshotImpl) extends OptimisticTransaction with Logging {
   import OptimisticTransactionImpl._
 
-  private val LOG = LoggerFactory.getLogger(classOf[OptimisticTransactionImpl])
-
-  /** Used for logging */
   private val txnId = UUID.randomUUID().toString
+
+  override protected val logPrefix: Option[String] = {
+    def truncate(uuid: String): String = uuid.split("-").head
+    Some(s"[tableId=${truncate(snapshot.getMetadata.getId)},txnId=${truncate(txnId)}] ")
+  }
 
   /** Tracks the appIds that have been seen by this transaction. */
   private val readTxn = new ArrayBuffer[String]
@@ -355,7 +357,6 @@ private[internal] class OptimisticTransactionImpl(
       } catch {
         case e: IllegalStateException => logWarning("Failed to checkpoint table state.", e)
       }
-
     }
   }
 
@@ -452,26 +453,6 @@ private[internal] class OptimisticTransactionImpl(
       DeltaConfigs.mergeGlobalConfigs(deltaLog.hadoopConf, metadata.configuration))
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Logging Helper Methods
-  ///////////////////////////////////////////////////////////////////////////
-
-  private lazy val logPrefix: String = {
-    def truncate(uuid: String): String = uuid.split("-").head
-    s"[tableId=${truncate(snapshot.getMetadata.getId)},txnId=${truncate(txnId)}] "
-  }
-
-  def logInfo(msg: => String): Unit = {
-    LOG.info(logPrefix + msg)
-  }
-
-  def logWarning(msg: => String, throwable: Throwable): Unit = {
-    LOG.warn(logPrefix + msg, throwable)
-  }
-
-  def logError(msg: => String): Unit = {
-    LOG.error(logPrefix + msg)
-  }
 }
 
 private[internal] object OptimisticTransactionImpl {
