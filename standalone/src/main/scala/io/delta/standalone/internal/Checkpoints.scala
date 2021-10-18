@@ -26,12 +26,12 @@ import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.internal.actions.SingleAction
 import io.delta.standalone.internal.util.JsonUtils
 import io.delta.standalone.internal.util.FileNames._
+import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.logging.Logging
 
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import com.github.mjakubowski84.parquet4s.ParquetWriter
-import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.logging.Logging
 
 /**
  * Records information about a checkpoint.

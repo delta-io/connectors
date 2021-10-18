@@ -22,7 +22,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, DeltaScan, NAME, Operation, OptimisticTransaction, VERSION}
+import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction, NAME, VERSION}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.expressions.{Expression, Literal}
