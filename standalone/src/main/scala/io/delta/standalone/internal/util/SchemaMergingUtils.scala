@@ -16,6 +16,7 @@
 
 package io.delta.standalone.internal.util
 
+import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.types.{ArrayType, DataType, MapType, StructType}
 
 /**
@@ -83,8 +84,7 @@ private[internal] object SchemaMergingUtils {
         case (x, ys) if ys.length > 1 => s"$x"
       }
 
-      // TODO: AnalysisException ?
-      throw new RuntimeException(
+      throw new DeltaStandaloneException(
         s"Found duplicate column(s) $colType: ${duplicateColumns.mkString(", ")}")
     }
   }

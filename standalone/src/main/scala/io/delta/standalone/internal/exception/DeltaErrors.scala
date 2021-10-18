@@ -18,10 +18,11 @@ package io.delta.standalone.internal.exception
 
 import java.io.{FileNotFoundException, IOException}
 
-import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
-import io.delta.standalone.internal.util.JsonUtils
+
 import io.delta.standalone.types.{DataType, StructType}
 import io.delta.standalone.exceptions._
+import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
+import io.delta.standalone.internal.util.JsonUtils
 
 import org.apache.hadoop.fs.Path
 
@@ -74,9 +75,8 @@ private[internal] object DeltaErrors {
       s"Couldn't find all part files of the checkpoint version: $version", e)
   }
 
-  def noReproducibleHistoryFound(logPath: Path): Throwable = {
-    // TODO: AnalysisException ?
-    new RuntimeException(s"No reproducible commits found at $logPath")
+  def noReproducibleHistoryFound(logPath: Path): DeltaStandaloneException = {
+    new DeltaStandaloneException(s"No reproducible commits found at $logPath")
   }
 
   def timestampEarlierThanTableFirstCommit(
@@ -91,19 +91,18 @@ private[internal] object DeltaErrors {
   def timestampLaterThanTableLastCommit(
       userTimestamp: java.sql.Timestamp,
       commitTs: java.sql.Timestamp): Throwable = {
-    new IllegalArgumentException(
+    new DeltaStandaloneException(
       s"""The provided timestamp ($userTimestamp) is after the latest version available to this
          |table ($commitTs). Please use a timestamp less than or equal to $commitTs.
        """.stripMargin)
   }
 
-  def noHistoryFound(logPath: Path): Throwable = {
-    // TODO: AnalysisException ?
-    new RuntimeException(s"No commits found at $logPath")
+  def noHistoryFound(logPath: Path): DeltaStandaloneException = {
+    new DeltaStandaloneException(s"No commits found at $logPath")
   }
 
   def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
-    new IllegalArgumentException(s"Cannot time travel Delta table to version $userVersion. " +
+    new DeltaStandaloneException(s"Cannot time travel Delta table to version $userVersion. " +
       s"Available versions: [$earliest, $latest].")
   }
 
@@ -152,18 +151,15 @@ private[internal] object DeltaErrors {
         s"(appendOnly=false)'.")
   }
 
-  def invalidColumnName(name: String): Throwable = {
-    // TODO: AnalysisException ??
-    new RuntimeException(
+  def invalidColumnName(name: String): DeltaStandaloneException = {
+    new DeltaStandaloneException(
       s"""Attribute name "$name" contains invalid character(s) among " ,;{}()\\n\\t=".
          |Please use alias to rename it.
        """.stripMargin.split("\n").mkString(" ").trim)
   }
 
-  // TODO: AnalysisException ??
-  def invalidPartitionColumn(e: RuntimeException): Throwable = {
-    // TODO: AnalysisException ??
-    new RuntimeException(
+  def invalidPartitionColumn(e: RuntimeException): DeltaStandaloneException = {
+    new DeltaStandaloneException(
       """Found partition columns having invalid character(s) among " ,;{}()\n\t=". Please """ +
         "change the name to your partition columns. This check can be turned off by setting " +
         """spark.conf.set("spark.databricks.delta.partitionColumnValidity.enabled", false) """ +
@@ -274,8 +270,8 @@ private[internal] object DeltaErrors {
   }
 
   def nestedNotNullConstraint(
-      parent: String, nested: DataType, nestType: String): RuntimeException = {
-    new RuntimeException(s"The $nestType type of the field $parent contains a NOT NULL " +
+      parent: String, nested: DataType, nestType: String): DeltaStandaloneException = {
+    new DeltaStandaloneException(s"The $nestType type of the field $parent contains a NOT NULL " +
       s"constraint. Delta does not support NOT NULL constraints nested within arrays or maps. " +
       s"Parsed $nestType type:\n${nested.toPrettyJson}")
   }
@@ -291,7 +287,7 @@ private[internal] object DeltaErrors {
   }
 
   def unknownConfigurationKeyException(confKey: String): Throwable = {
-    new IllegalArgumentException(s"Unknown configuration was specified: $confKey")
+    new DeltaStandaloneException(s"Unknown configuration was specified: $confKey")
   }
 
   ///////////////////////////////////////////////////////////////////////////

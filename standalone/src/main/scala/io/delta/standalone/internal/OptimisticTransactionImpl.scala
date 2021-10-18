@@ -24,6 +24,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import io.delta.standalone.{CommitResult, DeltaScan, NAME, Operation, OptimisticTransaction, VERSION}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
+import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -424,8 +425,7 @@ private[internal] class OptimisticTransactionImpl(
     try {
       SchemaUtils.checkFieldNames(metadata.partitionColumns)
     } catch {
-      // TODO: case e: AnalysisException ?
-      case e: RuntimeException => throw DeltaErrors.invalidPartitionColumn(e)
+      case e: DeltaStandaloneException => throw DeltaErrors.invalidPartitionColumn(e)
     }
 
     Protocol.checkMetadataProtocolProperties(metadata, protocol)
