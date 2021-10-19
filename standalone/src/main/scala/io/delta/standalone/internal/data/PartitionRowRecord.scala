@@ -66,7 +66,7 @@ private[internal] class PartitionRowRecord(
 
   override def getInt(fieldName: String): Int = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[IntegerType]) {
+    if (!field.getDataType.isInstanceOf[IntegerType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "integer")
     }
     getPrimitive(field).toInt
@@ -74,7 +74,7 @@ private[internal] class PartitionRowRecord(
 
   override def getLong(fieldName: String): Long = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[LongType]) {
+    if (!field.getDataType.isInstanceOf[LongType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "long")
     }
     getPrimitive(field).toLong
@@ -82,7 +82,7 @@ private[internal] class PartitionRowRecord(
 
   override def getByte(fieldName: String): Byte = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[ByteType]) {
+    if (!field.getDataType.isInstanceOf[ByteType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "byte")
     }
     getPrimitive(field).toByte
@@ -90,7 +90,7 @@ private[internal] class PartitionRowRecord(
 
   override def getShort(fieldName: String): Short = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[ShortType]) {
+    if (!field.getDataType.isInstanceOf[ShortType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "short")
     }
     getPrimitive(field).toShort
@@ -98,7 +98,7 @@ private[internal] class PartitionRowRecord(
 
   override def getBoolean(fieldName: String): Boolean = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[BooleanType]) {
+    if (!field.getDataType.isInstanceOf[BooleanType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "boolean")
     }
     getPrimitive(field).toBoolean
@@ -106,7 +106,7 @@ private[internal] class PartitionRowRecord(
 
   override def getFloat(fieldName: String): Float = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[FloatType]) {
+    if (!field.getDataType.isInstanceOf[FloatType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "float")
     }
     getPrimitive(field).toFloat
@@ -114,7 +114,7 @@ private[internal] class PartitionRowRecord(
 
   override def getDouble(fieldName: String): Double = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[DoubleType]) {
+    if (!field.getDataType.isInstanceOf[DoubleType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "double")
     }
     getPrimitive(field).toDouble
@@ -122,42 +122,42 @@ private[internal] class PartitionRowRecord(
 
   override def getString(fieldName: String): String = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[StringType]) {
+    if (!field.getDataType.isInstanceOf[StringType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "string")
     }
-    getNonPrimitive(field).getOrElse(null)
+    getNonPrimitive(field).orNull
   }
 
   override def getBinary(fieldName: String): Array[Byte] = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[BinaryType]) {
+    if (!field.getDataType.isInstanceOf[BinaryType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "binary")
     }
-    getNonPrimitive(field).map(_.map(_.toByte).toArray).getOrElse(null)
+    getNonPrimitive(field).map(_.map(_.toByte).toArray).orNull
   }
 
   override def getBigDecimal(fieldName: String): BigDecimalJ = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[DecimalType]) {
+    if (!field.getDataType.isInstanceOf[DecimalType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "decimal")
     }
-    getNonPrimitive(field).map(new BigDecimalJ(_)).getOrElse(null)
+    getNonPrimitive(field).map(new BigDecimalJ(_)).orNull
   }
 
   override def getTimestamp(fieldName: String): Timestamp = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[TimestampType]) {
+    if (!field.getDataType.isInstanceOf[TimestampType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "timestamp")
     }
-    getNonPrimitive(field).map(Timestamp.valueOf(_)).getOrElse(null)
+    getNonPrimitive(field).map(Timestamp.valueOf).orNull
   }
 
   override def getDate(fieldName: String): Date = {
     val field = partitionSchema.get(fieldName)
-    if (!field.getDataType().isInstanceOf[DateType]) {
+    if (!field.getDataType.isInstanceOf[DateType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "date")
     }
-    getNonPrimitive(field).map(Date.valueOf(_)).getOrElse(null)
+    getNonPrimitive(field).map(Date.valueOf).orNull
   }
 
   override def getRecord(fieldName: String): RowRecordJ = {

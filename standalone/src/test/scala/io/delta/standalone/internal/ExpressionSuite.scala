@@ -87,7 +87,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Or(Literal.True, Literal.False), true)
     testPredicate(new Or(Literal.False, Literal.True), true)
     testPredicate(new Or(Literal.True, Literal.True), true)
-    // TODO: is this what we want? should it fail upon creation instead of eval???
+    // TODO: fail upon creation instead of eval
     testException[IllegalArgumentException](
       new Or(Literal.of(1), Literal.of(2)).eval(null),
       "OR expression requires Boolean type.")
@@ -150,21 +150,29 @@ class ExpressionSuite extends FunSuite {
     }
 
     // more extensive comparison tests for custom-implemented binary comparison
+
+    // in the Databricks SQL guide, BINARY values are initiated from a hexadecimal string, where
+    // each byte is represented by 2 digits (for a string of odd length, a 0 is prepended)
+    // A few examples:
+    // - X'0' == X'00' == [0]
+    // - X'001' = X'0001' == [0, 1]
+    // (see: https://docs.databricks.com/sql/language-manual/data-types/binary-type.html)
+
     // (small, big, small2)
     val binaryLiterals = Seq(
-      (Array.empty[Byte], Array(0.toByte), Array.empty[Byte]), // [] < [0]
-      (Array.empty[Byte], Array(1.toByte), Array.empty[Byte]), // [] < [1]
-      (Array(0.toByte), Array(1.toByte), Array(0.toByte)), // [0] < [1]
-      (Array(0.toByte, 1.toByte), Array(1.toByte), Array(0.toByte, 1.toByte)), // [0, 1] < [1]
-      (Array(0.toByte), Array(0.toByte, 0.toByte), Array(0.toByte)), // [0] < [0, 0]
-      (Array(0.toByte), Array(0.toByte, 1.toByte), Array(0.toByte)), // [0] < [0, 1]
-      (Array(0.toByte, 1.toByte), Array(1.toByte, 0.toByte),
-        Array(0.toByte, 1.toByte)), // [0, 1] < [1, 0]
-      (Array(0.toByte, 1.toByte), Array(0.toByte, 2.toByte),
-        Array(0.toByte, 1.toByte)), // [0, 1] < [0, 2]
-      (Array(0.toByte, 0.toByte, 2.toByte), Array(0.toByte, 1.toByte, 0.toByte),
-        Array(0.toByte, 0.toByte, 2.toByte)) // [0, 0, 2] < [0, 1, 0]
-    )
+      (Array.empty[Int], Array(0), Array.empty[Int]),  // [] < [0] or X'' < X'0'
+      (Array.empty[Int], Array(1), Array.empty[Int]),  // [] < [1] or X'' < X'1'
+      (Array(0), Array(1), Array(0)),  // [0] < [1] or X'0' < X'1'
+      (Array(0, 1), Array(1), Array(0, 1)),  // [0, 1] < [1] or X'001' < X'1'
+      (Array(0), Array(0, 0), Array(0)),  // [0] < [0, 0] or X'0' < X'000'
+      (Array(0), Array(0, 1), Array(0)),  // [0] < [0, 1] or X'0' < X'001'
+      (Array(0, 1), Array(1, 0), Array(0, 1)),  // [0, 1] < [1, 0] or X'001' < X'100'
+      (Array(0, 1), Array(0, 2), Array(0, 1)),  // [0, 1] < [0, 2] or X'001' < X'002'
+      // [0, 0, 2] < [0, 1, 0] or X'00002' < X'00100'
+      (Array(0, 0, 2), Array(0, 1, 0), Array(0, 0, 2))
+    ).map{ case (small, big, small2) =>
+      (small.map(_.toByte), big.map(_.toByte), small2.map(_.toByte))
+    }
 
     binaryLiterals.foreach { case (small, big, small2) =>
       predicates.foreach { case (predicateCreator, (smallBig, bigSmall, smallSmall)) =>
@@ -218,11 +226,11 @@ class ExpressionSuite extends FunSuite {
     // test correct output
     // todo: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1),
-      (0 to 10).map{Literal.of(_)}.asJava), true)
+      (0 to 10).map{Literal.of}.asJava), true)
     testPredicate( new In(Literal.of(100),
-      (0 to 10).map{Literal.of(_)}.asJava), false)
+      (0 to 10).map{Literal.of}.asJava), false)
     testPredicate( new In(Literal.of(10),
-      (0 to 10).map{Literal.of(_)}.asJava), true)
+      (0 to 10).map{Literal.of}.asJava), true)
   }
 
   private def testLiteral(literal: Literal, expectedResult: Any) = {
@@ -287,7 +295,7 @@ class ExpressionSuite extends FunSuite {
         "testString" -> "onetwothree",
         "testBinary" -> "\u0001\u0005\u0008",
         "testDecimal" -> "0.123",
-        "testTimestamp" -> (new TimestampJ(12345678)).toString(),
+        "testTimestamp" -> (new TimestampJ(12345678)).toString,
         "testDate" -> "1970-01-01"))
 
     testColumn("testInt", new IntegerType(), partRowRecord, 1)
@@ -325,8 +333,8 @@ class ExpressionSuite extends FunSuite {
   }
 
   test("PartitionRowRecord tests") {
-    val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), true, "5")
-    assert(buildPartitionRowRecord(new IntegerType(), true, null).isNullAt("test"))
+    val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), nullable = true, "5")
+    assert(buildPartitionRowRecord(new IntegerType(), nullable = true, null).isNullAt("test"))
 
     assert(!testPartitionRowRecord.isNullAt("test"))
     testException[IllegalArgumentException](
@@ -334,6 +342,7 @@ class ExpressionSuite extends FunSuite {
       "Field \"foo\" does not exist.")
 
     // primitive types can't be null
+    // for primitive type T: (DataType, getter: partitionRowRecord => T, value: String, value: T)
     val primTypes = Seq(
       (new IntegerType(), (x: PartitionRowRecord) => x.getInt("test"), "0", 0),
       (new LongType(), (x: PartitionRowRecord) => x.getLong("test"), "0", 0L),
@@ -345,56 +354,58 @@ class ExpressionSuite extends FunSuite {
     )
 
     primTypes.foreach { case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
-      assert(f(buildPartitionRowRecord(dataType, true, s)) == v)
+      assert(f(buildPartitionRowRecord(dataType, nullable = true, s)) == v)
       testException[NullPointerException](
-        f(buildPartitionRowRecord(dataType, true, null)),
+        f(buildPartitionRowRecord(dataType, nullable = true, null)),
         s"Read a null value for field test which is a primitive type")
       testException[ClassCastException](
-        f(buildPartitionRowRecord(new StringType(), true, "test")),
-        s"The data type of field test is string. Cannot cast it to ${dataType.getTypeName()}")
+        f(buildPartitionRowRecord(new StringType(), nullable = true, "test")),
+        s"The data type of field test is string. Cannot cast it to ${dataType.getTypeName}")
       testException[IllegalArgumentException](
-        f(buildPartitionRowRecord(dataType, true, s, "foo")),
+        f(buildPartitionRowRecord(dataType, nullable = true, s, "foo")),
         "Field \"test\" does not exist.")
     }
 
     val curr_time = System.currentTimeMillis()
     // non primitive types can be null ONLY when nullable (test both)
+    // for non-primitive type T:
+    // (DataType, getter: partitionRowRecord => T, value: String, value: T)
     val nonPrimTypes = Seq(
       (new StringType(), (x: PartitionRowRecord) => x.getString("test"), "foo", "foo"),
       (DecimalType.USER_DEFAULT, (x: PartitionRowRecord) => x.getBigDecimal("test"), "0.01",
         new BigDecimalJ("0.01")),
       (new TimestampType(), (x: PartitionRowRecord) => x.getTimestamp("test"),
-        (new TimestampJ(curr_time)).toString(), new TimestampJ(curr_time)),
+        (new TimestampJ(curr_time)).toString, new TimestampJ(curr_time)),
       (new DateType(), (x: PartitionRowRecord) => x.getDate("test"), "1970-01-01",
         DateJ.valueOf("1970-01-01"))
     )
     nonPrimTypes.foreach {
       case (dataType: DataType, f: (PartitionRowRecord => Any), s: String, v) =>
-        assert(Objects.equals(f(buildPartitionRowRecord(dataType, true, s)), v))
-        assert(f(buildPartitionRowRecord(dataType, true, null)) == null)
+        assert(Objects.equals(f(buildPartitionRowRecord(dataType, nullable = true, s)), v))
+        assert(f(buildPartitionRowRecord(dataType, nullable = true, null)) == null)
         testException[NullPointerException](
-          f(buildPartitionRowRecord(dataType, false, null)),
+          f(buildPartitionRowRecord(dataType, nullable = false, null)),
           "Read a null value for field test, yet schema indicates that this field can't be null.")
         testException[ClassCastException](
-          f(buildPartitionRowRecord(new IntegerType(), true, "test")),
-          s"The data type of field test is integer. Cannot cast it to ${dataType.getTypeName()}")
+          f(buildPartitionRowRecord(new IntegerType(), nullable = true, "test")),
+          s"The data type of field test is integer. Cannot cast it to ${dataType.getTypeName}")
         testException[IllegalArgumentException](
-          f(buildPartitionRowRecord(dataType, true, s, "foo")),
+          f(buildPartitionRowRecord(dataType, nullable = true, s, "foo")),
           "Field \"test\" does not exist.")
     }
 
-    // todo: should an empty binary string "" be parsed as Array() or null?
-    assert(buildPartitionRowRecord(new BinaryType(), true, "").getBinary("test").isEmpty)
-    assert(buildPartitionRowRecord(new BinaryType(), true, "\u0001\u0002").getBinary("test")
-      sameElements Array(1.toByte, 2.toByte))
+    assert(buildPartitionRowRecord(new BinaryType(), nullable = true, "")
+      .getBinary("test").isEmpty)
+    assert(buildPartitionRowRecord(new BinaryType(), nullable = true, "\u0001\u0002")
+      .getBinary("test") sameElements Array(1.toByte, 2.toByte))
     testException[NullPointerException](
-      buildPartitionRowRecord(new BinaryType(), false, null).getBinary("test"),
+      buildPartitionRowRecord(new BinaryType(), nullable = false, null).getBinary("test"),
       "Read a null value for field test, yet schema indicates that this field can't be null.")
     testException[ClassCastException](
-      buildPartitionRowRecord(new IntegerType(), true, "test").getBinary("test"),
+      buildPartitionRowRecord(new IntegerType(), nullable = true, "test").getBinary("test"),
       s"The data type of field test is integer. Cannot cast it to binary")
     testException[IllegalArgumentException](
-      buildPartitionRowRecord(new BinaryType, true, "", "foo").getBinary("test"),
+      buildPartitionRowRecord(new BinaryType, nullable = true, "", "foo").getBinary("test"),
       "Field \"test\" does not exist.")
 
     testException[UnsupportedOperationException](
@@ -452,11 +463,11 @@ class ExpressionSuite extends FunSuite {
     val f3 = new Or(f3Expr1, f3Expr2)
     testPartitionFilter(schema, inputFiles, f3 :: Nil, Seq(add20, add21, add22, add00, add10))
 
-    val inSet4 = (2 to 10).map(Literal.of(_)).asJava
+    val inSet4 = (2 to 10).map(Literal.of).asJava
     val f4 = new In(schema.column("col1"), inSet4)
     testPartitionFilter(schema, inputFiles, f4 :: Nil, add20 :: add21 :: add22 :: Nil)
 
-    val inSet5 = (100 to 110).map(Literal.of(_)).asJava
+    val inSet5 = (100 to 110).map(Literal.of).asJava
     val f5 = new In(schema.column("col1"), inSet5)
 //    testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
   }
