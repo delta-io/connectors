@@ -19,7 +19,6 @@
 package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
@@ -73,8 +72,6 @@ class DeltaWriterBucket<IN> {
     @Nullable
     private DeltaInProgressPart<IN> deltaInProgressPart;
 
-    private final String appId;
-
     /**
      * Constructor to create a new empty bucket.
      */
@@ -83,8 +80,7 @@ class DeltaWriterBucket<IN> {
             Path bucketPath,
             DeltaBulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
-            OutputFileConfig outputFileConfig,
-            String appId) throws IOException {
+            OutputFileConfig outputFileConfig) throws IOException {
         this.bucketId = checkNotNull(bucketId);
         this.bucketPath = checkNotNull(bucketPath);
         this.bucketWriter = checkNotNull(bucketWriter);
@@ -94,7 +90,6 @@ class DeltaWriterBucket<IN> {
         this.uniqueId = UUID.randomUUID().toString();
         this.partCounter = 0;
         this.inProgressPartRecordCount = 0;
-        this.appId = appId;
     }
 
     /**
@@ -104,8 +99,7 @@ class DeltaWriterBucket<IN> {
             DeltaBulkBucketWriter<IN, String> partFileFactory,
             RollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
-            OutputFileConfig outputFileConfig,
-            String appId)
+            OutputFileConfig outputFileConfig)
             throws IOException {
 
         this(
@@ -113,8 +107,7 @@ class DeltaWriterBucket<IN> {
                 bucketState.getBucketPath(),
                 partFileFactory,
                 rollingPolicy,
-                outputFileConfig,
-                appId);
+                outputFileConfig);
 
         restoreInProgressFile(bucketState);
 
@@ -197,6 +190,7 @@ class DeltaWriterBucket<IN> {
 
 
     List<DeltaCommittable> prepareCommit(boolean flush,
+                                         String appId,
                                          long checkpointId) throws IOException {
         if (deltaInProgressPart != null
                 && (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush)) {
@@ -220,13 +214,13 @@ class DeltaWriterBucket<IN> {
         return committables;
     }
 
-    DeltaWriterBucketState snapshotState() throws IOException {
+    DeltaWriterBucketState snapshotState(String appId) throws IOException {
         InProgressFileRecoverable inProgressFileRecoverable = null;
         long inProgressFileCreationTime = Long.MAX_VALUE;
         String inProgressPartFileName = null;
         long recordCount = 0;
         long inProgressPartFileSize = -1L;
-        long  lastUpdateTime = -1L;
+        long lastUpdateTime = -1L;
 
         if (deltaInProgressPart != null) {
             InProgressFileWriter<IN, String> inProgressPart = deltaInProgressPart.getInProgressPart();
@@ -359,10 +353,9 @@ class DeltaWriterBucket<IN> {
             final Path bucketPath,
             final DeltaBulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
-            final OutputFileConfig outputFileConfig,
-            final String appId) throws IOException {
+            final OutputFileConfig outputFileConfig) throws IOException {
         return new DeltaWriterBucket<IN>(
-                bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig, appId);
+                bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
     }
 
 
@@ -370,10 +363,9 @@ class DeltaWriterBucket<IN> {
             final DeltaBulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
             final DeltaWriterBucketState bucketState,
-            final OutputFileConfig outputFileConfig,
-            final String appId)
+            final OutputFileConfig outputFileConfig)
             throws IOException {
-        return new DeltaWriterBucket<IN>(bucketWriter, rollingPolicy, bucketState, outputFileConfig, appId);
+        return new DeltaWriterBucket<IN>(bucketWriter, rollingPolicy, bucketState, outputFileConfig);
     }
 
     public long getInProgressPartRecordCount() {

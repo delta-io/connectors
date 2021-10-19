@@ -36,15 +36,13 @@ public interface DeltaWriterBucketFactory<IN> extends Serializable {
             Path bucketPath,
             DeltaBulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
-            OutputFileConfig outputFileConfig,
-            String appId)
+            OutputFileConfig outputFileConfig)
             throws IOException;
 
     DeltaWriterBucket<IN> restoreBucket(
             DeltaBulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
-            OutputFileConfig outputFileConfig,
-            String appId)
+            OutputFileConfig outputFileConfig)
             throws IOException;
 }

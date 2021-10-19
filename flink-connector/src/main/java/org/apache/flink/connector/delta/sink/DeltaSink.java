@@ -41,7 +41,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.utils.SerializableConfiguration;
-import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
@@ -52,6 +51,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
@@ -100,27 +100,38 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
             InitContext context,
             List<DeltaWriterBucketState> states
     ) throws IOException {
-        String appId = restoreOrCreateAppId(context, states);
+        String appId = restoreOrCreateAppId(states);
         long nextCheckpointId = restoreOrGetNextCheckpointId(appId);
         DeltaWriter<IN> writer = bucketsBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
         return writer;
     }
 
-    private String restoreOrCreateAppId(InitContext context,
-                                        List<DeltaWriterBucketState> states) {
-        String jobIdMetricName = ScopeFormat.SCOPE_JOB_ID;
-
-        if (context.metricGroup().getAllVariables().containsKey(jobIdMetricName)) {
-            return context.metricGroup().getAllVariables().get(jobIdMetricName);
-        }
-
+    /**
+     * In order to gurantee the idempotency of the GlobalCommitter we need unique identifier of the app.
+     * We obtain it with simple logic: if it's the first run of the application (so no restart from snapshot
+     * or failure recovery happened and the writer's state is empty) then assign appId to a newly generated UUID
+     * that will be further stored in the state of each writer.
+     * Alternatively if the writer's states are not empty then we resolve appId from on of the restored states.
+     *
+     * @param states restored list of writer's buckets states that include previously generated appId
+     * @return newly created or resolved from restored writer's states unique identifier of the app.
+     */
+    private String restoreOrCreateAppId(List<DeltaWriterBucketState> states) {
         if (states.isEmpty()) {
             return UUID.randomUUID().toString();
         }
         return states.get(0).getAppId();
     }
 
+    /**
+     * In order to gurantee the idempotency of the GlobalCommitter we need to version consecutive commits with consecutive
+     * identifiers. For this purpose we are using checkpointId that is being "manually" managed in writer's internal logic,
+     * added to the committables information and incremented on every precommit action (after generating the committables).
+     *
+     * @param appId unique identifier for the current application
+     * @return last committed version for the provided appId
+     */
     private long restoreOrGetNextCheckpointId(String appId) {
         DeltaLog deltaLog = DeltaLog.forTable(this.bucketsBuilder.configuration.conf(), this.bucketsBuilder.basePath.getPath());
         long lastCommittedCheckpointId = deltaLog.startTransaction().txnVersion(appId);

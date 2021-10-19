@@ -68,7 +68,6 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         return new DeltaGlobalCommittable(committables);
     }
 
-    // TODO when confirmed that we can resolve flink's jobId globally then this function won't be needed
     private String resolveAppId(List<DeltaGlobalCommittable> globalCommittables) {
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {

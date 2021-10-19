@@ -20,7 +20,6 @@ package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
@@ -149,8 +148,7 @@ public class DeltaWriter<IN>
             }
 
             DeltaWriterBucket<IN> restoredBucket =
-                    bucketFactory.restoreBucket(
-                            bucketWriter, rollingPolicy, state, outputFileConfig, appId);
+                    bucketFactory.restoreBucket(bucketWriter, rollingPolicy, state, outputFileConfig);
 
             updateActiveBucketId(bucketId, restoredBucket);
         }
@@ -195,7 +193,7 @@ public class DeltaWriter<IN>
             if (!entry.getValue().isActive()) {
                 activeBucketIt.remove();
             } else {
-                committables.addAll(entry.getValue().prepareCommit(flush, nextCheckpointId));
+                committables.addAll(entry.getValue().prepareCommit(flush, appId, nextCheckpointId));
             }
         }
 
@@ -213,7 +211,7 @@ public class DeltaWriter<IN>
 
         List<DeltaWriterBucketState> state = new ArrayList<>();
         for (DeltaWriterBucket<IN> bucket : activeBuckets.values()) {
-            state.add(bucket.snapshotState());
+            state.add(bucket.snapshotState(appId));
         }
 
         return state;
@@ -224,8 +222,7 @@ public class DeltaWriter<IN>
         if (bucket == null) {
             final Path bucketPath = assembleBucketPath(bucketId);
             bucket =
-                    bucketFactory.getNewBucket(
-                            bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig, appId);
+                    bucketFactory.getNewBucket(bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
             activeBuckets.put(bucketId, bucket);
         }
         return bucket;

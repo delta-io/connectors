@@ -37,10 +37,6 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
         this.writerFactory = writerFactory;
     }
 
-    private void a(BulkWriter.Factory<IN> writerFactory){
-
-    }
-
     @Override
     public DeltaBulkPartWriter<IN, BucketID> resumeFrom(
             final BucketID bucketId,
