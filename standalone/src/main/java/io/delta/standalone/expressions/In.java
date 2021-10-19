@@ -36,7 +36,6 @@ public final class In implements Predicate {
         this.value = value;
         this.elems = elems;
         this.comparator = Util.createComparator(value.dataType());
-        // TODO: this only allows certain dataTypes, do we want it to be broader than this?
     }
 
     /**
@@ -44,9 +43,9 @@ public final class In implements Predicate {
      * semantics reference guide. The logic is as follows:
      * - TRUE if the non-NULL value is found in the list
      * - FALSE if the non-NULL value is not found in the list and the list does not contain NULL
-     * values
+     *   values
      * - NULL if the value is NULL, or the non-NULL value is not found in the list and the list
-     * contains at least one NULL value
+     *   contains at least one NULL value
      *
      * @see <a href="https://docs.databricks.com/spark/latest/spark-sql/language-manual/sql-ref-null-semantics.html#in-and-not-in-subqueries">NULL Semantics</a>
      */

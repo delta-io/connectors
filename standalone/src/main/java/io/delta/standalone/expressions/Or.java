@@ -1,5 +1,7 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.internal.exception.DeltaErrors;
+
 /**
  * Usage: {@code new Or(expr1, expr2)} - Logical OR
  */
@@ -12,7 +14,11 @@ public final class Or extends BinaryOperator implements Predicate {
     @Override
     public Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
-            throw new IllegalArgumentException("'Or' expression left.eval and right.eval results must be Booleans");
+            throw DeltaErrors.illegalExpressionValueType(
+                    "OR",
+                    "Boolean",
+                    leftResult.getClass().getName(),
+                    rightResult.getClass().getName());
         }
 
         return (boolean) leftResult || (boolean) rightResult;

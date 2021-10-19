@@ -18,8 +18,9 @@ package io.delta.standalone.internal.exception
 
 import java.io.FileNotFoundException
 
-import org.apache.hadoop.fs.Path
+import scala.annotation.varargs
 
+import org.apache.hadoop.fs.Path
 import io.delta.standalone.types.{DataType, StructType}
 
 /** A holder object for Delta errors. */
@@ -120,5 +121,13 @@ private[internal] object DeltaErrors {
          |of your readStream statement.
        """.stripMargin
     )
+  }
+
+  @varargs def illegalExpressionValueType(
+      exprName: String,
+      expectedType: String,
+      realTypes: String*): RuntimeException = {
+    new IllegalArgumentException(
+      s"$exprName expression requires $expectedType type. But found ${realTypes.mkString(", ")}");
   }
 }

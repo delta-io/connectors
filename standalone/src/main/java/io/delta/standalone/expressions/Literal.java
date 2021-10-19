@@ -102,6 +102,5 @@ public final class Literal extends LeafExpression {
         return new Literal(value, new ByteType());
     }
 
-    //todo: decide if this is how we want to expose null literals
     public static Literal ofNull(DataType dataType) { return new Literal(null, dataType); }
 }

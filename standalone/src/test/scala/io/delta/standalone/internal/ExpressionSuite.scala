@@ -69,7 +69,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new And(Literal.True, Literal.True), true)
     testException[IllegalArgumentException](
       new And(Literal.of(1), Literal.of(2)).eval(null),
-      "'And' expression children.eval results must be Booleans")
+      "AND expression requires Boolean type.")
     testException[IllegalArgumentException]( // is this desired behavior?
       new And(Literal.False, Literal.ofNull(new NullType())),
       "BinaryOperator left and right DataTypes must be the same")
@@ -90,7 +90,7 @@ class ExpressionSuite extends FunSuite {
     // TODO: is this what we want? should it fail upon creation instead of eval???
     testException[IllegalArgumentException](
       new Or(Literal.of(1), Literal.of(2)).eval(null),
-      "'Or' expression left.eval and right.eval results must be Booleans")
+      "OR expression requires Boolean type.")
     testException[IllegalArgumentException](
       new Or(Literal.False, Literal.ofNull(new NullType())),
       "BinaryOperator left and right DataTypes must be the same") // is this desired behavior?
@@ -101,7 +101,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Not(Literal.ofNull(new BooleanType())), null)
     testException[IllegalArgumentException](
       new Not(Literal.of(1)).eval(null),
-      "'Not' expression child.eval result must be a Boolean")
+      "NOT expression requires Boolean type.")
   }
 
   test("comparison predicates") {
@@ -205,6 +205,7 @@ class ExpressionSuite extends FunSuite {
     testException[IllegalArgumentException](
       new In(Literal.True, List(Literal.of(1), Literal.True).asJava),
       "In expression 'elems' and 'value' must all be of the same DataType")
+
     // value.eval() null -> null
     testPredicate(new In(Literal.ofNull(new BooleanType()), List(Literal.True).asJava), null)
     // value in list (w/ null in  list)
@@ -213,6 +214,7 @@ class ExpressionSuite extends FunSuite {
     // value not in list (w/ null in list)
     testPredicate(new In(Literal.False, List(Literal.True,
       Literal.ofNull(new BooleanType())).asJava), null)
+
     // test correct output
     // todo: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1),
@@ -287,6 +289,7 @@ class ExpressionSuite extends FunSuite {
         "testDecimal" -> "0.123",
         "testTimestamp" -> (new TimestampJ(12345678)).toString(),
         "testDate" -> "1970-01-01"))
+
     testColumn("testInt", new IntegerType(), partRowRecord, 1)
     testColumn("testLong", new LongType(), partRowRecord, 10L)
     testColumn("testByte", new ByteType(), partRowRecord, 8.toByte)
@@ -300,6 +303,7 @@ class ExpressionSuite extends FunSuite {
     testColumn("testDecimal", DecimalType.USER_DEFAULT, partRowRecord, new BigDecimalJ("0.123"))
     testColumn("testTimestamp", new TimestampType(), partRowRecord, new TimestampJ(12345678))
     testColumn("testDate", new DateType(), partRowRecord, new DateJ(70, 0, 1))
+
     testException[UnsupportedOperationException](
       new Column("testArray", new ArrayType(new BooleanType(), true)),
       "The data type of column testArray is array. This is not supported yet")

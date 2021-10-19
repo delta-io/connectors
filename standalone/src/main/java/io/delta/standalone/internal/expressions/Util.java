@@ -69,6 +69,6 @@ public final class Util {
         }
 
         // unsupported comparison types: ArrayType, StructType, MapType
-        throw new IllegalArgumentException("Couldn't find matching comparator for DataType: " + dataType.toString());
+        throw new IllegalArgumentException("Couldn't find matching comparator for DataType: " + dataType.getTypeName());
     }
 }

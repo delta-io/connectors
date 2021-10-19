@@ -15,7 +15,9 @@ public abstract class BinaryOperator extends BinaryExpression {
         this.symbol = symbol;
 
         if (!left.dataType().equals(right.dataType())) {
-            throw new IllegalArgumentException("BinaryOperator left and right DataTypes must be the same");
+            throw new IllegalArgumentException("BinaryOperator left and right DataTypes must be the"
+                    + " same, found: " + left.dataType().getTypeName() + " " + symbol + " " +
+                    right.dataType().getTypeName());
         }
     }
 
