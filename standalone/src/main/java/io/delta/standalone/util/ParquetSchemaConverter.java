@@ -27,7 +27,6 @@ import io.delta.standalone.types.*;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-
 public class ParquetSchemaConverter {
 
     enum OutputTimestampType {
