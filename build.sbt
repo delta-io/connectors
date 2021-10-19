@@ -23,11 +23,9 @@ crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-val sparkVersion = "2.4.3"
 val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
 val tezVersion = "0.9.2"
-val hiveDeltaVersion = "0.5.0"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -159,12 +157,23 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   // default merge strategy
   assemblyShadeRules in assembly := Seq(
     /**
-     * Hive 2.3.7 uses an old paranamer version that doesn't support Scala 2.12
+     * Hive uses an old paranamer version that doesn't support Scala 2.12
      * (https://issues.apache.org/jira/browse/SPARK-22128), so we need to shade our own paranamer
      * version to avoid conflicts.
      */
-    ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
-    )
+    ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll,
+    // Hive 3 now has jackson-module-scala on the classpath. We need to shade it otherwise we may
+    // pick up Hive's jackson-module-scala and use the above old paranamer jar on Hive's classpath.
+    ShadeRule.rename("com.fasterxml.jackson.module.scala.**" -> "shadedelta.@0").inAll
+  ),
+  assemblyMergeStrategy in assembly := {
+    // Discard `module-info.class` to fix the `different file contents found` error.
+    // TODO Upgrade SBT to 1.5 which will do this automatically
+    case "module-info.class" => MergeStrategy.discard
+    case x =>
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }
 )
 
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (
@@ -260,13 +269,26 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
       ),
-      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.9.8",
-      "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
+      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
+      "org.json4s" %% "json4s-jackson" % "3.7.0-M5" excludeAll (
         ExclusionRule("com.fasterxml.jackson.core"),
         ExclusionRule("com.fasterxml.jackson.module")
       ),
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-    ))
+    ),
+    sourceGenerators in Compile += Def.task {
+      val file = (sourceManaged in Compile).value / "meta" / "package.scala"
+      IO.write(file,
+        s"""package io.delta
+          |
+          |package object standalone {
+          |  val VERSION = "${version.value}"
+          |  val NAME = "Delta Standalone"
+          |}
+          |""".stripMargin)
+      Seq(file)
+    }
+  )
 
   /**
    * Unidoc settings
@@ -336,6 +358,24 @@ lazy val mimaSettings = Seq(
   mimaBinaryIssueFilters ++= StandaloneMimaExcludes.ignoredABIProblems
 )
 
+lazy val compatibility = (project in file("oss-compatibility-tests"))
+  // depend on standalone test codes as well
+  .dependsOn(standalone % "compile->compile;test->test")
+  .settings(
+    name := "compatibility",
+    commonSettings,
+    skipReleaseSettings,
+    libraryDependencies ++= Seq(
+      // Test Dependencies
+      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test",
+      "io.delta" % "delta-core_2.12" % "1.0.0" % "test",
+      "commons-io" % "commons-io" % "2.8.0" % "test",
+      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % "3.1.1" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
+    )
+  )
 
 lazy val goldenTables = (project in file("golden-tables")) settings (
   name := "golden-tables",
@@ -360,7 +400,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-      "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
+      "org.apache.spark" %% "spark-sql" % "2.4.3" % "provided",
       "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % "test",

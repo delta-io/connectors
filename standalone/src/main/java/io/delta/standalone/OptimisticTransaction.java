@@ -17,10 +17,10 @@ public interface OptimisticTransaction {
      * @param actions  Set of actions to commit.
      * @param op  Details of operation that is performing this transactional commit.
      * @param engineInfo  String used to identify the writer engine. It should resemble
-     *                 "{engineName}-{engineVersion}".
+     *                 "{engineName}/{engineVersion}".
      * @return a {@link CommitResult}, wrapping the table version that was committed.
      */
-    CommitResult commit(Iterable<Action> actions, Operation op, String engineInfo);
+     <T extends Action> CommitResult commit(Iterable<T> actions, Operation op, String engineInfo);
 
     /**
      * Mark files matched by the `readPredicates` as read by this transaction.
@@ -63,8 +63,14 @@ public interface OptimisticTransaction {
     void readWholeTable();
 
     /**
-     * @param id  TODO
+     * @param id  transaction id
      * @return the latest version that has committed for the idempotent transaction with given `id`.
      */
     long txnVersion(String id);
+
+    /**
+     * @return the metadata for this transaction. The metadata refers to the metadata of the snapshot
+     *         at the transaction's read version unless updated during the transaction.
+     */
+    Metadata metadata();
 }

@@ -21,13 +21,13 @@ import java.nio.file.FileAlreadyExistsException
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction}
+import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction, NAME, VERSION}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
+import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.expressions.{Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, SchemaMergingUtils, SchemaUtils}
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -74,7 +74,7 @@ private[internal] class OptimisticTransactionImpl(
    * Returns the metadata for this transaction. The metadata refers to the metadata of the snapshot
    * at the transaction's read version unless updated during the transaction.
    */
-  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
+  def metadataScala: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
 
   /** The version that this transaction is reading from. */
   private def readVersion: Long = snapshot.version
@@ -83,8 +83,10 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def commit(
-      actionsJ: java.lang.Iterable[ActionJ],
+  override def metadata(): MetadataJ = ConversionUtils.convertMetadata(metadataScala)
+
+  override def commit[T <: ActionJ](
+      actionsJ: java.lang.Iterable[T],
       op: Operation,
       engineInfo: String): CommitResult = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
@@ -113,14 +115,14 @@ private[internal] class OptimisticTransactionImpl(
     val commitInfo = CommitInfo(
       deltaLog.clock.getTimeMillis(),
       op.getName.toString,
-      null,
+      null, // TODO: use operation jsonEncodedValues
       Map.empty,
       Some(readVersion).filter(_ >= 0),
       Option(isolationLevelToUse.toString),
       Some(isBlindAppend),
       Some(op.getOperationMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(engineInfo) // TODO: engineInfo-standalone-standaloneVersion
+      Some(s"$engineInfo $NAME/$VERSION")
     )
 
     preparedActions = commitInfo +: preparedActions
@@ -233,7 +235,7 @@ private[internal] class OptimisticTransactionImpl(
         s"Currently only Protocol readerVersion 1 and writerVersion 2 is supported.")
     }
 
-    val partitionColumns = metadata.partitionColumns.toSet
+    val partitionColumns = metadataScala.partitionColumns.toSet
     finalActions.foreach {
       case a: AddFile if partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
@@ -301,7 +303,9 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.lockInterruptibly {
       deltaLog.store.write(
         FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-        actions.map(_.json).toIterator
+        actions.map(_.json).toIterator.asJava,
+        false, // overwrite = false
+        deltaLog.hadoopConf
       )
 
       val postCommitSnapshot = deltaLog.update()
@@ -343,7 +347,7 @@ private[internal] class OptimisticTransactionImpl(
       readFiles = readFiles.toSet,
       readWholeTable = readTheWholeTable,
       readAppIds = readTxn.toSet,
-      metadata = metadata,
+      metadata = metadataScala,
       actions = actions,
       deltaLog = deltaLog)
 
@@ -370,8 +374,7 @@ private[internal] class OptimisticTransactionImpl(
     try {
       SchemaUtils.checkFieldNames(metadata.partitionColumns)
     } catch {
-      // TODO: case e: AnalysisException ?
-      case e: RuntimeException => throw DeltaErrors.invalidPartitionColumn(e)
+      case e: DeltaStandaloneException => throw DeltaErrors.invalidPartitionColumn(e)
     }
 
     Protocol.checkMetadataProtocolProperties(metadata, protocol)
@@ -392,39 +395,15 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Creates new metadata with global Delta configuration defaults. */
   private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
-    // TODO DeltaConfigs.mergeGlobalConfigs
-
-    val defaultConfigs = Map(
-      "deletedFileRetentionDuration" -> "604800000", // 1 week
-      "checkpointInterval" -> "10",
-      "enableExpiredLogCleanup" -> "true",
-      "logRetentionDuration" -> "2592000000", // 30 days
-      "appendOnly" -> "false"
-    )
-
-    // Priority is:
-    // 1. user-provided configs (via metadata.configuration)
-    // 2. global hadoop configs
-    // 3. default configs
-    val newMetadataConfig = defaultConfigs.keySet.map { key =>
-      val value = if (metadata.configuration.contains(key)) {
-          metadata.configuration(key)
-        } else {
-          deltaLog.hadoopConf.get(key, defaultConfigs(key))
-        }
-
-      key -> value
-    }.toMap
-
-    // User provided configs take precedence.
-    metadata.copy(configuration = newMetadataConfig)
+    metadata.copy(configuration =
+      DeltaConfigs.mergeGlobalConfigs(deltaLog.hadoopConf, metadata.configuration))
   }
 }
 
 private[internal] object OptimisticTransactionImpl {
   val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 
-  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
-    op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
-  }
+//  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
+//    op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
+//  }
 }

@@ -14,8 +14,18 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal
+package io.delta.standalone.exceptions;
 
-class BufferingLogDeletionIteratorSuite {
-    // TODO
+public class DeltaStandaloneException extends RuntimeException {
+    public DeltaStandaloneException() {
+        super();
+    }
+
+    public DeltaStandaloneException(String message) {
+        super(message);
+    }
+
+    public DeltaStandaloneException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

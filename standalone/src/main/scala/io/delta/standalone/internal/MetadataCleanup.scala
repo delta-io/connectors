@@ -18,6 +18,8 @@ package io.delta.standalone.internal
 
 import java.util.{Calendar, TimeZone}
 
+import scala.collection.JavaConverters._
+
 import io.delta.standalone.internal.util.FileNames.{checkpointPrefix, isCheckpointFile, isDeltaFile, checkpointVersion, deltaVersion}
 
 import org.apache.commons.lang.time.DateUtils
@@ -28,17 +30,14 @@ private[internal] trait MetadataCleanup {
 
   /** Whether to clean up expired log files and checkpoints. */
   def enableExpiredLogCleanup: Boolean =
-  // TODO: DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetaData(metadata)
-    metadata.configuration.getOrElse("enableExpiredLogCleanup", "true").toBoolean
+    DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetadata(metadata)
 
   /**
    * Returns the duration in millis for how long to keep around obsolete logs. We may keep logs
    * beyond this duration until the next calendar day to avoid constantly creating checkpoints.
    */
   def deltaRetentionMillis: Long = {
-    // TODO DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetaData(metadata))
-    // 30 days
-    metadata.configuration.getOrElse("logRetentionDuration", "2592000000").toLong
+    DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetadata(metadata))
   }
 
   def doLogCleanup(): Unit = {
@@ -66,7 +65,8 @@ private[internal] trait MetadataCleanup {
     val latestCheckpoint = lastCheckpoint
     if (latestCheckpoint.isEmpty) return Iterator.empty
     val threshold = latestCheckpoint.get.version - 1L
-    val files = store.listFrom(checkpointPrefix(logPath, 0))
+    val files = store.listFrom(checkpointPrefix(logPath, 0), hadoopConf)
+      .asScala
       .filter(f => isCheckpointFile(f.getPath) || isDeltaFile(f.getPath))
     def getVersion(filePath: Path): Long = {
       if (isCheckpointFile(filePath)) {
@@ -83,8 +83,6 @@ private[internal] trait MetadataCleanup {
   private def truncateDay(timeMillis: Long): Calendar = {
     val date = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
     date.setTimeInMillis(timeMillis)
-
-    // TODO: this is using org.apache.commons.lang2.6 instead of org.apache.commons.lang3
     DateUtils.truncate(
       date,
       Calendar.DAY_OF_MONTH)

@@ -58,9 +58,10 @@ class DeltaRetentionSuite extends DeltaRetentionSuiteBase {
 
       assert(initialFiles === getLogFiles(logPath))
 
-      // TODO clock.advance(intervalStringToMillis(DeltaConfigs.LOG_RETENTION.defaultValue) +
-      //  intervalStringToMillis("interval 1 day"))
-      clock.advance(log.deltaRetentionMillis + 1000*60*60*24) // 1 day
+      clock.advance(
+        DeltaConfigs.getMilliSeconds(
+          DeltaConfigs.parseCalendarInterval(DeltaConfigs.LOG_RETENTION.defaultValue)
+        ) + util.DateTimeConstants.MILLIS_PER_DAY) // + 1 day
 
       // Shouldn't clean up, no checkpoint, although all files have expired
       log.cleanUpExpiredLogs()
@@ -135,12 +136,16 @@ class DeltaRetentionSuite extends DeltaRetentionSuiteBase {
     withTempDir { tempDir =>
       val log = DeltaLogImpl.forTable(hadoopConf, tempDir.getCanonicalPath)
       log.startTransaction().commit(
-          Metadata(configuration = Map("enableExpiredLogCleanup" -> "true")) :: Nil,
+          Metadata(configuration = Map(
+            DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key ->"true"
+          )) :: Nil,
           manualUpdate, writerId)
       assert(log.enableExpiredLogCleanup)
 
       log.startTransaction().commit(
-        Metadata(configuration = Map("enableExpiredLogCleanup" -> "false")) :: Nil,
+        Metadata(configuration = Map(
+          DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.key -> "false"
+        )) :: Nil,
         manualUpdate, writerId)
       assert(!log.enableExpiredLogCleanup)
 
@@ -181,14 +186,58 @@ class DeltaRetentionSuite extends DeltaRetentionSuiteBase {
       val files2 = (1 to 4).map(f => RemoveFile(f.toString, Some(clock.getTimeMillis())))
       txn2.commit(files2, manualUpdate, writerId)
 
-      // TODO: intervalStringToMillis(DeltaConfigs.TOMBSTONE_RETENTION.defaultValue) + 1000000L)
-      clock.advance(log1.tombstoneRetentionMillis  + 1000000L)
+      clock.advance(
+        DeltaConfigs.getMilliSeconds(
+          DeltaConfigs.parseCalendarInterval(DeltaConfigs.LOG_RETENTION.defaultValue)
+        ) + 1000000L)
 
       log1.checkpoint()
 
       val log2 = DeltaLogImpl.forTable(hadoopConf, tempDir.getCanonicalPath, clock)
       assert(log2.snapshot.tombstonesScala.size === 0)
       assert(log2.snapshot.allFilesScala.size === 6)
+    }
+  }
+
+  test("the checkpoint file for version 0 should be cleaned") {
+    withTempDir { tempDir =>
+      val now = System.currentTimeMillis()
+      val clock = new ManualClock(now)
+      val log = DeltaLogImpl.forTable(hadoopConf, tempDir.getCanonicalPath, clock)
+      val logPath = new File(log.logPath.toUri)
+      startTxnWithManualLogCleanup(log)
+        .commit(AddFile("0", Map.empty, 1, 1, true) :: Nil, manualUpdate, writerId)
+      log.checkpoint()
+
+      val initialFiles = getLogFiles(logPath)
+      clock.advance(log.deltaRetentionMillis + 1000*60*60*24) // 1 day
+
+      // Create a new checkpoint so that the previous version can be deleted
+      log.startTransaction()
+        .commit(AddFile("1", Map.empty, 1, 1, true) :: Nil, manualUpdate, writerId)
+      log.checkpoint()
+
+      // We need to manually set the last modified timestamp to match that expected by the manual
+      // clock. If we don't, then sometimes the version 00 and version 01 log files will have the
+      // exact same lastModified time, since the local filesystem truncates the lastModified time
+      // to seconds instead of milliseconds. Here's what that looks like:
+      //
+      // _delta_log/00000000000000000000.checkpoint.parquet   1632267876000
+      // _delta_log/00000000000000000000.json                 1632267876000
+      // _delta_log/00000000000000000001.checkpoint.parquet   1632267876000
+      // _delta_log/00000000000000000001.json                 1632267876000
+      //
+      // By modifying the lastModified time, this better resembles the real-world lastModified
+      // times that the latest log files should have.
+      getLogFiles(logPath)
+        .filter(_.getName.contains("001."))
+        .foreach(_.setLastModified(now + log.deltaRetentionMillis + 1000*60*60*24))
+
+      log.cleanUpExpiredLogs()
+      val afterCleanup = getLogFiles(logPath)
+      initialFiles.foreach { file =>
+        assert(!afterCleanup.contains(file))
+      }
     }
   }
 }
