@@ -371,6 +371,12 @@ private[internal] class OptimisticTransactionImpl(
     SchemaMergingUtils.checkColumnNameDuplication(metadata.schema, "in the metadata update")
     SchemaUtils.checkFieldNames(SchemaMergingUtils.explodeNestedFieldNames(metadata.dataSchema))
 
+    val existingSchema = snapshot.metadataScala.schema
+    val newSchema = metadata.schema
+    if (!SchemaUtils.isWriteCompatible(existingSchema, newSchema)) {
+      throw DeltaErrors.schemaChangedException(existingSchema, newSchema)
+    }
+
     try {
       SchemaUtils.checkFieldNames(metadata.partitionColumns)
     } catch {

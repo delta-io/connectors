@@ -21,6 +21,7 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.actions.{CommitInfo, Protocol, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.DeltaLog
+import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 
 import org.apache.hadoop.conf.Configuration
 
@@ -182,5 +183,67 @@ class OptimisticTransactionSuite
       assert(getIsolationLevel(0) == "SnapshotIsolation")
       assert(getIsolationLevel(1) == "Serializable")
     }
+  }
+
+  private def testSchemaChange(
+      schema1: StructType,
+      schema2: StructType,
+      shouldThrow: Boolean): Unit = {
+    withTempDir { dir =>
+      val metadata1 = MetadataJ.builder().schema(schema1).build()
+      val metadata2 = MetadataJ.builder().schema(schema2).build()
+
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+
+      log.startTransaction().commit((metadata1 :: Nil).asJava, op, engineInfo)
+
+      if (shouldThrow) {
+        intercept[IllegalStateException] {
+          log.startTransaction().commit((metadata2 :: Nil).asJava, op, engineInfo)
+        }
+      } else {
+        log.startTransaction().commit((metadata2 :: Nil).asJava, op, engineInfo)
+      }
+    }
+  }
+
+  test("can change table schema to valid schema") {
+    // col a is nullable
+    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), true)))
+
+    // add nullable field
+    val schema2 = new StructType(Array(
+      new StructField("a", new IntegerType()),
+      new StructField("b", new IntegerType(), true)
+    ))
+    testSchemaChange(schema1, schema2, shouldThrow = false)
+
+    // add non-nullable field
+    val schema3 = new StructType(Array(
+      new StructField("a", new IntegerType()),
+      new StructField("b", new IntegerType(), false)
+    ))
+    testSchemaChange(schema1, schema3, shouldThrow = false)
+
+    // restricted nullability (from nullable to non-nullable)
+    val schema4 = new StructType(Array(new StructField("a", new IntegerType(), false)))
+    testSchemaChange(schema1, schema4, shouldThrow = false)
+  }
+
+  test("can't change table schema to invalid schema") {
+    // col a is non-nullable
+    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), false)))
+
+    // drop a field
+    val schema2 = new StructType(Array())
+    testSchemaChange(schema1, schema2, shouldThrow = true)
+
+    // relaxed nullability (from non-nullable to nullable)
+    val schema3 = new StructType(Array(new StructField("a", new IntegerType(), true)))
+    testSchemaChange(schema1, schema3, shouldThrow = true)
+
+    // change of datatype
+    val schema4 = new StructType(Array(new StructField("a", new StringType(), false)))
+    testSchemaChange(schema1, schema4, shouldThrow = true)
   }
 }

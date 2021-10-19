@@ -283,6 +283,20 @@ private[internal] object DeltaErrors {
     new DeltaStandaloneException(s"Unknown configuration was specified: $confKey")
   }
 
+  def schemaChangedException(oldSchema: StructType, newSchema: StructType): Throwable = {
+    val msg =
+      s"""Detected schema change:
+        |old schema: ${oldSchema.getTreeString}
+        |
+        |new schema: ${newSchema.getTreeString}
+        |
+        |Please try restarting the query. If this issue repeats across query restarts without making
+        |progress, you have made an incompatible schema change and need to start your query from
+        |scratch using a new checkpoint directory.
+      """.stripMargin
+    new IllegalStateException(msg)
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////

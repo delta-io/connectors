@@ -113,6 +113,13 @@ public final class StructType extends DataType {
     }
 
     /**
+     * @return the number of fields
+     */
+    public int length() {
+        return fields.length;
+    }
+
+    /**
      * @param fieldName  the name of the desired {@link StructField}, not null
      * @return the {@code link} with the given name, not null
      * @throws IllegalArgumentException if a field with the given name does not exist
