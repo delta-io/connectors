@@ -16,9 +16,11 @@
 
 package io.delta.standalone.internal
 
+import java.util.Collections
+
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.actions.{CommitInfo, Protocol, Metadata => MetadataJ, AddFile => AddFileJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
+import io.delta.standalone.actions.{CommitInfo, Protocol, Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.DeltaLog
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
@@ -189,23 +191,22 @@ class OptimisticTransactionSuite
       schema1: StructType,
       schema2: StructType,
       shouldThrow: Boolean,
-      adds: Seq[AddFileJ] = addA :: Nil,
-      removes: Seq[RemoveFileJ] = Nil): Unit = {
+      initialActions: Seq[ActionJ] = addA :: Nil,
+      commitActions: Seq[ActionJ] = Nil): Unit = {
     withTempDir { dir =>
       val metadata1 = MetadataJ.builder().schema(schema1).build()
       val metadata2 = MetadataJ.builder().schema(schema2).build()
 
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
 
-      log.startTransaction().commit((metadata1 :: Nil).asJava, op, engineInfo)
-      log.startTransaction().commit(adds.asJava, op, engineInfo)
+      log.startTransaction().commit((initialActions :+ metadata1).asJava, op, engineInfo)
 
       if (shouldThrow) {
         intercept[IllegalStateException] {
-          log.startTransaction().commit((removes :+ metadata2).asJava, op, engineInfo)
+          log.startTransaction().commit((commitActions :+ metadata2).asJava, op, engineInfo)
         }
       } else {
-        log.startTransaction().commit((removes :+ metadata2).asJava, op, engineInfo)
+        log.startTransaction().commit((commitActions :+ metadata2).asJava, op, engineInfo)
       }
     }
   }
@@ -255,15 +256,16 @@ class OptimisticTransactionSuite
   test("can change schema to 'invalid' schema - table empty or all files removed") {
     val schema1 = new StructType(Array(new StructField("a", new IntegerType())))
     val schema2 = new StructType(Array(new StructField("a", new StringType())))
+    val addC = new AddFileJ("c", Collections.emptyMap(), 1, 1, true, null, null)
 
     // change of datatype - table is empty
-    testSchemaChange(schema1, schema2, shouldThrow = false, adds = Nil)
+    testSchemaChange(schema1, schema2, shouldThrow = false, initialActions = Nil)
 
-    // change of datatype - all files are removed
-    testSchemaChange(schema1, schema2, shouldThrow = false, removes = removeA :: Nil)
+    // change of datatype - all files are removed and new file added
+    testSchemaChange(schema1, schema2, shouldThrow = false, commitActions = removeA :: addC :: Nil)
 
     // change of datatype - not all files are removed (should throw)
-    testSchemaChange(schema1, schema2, shouldThrow = true, adds = addA :: addB :: Nil,
-      removes = removeA :: Nil)
+    testSchemaChange(schema1, schema2, shouldThrow = true, initialActions = addA :: addB :: Nil,
+      commitActions = removeA :: Nil)
   }
 }
