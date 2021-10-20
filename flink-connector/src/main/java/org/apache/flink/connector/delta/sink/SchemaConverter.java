@@ -61,7 +61,7 @@ public class SchemaConverter {
             case FLOAT:
                 return new FloatType();
             case INTEGER:
-                return new IntegerType();
+                return new StringType();
             case MAP:
                 org.apache.flink.table.types.logical.MapType mapType = (org.apache.flink.table.types.logical.MapType) flinkType;
                 DataType keyType = toDeltaDataType(mapType.getKeyType());
@@ -81,6 +81,8 @@ public class SchemaConverter {
             case CHAR:
             case VARCHAR:
                 return new StringType();
+            case ROW:
+                return toDeltaFormat((RowType) flinkType);
             default:
                 throw new UnsupportedOperationException(
                         "Cannot convert unknown type to Flink: " + flinkType);

@@ -35,7 +35,11 @@ public class TestSchemaConverter {
                 new RowType.RowField("f19", new DecimalType(2)),
                 new RowType.RowField("f21", new DecimalType(2, 2)),
                 new RowType.RowField("f22", new DecimalType(38, 2)),
-                new RowType.RowField("f23", new DecimalType(10, 1))
+                new RowType.RowField("f23", new DecimalType(10, 1)),
+                new RowType.RowField("nested_field", new RowType(Arrays.asList(
+                        new RowType.RowField("f01", new VarCharType()),
+                        new RowType.RowField("f02", new IntType())
+                )))
         ));
 
         // WHEN
@@ -68,7 +72,11 @@ public class TestSchemaConverter {
                 new StructField("f19", new io.delta.standalone.types.DecimalType(2, 0)),
                 new StructField("f21", new io.delta.standalone.types.DecimalType(2, 2)),
                 new StructField("f22", new io.delta.standalone.types.DecimalType(38, 2)),
-                new StructField("f23", new io.delta.standalone.types.DecimalType(10, 1))
+                new StructField("f23", new io.delta.standalone.types.DecimalType(10, 1)),
+                new StructField("nested_field", new StructType(new StructField[]{
+                        new StructField("f01", new io.delta.standalone.types.StringType()),
+                        new StructField("f02", new io.delta.standalone.types.IntegerType()),
+                }))
 
         });
 
