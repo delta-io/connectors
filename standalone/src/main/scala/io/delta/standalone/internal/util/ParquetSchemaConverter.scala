@@ -16,8 +16,6 @@
 
 package io.delta.standalone.internal.util
 
-import scala.collection.JavaConverters._
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.schema._
 import org.apache.parquet.schema.OriginalType._
@@ -26,7 +24,14 @@ import org.apache.parquet.schema.Type.Repetition._
 
 import io.delta.standalone.types._
 
-// todo: docs
+/**
+ * Represents Parquet timestamp types.
+ * - INT96 is a non-standard but commonly used timestamp type in Parquet.
+ * - TIMESTAMP_MICROS is a standard timestamp type in Parquet, which stores number of microseconds
+ *   from the Unix epoch.
+ * - TIMESTAMP_MILLIS is also standard, but with millisecond precision, which means the microsecond
+ *   portion of the timestamp value is truncated.
+ */
 object ParquetOutputTimestampType extends Enumeration {
   val INT96, TIMESTAMP_MICROS, TIMESTAMP_MILLIS = Value
 }
@@ -70,7 +75,7 @@ class SparkToParquetSchemaConverter(
   }
 
   private def convertField(field: StructField, repetition: Type.Repetition): Type = {
-    // todo: read through the comments
+    // todo: comments, do we want to support LegacyParquetFormat?
 
     ParquetSchemaConverter.checkFieldName(field.getName)
 
@@ -79,31 +84,31 @@ class SparkToParquetSchemaConverter(
       // Simple atomic types
       // ===================
 
-      case BooleanType =>
+      case _: BooleanType =>
         Types.primitive(BOOLEAN, repetition).named(field.getName)
 
-      case ByteType =>
+      case _: ByteType =>
         Types.primitive(INT32, repetition).as(INT_8).named(field.getName)
 
-      case ShortType =>
+      case _: ShortType =>
         Types.primitive(INT32, repetition).as(INT_16).named(field.getName)
 
-      case IntegerType =>
+      case _: IntegerType =>
         Types.primitive(INT32, repetition).named(field.getName)
 
-      case LongType =>
+      case _: LongType =>
         Types.primitive(INT64, repetition).named(field.getName)
 
-      case FloatType =>
+      case _: FloatType =>
         Types.primitive(FLOAT, repetition).named(field.getName)
 
-      case DoubleType =>
+      case _: DoubleType =>
         Types.primitive(DOUBLE, repetition).named(field.getName)
 
-      case StringType =>
+      case _: StringType =>
         Types.primitive(BINARY, repetition).as(UTF8).named(field.getName)
 
-      case DateType =>
+      case _: DateType =>
         Types.primitive(INT32, repetition).as(DATE).named(field.getName)
 
       // NOTE: Spark SQL can write timestamp values to Parquet using INT96, TIMESTAMP_MICROS or
@@ -120,7 +125,7 @@ class SparkToParquetSchemaConverter(
       // from Spark 1.5.0, we resort to a timestamp type with microsecond precision so that we can
       // store a timestamp into a `Long`.  This design decision is subject to change though, for
       // example, we may resort to nanosecond precision in the future.
-      case TimestampType =>
+      case _: TimestampType =>
         outputTimestampType match {
           case ParquetOutputTimestampType.INT96 =>
             Types.primitive(INT96, repetition).named(field.getName)
@@ -130,7 +135,7 @@ class SparkToParquetSchemaConverter(
             Types.primitive(INT64, repetition).as(TIMESTAMP_MILLIS).named(field.getName)
         }
 
-      case BinaryType =>
+      case _: BinaryType =>
         Types.primitive(BINARY, repetition).named(field.getName)
 
       // ======================
@@ -147,8 +152,7 @@ class SparkToParquetSchemaConverter(
           .as(DECIMAL)
           .precision(decimalType.getPrecision)
           .scale(decimalType.getScale)
-          // todo: Decimal.minBytesForPrecision(precision)
-          .length(0)
+          .length(computeMinBytesForPrecision(decimalType.getPrecision))
           .named(field.getName)
 
       // ========================
@@ -182,8 +186,7 @@ class SparkToParquetSchemaConverter(
           .as(DECIMAL)
           .precision(decimalType.getPrecision)
           .scale(decimalType.getScale)
-          // todo: Decimal.minBytesForPrecision(precision)
-          .length(0)
+          .length(computeMinBytesForPrecision(decimalType.getPrecision))
           .named(field.getName)
 
       // ===================================
@@ -298,6 +301,16 @@ class SparkToParquetSchemaConverter(
         throw new UnsupportedOperationException(
           s"Unsupported data type ${field.getDataType.getTypeName}")
     }
+  }
+
+  // todo: should we have a lazy val that calculates this for precisions to avoid computation?
+  //  (see Decimal in delta)
+  private def computeMinBytesForPrecision(precision: Int) : Int = {
+    var numBytes = 1
+    while (math.pow(2.0, 8 * numBytes - 1) < math.pow(10.0, precision)) {
+      numBytes += 1
+    }
+    numBytes
   }
 }
 
