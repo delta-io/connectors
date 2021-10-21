@@ -17,10 +17,34 @@ public final class Operation {
      * Supported operation types.
      */
     public enum Name {
-        /** Recorded during batch inserts. */
+        /**
+         * Recorded during batch inserts.
+         *
+         * Suggested Operation Parameters:
+         * - mode               -> one of { Append, Overwrite, ErrorIfExists, Ignore }
+         * - partitionBy        -> List<String>
+         *
+         * Suggested Operation MetricString:
+         * - numFiles           -> long // number of files written
+         * - numOutputBytes     -> long // size in bytes of the written contents
+         * - numOutputRows      -> long // number of rows written
+         */
         WRITE("WRITE"),
 
-        /** Recorded during streaming inserts. */
+        /**
+         * Recorded during streaming inserts.
+         *
+         * Suggested Operation Parameters:
+         * - outputMode         -> one of { Append, Complete, Update }
+         * - queryId            -> String
+         * - epochId            -> String
+         *
+         * Suggested Operation MetricString:
+         * - numAddedFiles      -> long // number of files added
+         * - numRemovedFiles    -> long // number of files removed
+         * - numOutputRows      -> long // number of rows written
+         * - numOutputBytes     -> long // number of output writes
+         */
         STREAMING_UPDATE("STREAMING UPDATE"),
 
         /** Recorded while deleting certain partitions. */
