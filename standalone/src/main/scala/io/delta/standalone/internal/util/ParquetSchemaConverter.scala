@@ -16,8 +16,7 @@
 
 package io.delta.standalone.internal.util
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.parquet.schema._
+import org.apache.parquet.schema.{ConversionPatterns, MessageType, Type, Types}
 import org.apache.parquet.schema.OriginalType._
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 import org.apache.parquet.schema.Type.Repetition._
@@ -33,6 +32,8 @@ import io.delta.standalone.types._
  *   portion of the timestamp value is truncated.
  */
 object ParquetOutputTimestampType extends Enumeration {
+  type ParquetOutputTimestampType = Value
+
   val INT96, TIMESTAMP_MICROS, TIMESTAMP_MILLIS = Value
 }
 
@@ -40,7 +41,7 @@ object ParquetOutputTimestampType extends Enumeration {
  * This converter class is used to convert Spark SQL [[StructType]] to Parquet [[MessageType]].
  *
  * @param writeLegacyParquetFormat Whether to use legacy Parquet format compatible with Spark 1.4
- *        and prior versions when converting a Catalyst [[StructType]] to a Parquet [[MessageType]].
+ *        and prior versions when converting a [[StructType]] to a Parquet [[MessageType]].
  *        When set to false, use standard format defined in parquet-format spec.  This argument only
  *        affects Parquet write path.
  * @param outputTimestampType which parquet timestamp type to use when writing.
@@ -49,13 +50,26 @@ class SparkToParquetSchemaConverter(
     writeLegacyParquetFormat: Boolean = false,
     outputTimestampType: ParquetOutputTimestampType.Value = ParquetOutputTimestampType.INT96) {
 
-  // todo: defaults from config instead? (orig SQLConf.PARQUET_WRITE_LEGACY_FORMAT.defaultValue.get)
+  // TODO: do we want to get default values from config instead?
+  //  (originally was SQLConf.PARQUET_WRITE_LEGACY_FORMAT.defaultValue.get)
+  //  motivation: keep default values in one location
 
-  // todo: from hadoop configuration?
-//  def this(conf: Configuration) = this(
-//    writeLegacyParquetFormat = conf.get(SQLConf.PARQUET_WRITE_LEGACY_FORMAT.key).toBoolean,
-//    outputTimestampType = SQLConf.ParquetOutputTimestampType.withName(
-//      conf.get(SQLConf.PARQUET_OUTPUT_TIMESTAMP_TYPE.key)))
+  // TODO: is there another way to use default arguments for java interoperability?
+  //  (not applicable if we decide to extend an interface instead)
+
+  def this() = {
+    this(writeLegacyParquetFormat = false, outputTimestampType = ParquetOutputTimestampType.INT96)
+  }
+
+  def this(writeLegacyParquetFormat: Boolean) = {
+    this(
+      writeLegacyParquetFormat = writeLegacyParquetFormat,
+      outputTimestampType = ParquetOutputTimestampType.INT96)
+  }
+
+  def this(outputTimestampType: ParquetOutputTimestampType.Value) = {
+    this(writeLegacyParquetFormat = false, outputTimestampType = outputTimestampType)
+  }
 
   /**
    * Converts a Spark SQL [[StructType]] to a Parquet [[MessageType]].
@@ -64,7 +78,7 @@ class SparkToParquetSchemaConverter(
     Types
       .buildMessage()
       .addFields(schema.getFields.map(convertField): _*)
-      .named(ParquetSchemaConverter.SPARK_PARQUET_SCHEMA_NAME) // todo: see below
+      .named(ParquetSchemaConverter.SPARK_PARQUET_SCHEMA_NAME)
   }
 
   /**
@@ -75,8 +89,6 @@ class SparkToParquetSchemaConverter(
   }
 
   private def convertField(field: StructField, repetition: Type.Repetition): Type = {
-    // todo: comments, do we want to support LegacyParquetFormat?
-
     ParquetSchemaConverter.checkFieldName(field.getName)
 
     field.getDataType match {
@@ -244,9 +256,14 @@ class SparkToParquetSchemaConverter(
         //     <value-repetition> <value-type> value;
         //   }
         // }
+        // TODO: in Spark and Delta OSS (etc) the argument [mapAlias = "key_value"] is not included,
+        //  but without it the copied over tests fail. Are the tests & this inclusion correct,
+        //  or are the tests wrong and omitting mapAlias correct?
+        //  (perhaps this is to do with the version of Parquet used?)
         ConversionPatterns.mapType(
           repetition,
           field.getName,
+          "key_value",
           convertField(new StructField("key", mapType.getKeyType, false)),
           convertField(new StructField("value", mapType.getValueType, mapType.valueContainsNull)))
 
@@ -297,14 +314,15 @@ class SparkToParquetSchemaConverter(
         }.named(field.getName)
 
       case _ =>
-        // todo: is this the correct exception we want to throw?
+        // TODO: is this the correct exception we want to throw?
         throw new UnsupportedOperationException(
           s"Unsupported data type ${field.getDataType.getTypeName}")
     }
   }
 
-  // todo: should we have a lazy val that calculates this for precisions to avoid computation?
-  //  (see Decimal in delta)
+  // TODO: should we have a lazy val that calculates this for all precision integers to avoid
+  //  repeated computation? (see Decimal in delta)
+  // Returns the minimum number of bytes needed to store a decimal with a given `precision`.
   private def computeMinBytesForPrecision(precision: Int) : Int = {
     var numBytes = 1
     while (math.pow(2.0, 8 * numBytes - 1) < math.pow(10.0, precision)) {
@@ -315,7 +333,6 @@ class SparkToParquetSchemaConverter(
 }
 
 private[internal] object ParquetSchemaConverter {
-  // todo: schema name update
   val SPARK_PARQUET_SCHEMA_NAME = "spark_schema"
 
   val EMPTY_MESSAGE: MessageType =

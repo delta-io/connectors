@@ -16,83 +16,292 @@
 
 package io.delta.standalone.internal
 
-import org.apache.parquet.schema._
-import org.apache.parquet.schema.OriginalType._
-import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
-import org.apache.parquet.schema.Type.Repetition._
+import org.apache.parquet.schema.MessageTypeParser
+import org.scalatest.FunSuite
 
 import io.delta.standalone.types._
-
-
-// scalastyle:off funsuite
-import org.scalatest.FunSuite
+import io.delta.standalone.util.ParquetSchemaConverter
 
 class ParquetSchemaConverterSuite extends FunSuite {
 
-  private def createTestSchema(dataType: DataType, nullable: Boolean) = {
-    new StructType(Array(new StructField(dataType.getTypeName, dataType, nullable)))
-  }
+  protected def testCatalystToParquet(
+      testName: String,
+      sqlSchema: StructType,
+      parquetSchema: String,
+      writeLegacyParquetFormat: Boolean,
+      outputTimestampType: util.ParquetOutputTimestampType.Value =
+      util.ParquetOutputTimestampType.INT96): Unit = {
 
-  test("LegacyParquetFormat = False") {
-    
-    // atomic types
-    val atomicTypes = Array(
-      (new BooleanType(), BOOLEAN, None),
-      (new ByteType(), INT32, Some(INT_8)),
-      (new ShortType(), INT32, Some(INT_16)),
-      (new IntegerType(), INT32, None),
-      (new LongType(), INT64, None),
-      (new FloatType(), FLOAT, None),
-      (new DoubleType(), DOUBLE, None),
-      (new StringType(), BINARY, Some(UTF8)),
-      (new DateType(), INT32, Some(DATE)),
-      (new BinaryType(), BINARY, None),
-      (new TimestampType(), INT96, None)
-    )
-
-    atomicTypes.foreach{
-      case (dataType, primitiveType, as) =>
-        assert(
-          new util.SparkToParquetSchemaConverter().convert(createTestSchema(dataType, true))
-          == new MessageType(
-            "spark_schema",
-            as match {
-              case Some(originalType) =>
-                Types.optional(primitiveType).as(originalType).named(dataType.getTypeName)
-              case None =>
-                Types.optional(primitiveType).named(dataType.getTypeName)
-            }))
-        assert(
-          new util.SparkToParquetSchemaConverter().convert(createTestSchema(dataType, false))
-            == new MessageType(
-            "spark_schema",
-            as match {
-              case Some(originalType) =>
-                Types.required(primitiveType).as(originalType).named(dataType.getTypeName)
-              case None =>
-                Types.required(primitiveType).named(dataType.getTypeName)
-            }))
+    test(s"sql => parquet: $testName") {
+      val actual = ParquetSchemaConverter.sparkToParquet(
+        sqlSchema,
+        writeLegacyParquetFormat,
+        outputTimestampType)
+      val expected = MessageTypeParser.parseMessageType(parquetSchema)
+      actual.checkContains(expected)
+      expected.checkContains(actual)
     }
-
-    // timestamp for outputTimestampType != INT96
-
-    // decimal type
-
-    // array type
-
-    // map type
-
-    // struct type
   }
 
-  test("LegacyParquetFormat = True") {
-    // decimal type
-    // array
-    // map type
-  }
+  // =======================================================
+  // Tests for converting Catalyst ArrayType to Parquet LIST
+  // =======================================================
 
-  test("schema with multiple fields") {
+  testCatalystToParquet(
+    "Backwards-compatibility: LIST with nullable element type - 1 - standard",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new ArrayType(new IntegerType(), true),
+        true))),
+    """message root {
+      |  optional group f1 (LIST) {
+      |    repeated group list {
+      |      optional int32 element;
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
 
-  }
+  testCatalystToParquet(
+    "Backwards-compatibility: LIST with nullable element type - 2 - prior to 1.4.x",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new ArrayType(new IntegerType(), true),
+        true))),
+    """message root {
+      |  optional group f1 (LIST) {
+      |    repeated group bag {
+      |      optional int32 array;
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
 
+  testCatalystToParquet(
+    "Backwards-compatibility: LIST with non-nullable element type - 1 - standard",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new ArrayType(new IntegerType(), false),
+        true))),
+    """message root {
+      |  optional group f1 (LIST) {
+      |    repeated group list {
+      |      required int32 element;
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "Backwards-compatibility: LIST with non-nullable element type - 2 - prior to 1.4.x",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new ArrayType(new IntegerType(), false),
+        true))),
+    """message root {
+      |  optional group f1 (LIST) {
+      |    repeated int32 array;
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  // ====================================================
+  // Tests for converting Catalyst MapType to Parquet Map
+  // ====================================================
+
+  testCatalystToParquet(
+    "Backwards-compatibility: MAP with non-nullable value type - 1 - standard",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new MapType(new IntegerType(), new StringType(), false),
+        true))),
+    """message root {
+      |  optional group f1 (MAP) {
+      |    repeated group key_value {
+      |      required int32 key;
+      |      required binary value (UTF8);
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "Backwards-compatibility: MAP with non-nullable value type - 2 - prior to 1.4.x",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new MapType(new IntegerType(), new StringType(), false),
+        true))),
+    """message root {
+      |  optional group f1 (MAP) {
+      |    repeated group key_value (MAP_KEY_VALUE) {
+      |      required int32 key;
+      |      required binary value (UTF8);
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  testCatalystToParquet(
+    "Backwards-compatibility: MAP with nullable value type - 1 - standard",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new MapType(new IntegerType(), new StringType(), true),
+        true))),
+    """message root {
+      |  optional group f1 (MAP) {
+      |    repeated group key_value {
+      |      required int32 key;
+      |      optional binary value (UTF8);
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "Backwards-compatibility: MAP with nullable value type - 3 - prior to 1.4.x",
+    new StructType(Array(
+      new StructField(
+        "f1",
+        new MapType(new IntegerType(), new StringType(), true),
+       true))),
+    """message root {
+      |  optional group f1 (MAP) {
+      |    repeated group key_value (MAP_KEY_VALUE) {
+      |      required int32 key;
+      |      optional binary value (UTF8);
+      |    }
+      |  }
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  // =================================
+  // Tests for conversion for decimals
+  // =================================
+
+  testCatalystToParquet(
+    "DECIMAL(1, 0) - standard",
+    new StructType(Array(new StructField("f1", new DecimalType(1, 0)))),
+    """message root {
+      |  optional int32 f1 (DECIMAL(1, 0));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "DECIMAL(8, 3) - standard",
+    new StructType(Array(new StructField("f1", new DecimalType(8, 3)))),
+    """message root {
+      |  optional int32 f1 (DECIMAL(8, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "DECIMAL(9, 3) - standard",
+    new StructType(Array(new StructField("f1", new DecimalType(9, 3)))),
+    """message root {
+      |  optional int32 f1 (DECIMAL(9, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "DECIMAL(18, 3) - standard",
+    new StructType(Array(new StructField("f1", new DecimalType(18, 3)))),
+    """message root {
+      |  optional int64 f1 (DECIMAL(18, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "DECIMAL(19, 3) - standard",
+    new StructType(Array(new StructField("f1", new DecimalType(19, 3)))),
+    """message root {
+      |  optional fixed_len_byte_array(9) f1 (DECIMAL(19, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  testCatalystToParquet(
+    "DECIMAL(1, 0) - prior to 1.4.x",
+    new StructType(Array(new StructField("f1", new DecimalType(1, 0)))),
+    """message root {
+      |  optional fixed_len_byte_array(1) f1 (DECIMAL(1, 0));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  testCatalystToParquet(
+    "DECIMAL(8, 3) - prior to 1.4.x",
+    new StructType(Array(new StructField("f1", new DecimalType(8, 3)))),
+    """message root {
+      |  optional fixed_len_byte_array(4) f1 (DECIMAL(8, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  testCatalystToParquet(
+    "DECIMAL(9, 3) - prior to 1.4.x",
+    new StructType(Array(new StructField("f1", new DecimalType(9, 3)))),
+    """message root {
+      |  optional fixed_len_byte_array(5) f1 (DECIMAL(9, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  testCatalystToParquet(
+    "DECIMAL(18, 3) - prior to 1.4.x",
+    new StructType(Array(new StructField("f1", new DecimalType(18, 3)))),
+    """message root {
+      |  optional fixed_len_byte_array(8) f1 (DECIMAL(18, 3));
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true)
+
+  testCatalystToParquet(
+    "Timestamp written and read as INT64 with TIMESTAMP_MILLIS",
+    new StructType(Array(new StructField("f1", new TimestampType()))),
+    """message root {
+      |  optional INT64 f1 (TIMESTAMP_MILLIS);
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true,
+    outputTimestampType = util.ParquetOutputTimestampType.TIMESTAMP_MILLIS)
+
+  testCatalystToParquet(
+    "Timestamp written and read as INT64 with TIMESTAMP_MICROS",
+    new StructType(Array(new StructField("f1", new TimestampType()))),
+    """message root {
+      |  optional INT64 f1 (TIMESTAMP_MICROS);
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = true,
+    outputTimestampType = util.ParquetOutputTimestampType.TIMESTAMP_MICROS)
+
+  testCatalystToParquet(
+    "SPARK-36825: Year-month interval written and read as INT32",
+    new StructType(Array(new StructField("f1", new DateType()))),
+    """message root {
+      |  optional INT32 f1;
+      |}
+    """.stripMargin,
+    writeLegacyParquetFormat = false)
+
+  // TODO: is there any motivation to add tests for the left out types?
 }
