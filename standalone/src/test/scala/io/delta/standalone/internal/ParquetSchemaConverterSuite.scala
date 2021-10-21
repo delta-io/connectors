@@ -24,13 +24,13 @@ import io.delta.standalone.util.ParquetSchemaConverter
 
 class ParquetSchemaConverterSuite extends FunSuite {
 
-  protected def testCatalystToParquet(
+  private def testCatalystToParquet(
       testName: String,
       sqlSchema: StructType,
       parquetSchema: String,
       writeLegacyParquetFormat: Boolean,
-      outputTimestampType: util.ParquetOutputTimestampType.Value =
-      util.ParquetOutputTimestampType.INT96): Unit = {
+      outputTimestampType: ParquetSchemaConverter.ParquetOutputTimestampType =
+      ParquetSchemaConverter.ParquetOutputTimestampType.INT96): Unit = {
 
     test(s"sql => parquet: $testName") {
       val actual = ParquetSchemaConverter.sparkToParquet(
@@ -282,7 +282,7 @@ class ParquetSchemaConverterSuite extends FunSuite {
       |}
     """.stripMargin,
     writeLegacyParquetFormat = true,
-    outputTimestampType = util.ParquetOutputTimestampType.TIMESTAMP_MILLIS)
+    outputTimestampType = ParquetSchemaConverter.ParquetOutputTimestampType.TIMESTAMP_MILLIS)
 
   testCatalystToParquet(
     "Timestamp written and read as INT64 with TIMESTAMP_MICROS",
@@ -292,7 +292,7 @@ class ParquetSchemaConverterSuite extends FunSuite {
       |}
     """.stripMargin,
     writeLegacyParquetFormat = true,
-    outputTimestampType = util.ParquetOutputTimestampType.TIMESTAMP_MICROS)
+    outputTimestampType = ParquetSchemaConverter.ParquetOutputTimestampType.TIMESTAMP_MICROS)
 
   testCatalystToParquet(
     "SPARK-36825: Year-month interval written and read as INT32",
@@ -302,6 +302,4 @@ class ParquetSchemaConverterSuite extends FunSuite {
       |}
     """.stripMargin,
     writeLegacyParquetFormat = false)
-
-  // TODO: is there any motivation to add tests for the left out types?
 }

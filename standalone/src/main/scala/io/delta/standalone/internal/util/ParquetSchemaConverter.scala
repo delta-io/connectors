@@ -22,54 +22,20 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 import org.apache.parquet.schema.Type.Repetition._
 
 import io.delta.standalone.types._
-
-/**
- * Represents Parquet timestamp types.
- * - INT96 is a non-standard but commonly used timestamp type in Parquet.
- * - TIMESTAMP_MICROS is a standard timestamp type in Parquet, which stores number of microseconds
- *   from the Unix epoch.
- * - TIMESTAMP_MILLIS is also standard, but with millisecond precision, which means the microsecond
- *   portion of the timestamp value is truncated.
- */
-object ParquetOutputTimestampType extends Enumeration {
-  type ParquetOutputTimestampType = Value
-
-  val INT96, TIMESTAMP_MICROS, TIMESTAMP_MILLIS = Value
-}
+import io.delta.standalone.util.ParquetSchemaConverter.ParquetOutputTimestampType
 
 /**
  * This converter class is used to convert Spark SQL [[StructType]] to Parquet [[MessageType]].
  *
- * @param writeLegacyParquetFormat Whether to use legacy Parquet format compatible with Spark 1.4
+ * @param writeLegacyParquetFormat  Whether to use legacy Parquet format compatible with Spark 1.4
  *        and prior versions when converting a [[StructType]] to a Parquet [[MessageType]].
  *        When set to false, use standard format defined in parquet-format spec.  This argument only
  *        affects Parquet write path.
- * @param outputTimestampType which parquet timestamp type to use when writing.
+ * @param outputTimestampType  which parquet timestamp type to use when writing.
  */
-class SparkToParquetSchemaConverter(
-    writeLegacyParquetFormat: Boolean = false,
-    outputTimestampType: ParquetOutputTimestampType.Value = ParquetOutputTimestampType.INT96) {
-
-  // TODO: do we want to get default values from config instead?
-  //  (originally was SQLConf.PARQUET_WRITE_LEGACY_FORMAT.defaultValue.get)
-  //  motivation: keep default values in one location
-
-  // TODO: is there another way to use default arguments for java interoperability?
-  //  (not applicable if we decide to extend an interface instead)
-
-  def this() = {
-    this(writeLegacyParquetFormat = false, outputTimestampType = ParquetOutputTimestampType.INT96)
-  }
-
-  def this(writeLegacyParquetFormat: Boolean) = {
-    this(
-      writeLegacyParquetFormat = writeLegacyParquetFormat,
-      outputTimestampType = ParquetOutputTimestampType.INT96)
-  }
-
-  def this(outputTimestampType: ParquetOutputTimestampType.Value) = {
-    this(writeLegacyParquetFormat = false, outputTimestampType = outputTimestampType)
-  }
+private[standalone] class SparkToParquetSchemaConverter(
+    writeLegacyParquetFormat: Boolean,
+    outputTimestampType: ParquetOutputTimestampType) {
 
   /**
    * Converts a Spark SQL [[StructType]] to a Parquet [[MessageType]].
@@ -84,7 +50,7 @@ class SparkToParquetSchemaConverter(
   /**
    * Converts a Spark SQL [[StructField]] to a Parquet [[Type]].
    */
-  def convertField(field: StructField): Type = {
+  private def convertField(field: StructField): Type = {
     convertField(field, if (field.isNullable) OPTIONAL else REQUIRED)
   }
 
@@ -314,7 +280,6 @@ class SparkToParquetSchemaConverter(
         }.named(field.getName)
 
       case _ =>
-        // TODO: is this the correct exception we want to throw?
         throw new UnsupportedOperationException(
           s"Unsupported data type ${field.getDataType.getTypeName}")
     }
