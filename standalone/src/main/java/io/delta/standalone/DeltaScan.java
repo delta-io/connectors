@@ -22,6 +22,11 @@ import io.delta.standalone.expressions.Expression;
 
 import java.util.Optional;
 
+/**
+ * Provides access to a memory-optimized iterator over the files in this snapshot.
+ *
+ * Typically created with a read predicate {@link Expression} to let users filter files.
+ */
 public interface DeltaScan {
 
     /**
@@ -35,6 +40,11 @@ public interface DeltaScan {
      * @return a {@link CloseableIterator} to iterate over files.
      */
     CloseableIterator<AddFile> getFiles();
+
+    /**
+     * @return the input predicate used to filter files.
+     */
+    Optional<Expression> getInputPredicate();
 
     /**
      * @return portion of the input predicate that can be evaluated by Delta Standalone using only

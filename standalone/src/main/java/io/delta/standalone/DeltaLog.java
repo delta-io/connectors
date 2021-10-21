@@ -76,7 +76,7 @@ public interface DeltaLog {
      * Note that all reads in a transaction must go through the returned transaction object, and not
      * directly to the {@link DeltaLog} otherwise they will not be checked for conflicts.
      *
-     * @return a new OptimisticTransaction
+     * @return a new {@link OptimisticTransaction}.
      */
     OptimisticTransaction startTransaction();
 

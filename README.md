@@ -13,8 +13,8 @@ This is the repository for Delta Lake Connectors. It includes a library for quer
 
 The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-Line-Reference.html). It has the following subprojects.
 
-## Delta Standalone Reader
-Delta Standalone Reader is a JVM library to read Delta Lake tables. Unlike https://github.com/delta-io/delta, this project doesn't use Spark to read tables and it has only a few transitive dependencies. It can be used by any application that cannot use a Spark cluster.
+## Delta Standalone
+Delta Standalone is a JVM library to read and write Delta Lake tables. Unlike https://github.com/delta-io/delta, this project doesn't use Spark to read tables and it has only a few transitive dependencies. It can be used by any application that cannot use a Spark cluster.
 - To compile the project, run `build/sbt standalone/compile`
 - To test the project, run `build/sbt standalone/test`
 - To generate the JAR, run `build/sbt standalone/package`
