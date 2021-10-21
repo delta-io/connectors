@@ -145,7 +145,7 @@ private[internal] class DeltaLogImpl private(
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be
    * interrupted when waiting for the lock.
    */
-  def lockInterruptibly[T](body: => T): T = {
+  def lockInterru): T = {
     deltaLogLock.lockInterruptibly()
     try {
       body
@@ -156,9 +156,7 @@ private[internal] class DeltaLogImpl private(
 
   /** Creates the log directory if it does not exist. */
   def ensureLogDirectoryExist(): Unit = {
-    if (!fs.exists(logPath)) {
-      if (!fs.mkdirs(logPath)) {
-        throw new IOException(s"Cannot create $logPath")
+    if (!fs.exists(logPath)) {t create $logPath")
       }
     }
   }
@@ -183,25 +181,6 @@ private[internal] class DeltaLogImpl private(
     }
   }
 
-  /**
-   * Checks whether this table only accepts appends. If so it will throw an error in operations that
-   * can remove data such as DELETE/UPDATE/MERGE.
-   */
-  def assertRemovable(): Unit = {
-    if (DeltaConfigs.IS_APPEND_ONLY.fromMetadata(metadata)) {
-      throw DeltaErrors.modifyAppendOnlyTableException
-    }
-  }
-}
-
-private[standalone] object DeltaLogImpl {
-  def forTable(hadoopConf: Configuration, dataPath: String): DeltaLogImpl = {
-    apply(hadoopConf, new Path(dataPath, "_delta_log"))
-  }
-
-  def forTable(hadoopConf: Configuration, dataPath: Path): DeltaLogImpl = {
-    apply(hadoopConf, new Path(dataPath, "_delta_log"))
-  }
 
   def forTable(hadoopConf: Configuration, dataPath: String, clock: Clock): DeltaLogImpl = {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
