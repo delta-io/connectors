@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Used to perform a set of reads in a transaction and then commit a set of updates to the
  * state of the log.  All reads from the {@link DeltaLog}, MUST go through this instance rather
- * than directly to the {@link DeltaLog} otherwise they will not be check for logical conflicts
+ * than directly to the {@link DeltaLog} otherwise they will not be checked for logical conflicts
  * with concurrent updates.
  *
  * This class is not thread-safe.
