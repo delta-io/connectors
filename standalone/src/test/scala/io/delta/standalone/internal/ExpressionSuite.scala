@@ -32,7 +32,6 @@ import io.delta.standalone.types._
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
 
-// scalastyle:off println
 class ExpressionSuite extends FunSuite {
   // scalastyle:on funsuite
 
@@ -40,8 +39,6 @@ class ExpressionSuite extends FunSuite {
       predicate: Expression,
       expectedResult: Any,
       record: RowRecord = null) = {
-//    println(predicate.toString())
-//    println(predicate.eval(record))
     assert(predicate.eval(record) == expectedResult)
   }
 
@@ -71,7 +68,7 @@ class ExpressionSuite extends FunSuite {
       new And(Literal.of(1), Literal.of(2)).eval(null),
       "AND expression requires Boolean type.")
     testException[IllegalArgumentException]( // is this desired behavior?
-      new And(Literal.False, Literal.ofNull(new NullType())),
+      new And(Literal.False, Literal.ofNull(new IntegerType())),
       "BinaryOperator left and right DataTypes must be the same")
 
     // OR tests
@@ -92,7 +89,7 @@ class ExpressionSuite extends FunSuite {
       new Or(Literal.of(1), Literal.of(2)).eval(null),
       "OR expression requires Boolean type.")
     testException[IllegalArgumentException](
-      new Or(Literal.False, Literal.ofNull(new NullType())),
+      new Or(Literal.False, Literal.ofNull(new IntegerType())),
       "BinaryOperator left and right DataTypes must be the same") // is this desired behavior?
 
     // NOT tests
@@ -155,19 +152,19 @@ class ExpressionSuite extends FunSuite {
     // each byte is represented by 2 digits (for a string of odd length, a 0 is prepended)
     // A few examples:
     // - X'0' == X'00' == [0]
-    // - X'001' = X'0001' == [0, 1]
+    // - X'001' == X'0001' == [0, 1]
     // (see: https://docs.databricks.com/sql/language-manual/data-types/binary-type.html)
 
     // (small, big, small2)
     val binaryLiterals = Seq(
-      (Array.empty[Int], Array(0), Array.empty[Int]),  // [] < [0] or X'' < X'0'
-      (Array.empty[Int], Array(1), Array.empty[Int]),  // [] < [1] or X'' < X'1'
-      (Array(0), Array(1), Array(0)),  // [0] < [1] or X'0' < X'1'
-      (Array(0, 1), Array(1), Array(0, 1)),  // [0, 1] < [1] or X'001' < X'1'
-      (Array(0), Array(0, 0), Array(0)),  // [0] < [0, 0] or X'0' < X'000'
-      (Array(0), Array(0, 1), Array(0)),  // [0] < [0, 1] or X'0' < X'001'
-      (Array(0, 1), Array(1, 0), Array(0, 1)),  // [0, 1] < [1, 0] or X'001' < X'100'
-      (Array(0, 1), Array(0, 2), Array(0, 1)),  // [0, 1] < [0, 2] or X'001' < X'002'
+      (Array.empty[Int], Array(0), Array.empty[Int]), // [] < [0] or X'' < X'0'
+      (Array.empty[Int], Array(1), Array.empty[Int]), // [] < [1] or X'' < X'1'
+      (Array(0), Array(1), Array(0)), // [0] < [1] or X'0' < X'1'
+      (Array(0, 1), Array(1), Array(0, 1)), // [0, 1] < [1] or X'001' < X'1'
+      (Array(0), Array(0, 0), Array(0)), // [0] < [0, 0] or X'0' < X'000'
+      (Array(0), Array(0, 1), Array(0)), // [0] < [0, 1] or X'0' < X'001'
+      (Array(0, 1), Array(1, 0), Array(0, 1)), // [0, 1] < [1, 0] or X'001' < X'100'
+      (Array(0, 1), Array(0, 2), Array(0, 1)), // [0, 1] < [0, 2] or X'001' < X'002'
       // [0, 0, 2] < [0, 1, 0] or X'00002' < X'00100'
       (Array(0, 0, 2), Array(0, 1, 0), Array(0, 0, 2))
     ).map{ case (small, big, small2) =>
@@ -185,12 +182,10 @@ class ExpressionSuite extends FunSuite {
 
   test("null predicates") {
     // ISNOTNULL tests
-    testPredicate(new IsNotNull(Literal.ofNull(new NullType())), false)
     testPredicate(new IsNotNull(Literal.ofNull(new BooleanType())), false)
     testPredicate(new IsNotNull(Literal.False), true)
 
     // ISNULL tests
-    testPredicate(new IsNull(Literal.ofNull(new NullType())), true)
     testPredicate(new IsNull(Literal.ofNull(new BooleanType())), true)
     testPredicate(new IsNull(Literal.False), false)
   }
@@ -224,7 +219,7 @@ class ExpressionSuite extends FunSuite {
       Literal.ofNull(new BooleanType())).asJava), null)
 
     // test correct output
-    // todo: test all types? uses comparator same as the other comparison expressions
+    // TODO: test all types? uses comparator same as the other comparison expressions
     testPredicate( new In(Literal.of(1),
       (0 to 10).map{Literal.of}.asJava), true)
     testPredicate( new In(Literal.of(100),
@@ -246,8 +241,8 @@ class ExpressionSuite extends FunSuite {
     testLiteral(Literal.of(2.0F), 2.0F)
     testLiteral(Literal.of(5), 5)
     testLiteral(Literal.of(10L), 10L)
-    testLiteral(Literal.ofNull(new NullType()), null)
     testLiteral(Literal.ofNull(new BooleanType()), null)
+    testLiteral(Literal.ofNull(new IntegerType()), null)
     testLiteral(Literal.of(5.toShort), 5.toShort)
     testLiteral(Literal.of("test"), "test")
     val curr_time = System.currentTimeMillis()
@@ -259,12 +254,16 @@ class ExpressionSuite extends FunSuite {
     assert(ArraysJ.equals(
       Literal.of("test".getBytes()).eval(null).asInstanceOf[Array[Byte]],
       "test".getBytes()))
+
+    // Literal.ofNull(NullType) is prohibited
+    testException[IllegalArgumentException](
+      Literal.ofNull(new NullType()),
+      "NullType is an invalid data type for Literal"
+    )
   }
 
   private def testColumn(fieldName: String, dataType: DataType, record: RowRecord,
       expectedResult: Any) = {
-//    println((new Column(fieldName, dataType)).eval(record))
-//    println(expectedResult.getOrElse(null))
     assert(Objects.equals(new Column(fieldName, dataType).eval(record),
       expectedResult))
   }
@@ -335,6 +334,9 @@ class ExpressionSuite extends FunSuite {
   test("PartitionRowRecord tests") {
     val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), nullable = true, "5")
     assert(buildPartitionRowRecord(new IntegerType(), nullable = true, null).isNullAt("test"))
+    assert(!buildPartitionRowRecord(new IntegerType(), nullable = true, "5").isNullAt("test"))
+    // non-nullable field => false
+    assert(!buildPartitionRowRecord(new IntegerType(), nullable = false, null).isNullAt("test"))
 
     assert(!testPartitionRowRecord.isNullAt("test"))
     testException[IllegalArgumentException](
@@ -423,7 +425,6 @@ class ExpressionSuite extends FunSuite {
 
   private def testPartitionFilter(inputSchema: StructType, inputFiles: Seq[AddFile],
       filters: Seq[Expression], expectedMatchedFiles: Seq[AddFile]) = {
-    println("filters:\n\t" + filters.map(_.toString()).mkString("\n\t"))
     val matchedFiles = DeltaLogImpl.filterFileList(inputSchema, inputFiles, filters)
     assert(matchedFiles.length == expectedMatchedFiles.length)
     assert(matchedFiles.forall(expectedMatchedFiles.contains(_)))

@@ -37,7 +37,6 @@ private[internal] class PartitionRowRecord(
       |partitionValues: ${partitionValues.keySet.mkString(", ")}
       |""".stripMargin)
 
-  // FOLLOWING ROWRECORD INTERFACE...
   private def getPrimitive(field: StructField): String = {
     val partitionValue = partitionValues(field.getName)
     if (partitionValue == null) throw DeltaErrors.nullValueFoundForPrimitiveTypes(field.getName)
@@ -58,10 +57,10 @@ private[internal] class PartitionRowRecord(
 
   override def getLength: Int = partitionSchema.getFieldNames.length
 
-  // TODO: should this throw an error if field is not nullable?
   override def isNullAt(fieldName: String): Boolean = {
-    partitionSchema.get(fieldName)  // check that the field exists
-    partitionValues(fieldName) == null
+    // partitionSchema.get(fieldName) checks that the field exists
+    // if the field is not nullable return false
+    partitionSchema.get(fieldName).isNullable && partitionValues(fieldName) == null
   }
 
   override def getInt(fieldName: String): Int = {

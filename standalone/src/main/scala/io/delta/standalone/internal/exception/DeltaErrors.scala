@@ -93,7 +93,7 @@ private[internal] object DeltaErrors {
   }
 
   def nullValueFoundForPrimitiveTypes(fieldName: String): Throwable = {
-    new NullPointerException(s"Read a null value for field $fieldName which is a primitive type")
+    new NullPointerException(s"Read a null value for field $fieldName which is a primitive type.")
   }
 
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {

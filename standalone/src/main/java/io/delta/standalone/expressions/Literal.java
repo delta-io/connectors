@@ -102,5 +102,9 @@ public final class Literal extends LeafExpression {
         return new Literal(value, new ByteType());
     }
 
-    public static Literal ofNull(DataType dataType) { return new Literal(null, dataType); }
+    public static Literal ofNull(DataType dataType) {
+        if (dataType instanceof NullType) {
+            throw new IllegalArgumentException("NullType is an invalid data type for Literal.");
+        }
+        return new Literal(null, dataType); }
 }
