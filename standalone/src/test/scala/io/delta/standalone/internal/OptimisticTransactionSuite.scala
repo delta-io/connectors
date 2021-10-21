@@ -213,43 +213,37 @@ class OptimisticTransactionSuite
 
   // Note: See SchemaUtilsSuite for thorough isWriteCompatible(existingSchema, newSchema) unit tests
   test("can change schema to valid schema") {
-    // col a is nullable
-    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), true)))
+    // col a is non-nullable
+    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), false)))
 
     // add nullable field
-    val schema2 = new StructType(Array(
-      new StructField("a", new IntegerType()),
-      new StructField("b", new IntegerType(), true)
-    ))
+    val schema2 = schema1.add(new StructField("b", new IntegerType(), true))
     testSchemaChange(schema1, schema2, shouldThrow = false)
 
     // add non-nullable field
-    val schema3 = new StructType(Array(
-      new StructField("a", new IntegerType()),
-      new StructField("b", new IntegerType(), false)
-    ))
+    val schema3 = schema1.add(new StructField("b", new IntegerType(), false))
     testSchemaChange(schema1, schema3, shouldThrow = false)
 
-    // restricted nullability (from nullable to non-nullable)
-    val schema4 = new StructType(Array(new StructField("a", new IntegerType(), false)))
+    // relaxed nullability (from non-nullable to nullable)
+    val schema4 = new StructType(Array(new StructField("a", new IntegerType(), true)))
     testSchemaChange(schema1, schema4, shouldThrow = false)
   }
 
   // Note: See SchemaUtilsSuite for thorough isWriteCompatible(existingSchema, newSchema) unit tests
   test("can't change schema to invalid schema - table non empty, files not removed") {
-    // col a is non-nullable
-    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), false)))
+    // col a is nullable
+    val schema1 = new StructType(Array(new StructField("a", new IntegerType(), true)))
 
     // drop a field
     val schema2 = new StructType(Array())
     testSchemaChange(schema1, schema2, shouldThrow = true)
 
-    // relaxed nullability (from non-nullable to nullable)
-    val schema3 = new StructType(Array(new StructField("a", new IntegerType(), true)))
+    // restricted nullability (from nullable to non-nullable)
+    val schema3 = new StructType(Array(new StructField("a", new IntegerType(), false)))
     testSchemaChange(schema1, schema3, shouldThrow = true)
 
     // change of datatype
-    val schema4 = new StructType(Array(new StructField("a", new StringType(), false)))
+    val schema4 = new StructType(Array(new StructField("a", new StringType(), true)))
     testSchemaChange(schema1, schema4, shouldThrow = true)
   }
 
