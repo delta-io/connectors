@@ -60,15 +60,26 @@ public class RemoveFile implements FileAction {
         return path;
     }
 
+    /**
+     * @return the time that this file was deleted as milliseconds since the epoch
+     */
     public Optional<Long> getDeletionTimestamp() {
         return deletionTimestamp;
     }
 
+    /**
+     * @return whether any data was changed as a result of this file being created. When
+     *         {@code false} the file must already be present in the table or the records in the
+     *         added file must be contained in one or more remove actions in the same version
+     */
     @Override
     public boolean isDataChange() {
         return dataChange;
     }
 
+    /**
+     * @return true if the fields `partitionValues`, `size`, and `tags` are present
+     */
     public boolean isExtendedFileMetadata() {
         return extendedFileMetadata;
     }
@@ -84,10 +95,16 @@ public class RemoveFile implements FileAction {
         return partitionValues != null ? Collections.unmodifiableMap(partitionValues) : null;
     }
 
+    /**
+     * @return the size of this file in bytes
+     */
     public long getSize() {
         return size;
     }
 
+    /**
+     * @return an unmodifiable {@code Map} containing metadata about this file
+     */
     @Nullable
     public Map<String, String> getTags() {
         return tags != null ? Collections.unmodifiableMap(tags) : null;
