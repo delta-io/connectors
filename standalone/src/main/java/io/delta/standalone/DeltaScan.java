@@ -16,11 +16,11 @@
 
 package io.delta.standalone;
 
+import java.util.Optional;
+
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.expressions.Expression;
-
-import java.util.Optional;
 
 /**
  * Provides access to a memory-optimized iterator over the files in this snapshot.

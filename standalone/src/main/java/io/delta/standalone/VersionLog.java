@@ -2,11 +2,11 @@
 
 package io.delta.standalone;
 
-import io.delta.standalone.actions.Action;
-
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+
+import io.delta.standalone.actions.Action;
 
 /**
  * {@link VersionLog} is the representation of all actions (changes) to the Delta Table

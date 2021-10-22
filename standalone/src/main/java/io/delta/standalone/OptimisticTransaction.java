@@ -3,11 +3,8 @@
 package io.delta.standalone;
 
 import io.delta.standalone.actions.Action;
-import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.expressions.Expression;
-
-import java.util.List;
 
 /**
  * Used to perform a set of reads in a transaction and then commit a set of updates to the
