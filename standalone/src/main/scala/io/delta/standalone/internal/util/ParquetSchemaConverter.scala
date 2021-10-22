@@ -222,10 +222,6 @@ private[standalone] class SparkToParquetSchemaConverter(
         //     <value-repetition> <value-type> value;
         //   }
         // }
-        // TODO: in Spark and Delta OSS (etc) the argument [mapAlias = "key_value"] is not included,
-        //  but without it the copied over tests fail. Are the tests & this inclusion correct,
-        //  or are the tests wrong and omitting mapAlias correct?
-        //  (perhaps this is to do with the version of Parquet used?)
         ConversionPatterns.mapType(
           repetition,
           field.getName,
@@ -285,8 +281,6 @@ private[standalone] class SparkToParquetSchemaConverter(
     }
   }
 
-  // TODO: should we have a lazy val that calculates this for all precision integers to avoid
-  //  repeated computation? (see Decimal in delta)
   // Returns the minimum number of bytes needed to store a decimal with a given `precision`.
   private def computeMinBytesForPrecision(precision: Int) : Int = {
     var numBytes = 1

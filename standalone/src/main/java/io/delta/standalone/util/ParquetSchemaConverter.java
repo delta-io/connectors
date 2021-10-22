@@ -46,6 +46,7 @@ public class ParquetSchemaConverter {
 
     /**
      * Convert a {@link StructType} to Parquet {@link MessageType}.
+     *
      * @param schema  the schema to convert
      * @return {@code schema} as a Parquet {@link MessageType}
      * @throws IllegalArgumentException if a {@code StructField} name contains invalid character(s)
@@ -58,10 +59,12 @@ public class ParquetSchemaConverter {
 
     /**
      * Convert a {@link StructType} to Parquet {@link MessageType}.
+     *
      * @param schema  the schema to convert
      * @param writeLegacyParquetFormat  Whether to use legacy Parquet format compatible with Spark
-     *        1.4 and prior versions when converting a [[StructType]] to a Parquet [[MessageType]].
-     *        When set to false, use standard format defined in parquet-format spec.
+     *        1.4 and prior versions when converting a {@link StructType} to a Parquet
+     *        {@link MessageType}. When set to false, use standard format defined in parquet-format
+     *        spec.
      * @return {@code schema} as a Parquet {@link MessageType}
      * @throws IllegalArgumentException if a {@code StructField} name contains invalid character(s)
      */
@@ -73,6 +76,7 @@ public class ParquetSchemaConverter {
 
     /**
      * Convert a {@link StructType} to Parquet {@link MessageType}.
+     *
      * @param schema  the schema to convert
      * @param outputTimestampType  which parquet timestamp type to use when writing
      * @return {@code schema} as a Parquet {@link MessageType}
@@ -86,10 +90,12 @@ public class ParquetSchemaConverter {
 
     /**
      * Convert a {@link StructType} to Parquet {@link MessageType}.
+     *
      * @param schema  the schema to convert
      * @param writeLegacyParquetFormat  Whether to use legacy Parquet format compatible with Spark
-     *        1.4 and prior versions when converting a [[StructType]] to a Parquet [[MessageType]].
-     *        When set to false, use standard format defined in parquet-format spec.
+     *        1.4 and prior versions when converting a {@link StructType} to a Parquet
+     *        {@link MessageType}. When set to false, use standard format defined in parquet-format
+     *        spec.
      * @param outputTimestampType  which parquet timestamp type to use when writing
      * @return {@code schema} as a Parquet {@link MessageType}
      * @throws IllegalArgumentException if a {@code StructField} name contains invalid character(s)
