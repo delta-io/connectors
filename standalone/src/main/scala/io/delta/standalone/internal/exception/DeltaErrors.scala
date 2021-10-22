@@ -40,6 +40,13 @@ private[internal] object DeltaErrors {
        |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
        |""".stripMargin)
 
+  val EmptyCheckpointErrorMessage =
+    s"""
+       |Attempted to write an empty checkpoint without any actions. This checkpoint will not be
+       |useful in recomputing the state of the table. However this might cause other checkpoints to
+       |get deleted based on retention settings.
+     """.stripMargin
+
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
   }
@@ -285,14 +292,10 @@ private[internal] object DeltaErrors {
 
   def schemaChangedException(oldSchema: StructType, newSchema: StructType): Throwable = {
     val msg =
-      s"""Detected schema change:
+      s"""Detected incompatible schema change:
         |old schema: ${oldSchema.getTreeString}
         |
         |new schema: ${newSchema.getTreeString}
-        |
-        |Please try restarting the query. If this issue repeats across query restarts without making
-        |progress, you have made an incompatible schema change and need to start your query from
-        |scratch using a new checkpoint directory.
       """.stripMargin
     new IllegalStateException(msg)
   }

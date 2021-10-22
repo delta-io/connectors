@@ -256,10 +256,13 @@ class SchemaUtilsSuite extends FunSuite {
   }
 
   /**
-   * Tests change of nullability within a schema (making a field nullable is not allowed,
-   * but making a nullable field non-nullable is ok).
+   * Tests change of nullability within a schema.
+   * - ALLOWED: making a non-nullable field nullable
+   * - NOT ALLOWED: making a nullable field non-nullable
+   *
+   * Implementation details:
    *  - the make() function is a "factory" function to create schemas that vary only by the
-   *    nullability (of a field, array elemnt, or map values) in a specific position in the schema.
+   *    nullability (of a field, array element, or map values) in a specific position in the schema.
    *  - other tests will call this method with different make() functions to test nullability
    *    incompatibility in all the different places within a schema (in a top-level struct,
    *    in a nested struct, for the element type of an array, etc.)
@@ -267,11 +270,15 @@ class SchemaUtilsSuite extends FunSuite {
   def testNullability (scenario: String)(make: Boolean => StructType): Unit = {
     val nullable = make(true)
     val nonNullable = make(false)
-    test(s"relaxed nullability should fail read compatibility - $scenario") {
-      assert(!isWriteCompatible(nonNullable, nullable))
+
+    // restricted: nullable=true ==> nullable=false
+    test(s"restricted nullability should fail read compatibility - $scenario") {
+      assert(!isWriteCompatible(nullable, nonNullable))
     }
-    test(s"restricted nullability should not fail read compatibility - $scenario") {
-      assert(isWriteCompatible(nullable, nonNullable))
+
+    // relaxed: nullable=false ==> nullable=true
+    test(s"relaxed nullability should not fail read compatibility - $scenario") {
+      assert(isWriteCompatible(nonNullable, nullable))
     }
   }
 

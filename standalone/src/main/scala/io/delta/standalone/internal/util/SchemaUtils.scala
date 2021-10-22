@@ -82,24 +82,24 @@ private[internal] object SchemaUtils {
    * schema can replace a pre-existing schema of a Delta table. Our rules are to return false if
    * the new schema:
    *   - Drops any column that is present in the current schema
-   *   - Converts nullable=false to nullable=true for any column
+   *   - Converts nullable=true to nullable=false for any column
    *   - Changes any datatype
    */
   def isWriteCompatible(existingSchema: StructType, newSchema: StructType): Boolean = {
 
-    def isDatatypeReadCompatible(_existingType: DataType, _newType: DataType): Boolean = {
+    def isDatatypeWriteCompatible(_existingType: DataType, _newType: DataType): Boolean = {
       (_existingType, _newType) match {
         case (e: StructType, n: StructType) =>
           isWriteCompatible(e, n)
         case (e: ArrayType, n: ArrayType) =>
-          // if existing elements are non-nullable, so should be the new element
-          (e.containsNull || !n.containsNull) &&
-            isDatatypeReadCompatible(e.getElementType, n.getElementType)
+          // if existing elements are nullable, so should be the new element
+          (!e.containsNull() || n.containsNull()) &&
+            isDatatypeWriteCompatible(e.getElementType, n.getElementType)
         case (e: MapType, n: MapType) =>
-          // if existing value is non-nullable, so should be the new value
-          (e.valueContainsNull || !n.valueContainsNull) &&
-            isDatatypeReadCompatible(e.getKeyType, n.getKeyType) &&
-            isDatatypeReadCompatible(e.getValueType, n.getValueType)
+          // if existing value is nullable, so should be the new value
+          (!e.valueContainsNull || n.valueContainsNull) &&
+            isDatatypeWriteCompatible(e.getKeyType, n.getKeyType) &&
+            isDatatypeWriteCompatible(e.getValueType, n.getValueType)
         case (a, b) => a == b
       }
     }
@@ -124,10 +124,10 @@ private[internal] object SchemaUtils {
         existing.get(newField.getName).forall { existingField =>
           // we know the name matches modulo case - now verify exact match
           (existingField.getName == newField.getName
-            // if existing value is non-nullable, so should be the new value
-            && (existingField.isNullable || !newField.isNullable)
+            // if existing value is nullable, so should be the new value
+            && (!existingField.isNullable || newField.isNullable)
             // and the type of the field must be compatible, too
-            && isDatatypeReadCompatible(existingField.getDataType, newField.getDataType))
+            && isDatatypeWriteCompatible(existingField.getDataType, newField.getDataType))
         }
       }
     }
