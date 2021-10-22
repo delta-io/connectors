@@ -13,7 +13,7 @@ import java.util.Optional;
  * tables.
  *
  * Operations must be constructed using one of the {@link Operation.Name} types below.
- * As well, optional {@link Operation.Metric} values are given below.
+ * As well, optional {@link Metrics} values are given below.
  */
 public final class Operation {
 
@@ -96,7 +96,7 @@ public final class Operation {
      * Some possible operation metrics and their suggested corresponding operation types.
      * These are purely exemplary, and users may user whichever metrics best fit their application.
      */
-    public static class Metric {
+    public static class Metrics {
         /**
          * Number of files written.
          *

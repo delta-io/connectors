@@ -511,7 +511,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
 
   test("CommitInfo operation and engineInfo is persisted to the delta log") {
     withTempDir { dir =>
-      val opParams = Collections.singletonMap(Operation.Metric.numAddedFiles, "0")
+      val opParams = Collections.singletonMap(Operation.Metrics.numAddedFiles, "0")
       val op = new Operation(Operation.Name.MANUAL_UPDATE, opParams)
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(Metadata() :: Nil, op, engineInfo)
