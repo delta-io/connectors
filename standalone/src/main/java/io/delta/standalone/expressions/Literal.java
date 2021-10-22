@@ -103,8 +103,12 @@ public final class Literal extends LeafExpression {
     }
 
     public static Literal ofNull(DataType dataType) {
-        if (dataType instanceof NullType) {
-            throw new IllegalArgumentException("NullType is an invalid data type for Literal.");
+        if (dataType instanceof NullType
+                || dataType instanceof ArrayType
+                || dataType instanceof MapType
+                || dataType instanceof StructType) {
+            throw new IllegalArgumentException(
+                    dataType.getTypeName() + " is an invalid data type for Literal.");
         }
         return new Literal(null, dataType); }
 }

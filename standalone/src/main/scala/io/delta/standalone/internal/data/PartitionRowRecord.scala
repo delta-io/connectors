@@ -58,9 +58,8 @@ private[internal] class PartitionRowRecord(
   override def getLength: Int = partitionSchema.getFieldNames.length
 
   override def isNullAt(fieldName: String): Boolean = {
-    // partitionSchema.get(fieldName) checks that the field exists
-    // if the field is not nullable return false
-    partitionSchema.get(fieldName).isNullable && partitionValues(fieldName) == null
+    partitionSchema.get(fieldName) // check that the field exists
+    partitionValues(fieldName) == null
   }
 
   override def getInt(fieldName: String): Int = {

@@ -67,7 +67,7 @@ class ExpressionSuite extends FunSuite {
     testException[IllegalArgumentException](
       new And(Literal.of(1), Literal.of(2)).eval(null),
       "AND expression requires Boolean type.")
-    testException[IllegalArgumentException]( // is this desired behavior?
+    testException[IllegalArgumentException](
       new And(Literal.False, Literal.ofNull(new IntegerType())),
       "BinaryOperator left and right DataTypes must be the same")
 
@@ -90,7 +90,7 @@ class ExpressionSuite extends FunSuite {
       "OR expression requires Boolean type.")
     testException[IllegalArgumentException](
       new Or(Literal.False, Literal.ofNull(new IntegerType())),
-      "BinaryOperator left and right DataTypes must be the same") // is this desired behavior?
+      "BinaryOperator left and right DataTypes must be the same")
 
     // NOT tests
     testPredicate(new Not(Literal.False), true)
@@ -258,7 +258,22 @@ class ExpressionSuite extends FunSuite {
     // Literal.ofNull(NullType) is prohibited
     testException[IllegalArgumentException](
       Literal.ofNull(new NullType()),
-      "NullType is an invalid data type for Literal"
+      "null is an invalid data type for Literal"
+    )
+    // Literal.ofNull(ArrayType) is prohibited
+    testException[IllegalArgumentException](
+      Literal.ofNull(new ArrayType(new IntegerType(), true)),
+      "array is an invalid data type for Literal"
+    )
+    // Literal.ofNull(MapType) is prohibited
+    testException[IllegalArgumentException](
+      Literal.ofNull(new MapType(new IntegerType(), new IntegerType(), true)),
+      "map is an invalid data type for Literal"
+    )
+    // Literal.ofNull(StructType) is prohibited
+    testException[IllegalArgumentException](
+      Literal.ofNull(new StructType(Array())),
+      "struct is an invalid data type for Literal"
     )
   }
 
@@ -335,8 +350,8 @@ class ExpressionSuite extends FunSuite {
     val testPartitionRowRecord = buildPartitionRowRecord(new IntegerType(), nullable = true, "5")
     assert(buildPartitionRowRecord(new IntegerType(), nullable = true, null).isNullAt("test"))
     assert(!buildPartitionRowRecord(new IntegerType(), nullable = true, "5").isNullAt("test"))
-    // non-nullable field => false
-    assert(!buildPartitionRowRecord(new IntegerType(), nullable = false, null).isNullAt("test"))
+    // non-nullable field
+    assert(buildPartitionRowRecord(new IntegerType(), nullable = false, null).isNullAt("test"))
 
     assert(!testPartitionRowRecord.isNullAt("test"))
     testException[IllegalArgumentException](
