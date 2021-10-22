@@ -22,10 +22,11 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-import io.delta.standalone.{CommitResult, DeltaScan, Operation, OptimisticTransaction, NAME, VERSION}
+import io.delta.standalone.{CommitResult, DeltaScan, NAME, Operation, OptimisticTransaction, VERSION}
 import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ}
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.expressions.{Expression, Literal}
+import io.delta.standalone.types.StructType
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
@@ -34,7 +35,7 @@ import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMerg
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
     snapshot: SnapshotImpl) extends OptimisticTransaction with Logging {
-  import OptimisticTransactionImpl._
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 
   /** Used for logging */
   private val txnId = UUID.randomUUID().toString
@@ -120,12 +121,12 @@ private[internal] class OptimisticTransactionImpl(
     val commitInfo = CommitInfo(
       deltaLog.clock.getTimeMillis(),
       op.getName.toString,
-      null, // TODO: use operation jsonEncodedValues
+      if (op.getParameters == null) null else op.getParameters.asScala.toMap,
       Map.empty,
       Some(readVersion).filter(_ >= 0),
       Option(isolationLevelToUse.toString),
       Some(isBlindAppend),
-      Some(op.getOperationMetrics.asScala.toMap),
+      Some(op.getMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
       Some(s"$engineInfo $NAME/$VERSION")
     )
@@ -221,7 +222,10 @@ private[internal] class OptimisticTransactionImpl(
     assert(metadataChanges.length <= 1,
       "Cannot change the metadata more than once in a transaction.")
 
-    metadataChanges.foreach(m => verifyNewMetadata(m))
+    metadataChanges.foreach { m =>
+      verifyNewMetadata(m)
+      verifySchemaCompatibility(snapshot.metadataScala.schema, m.schema, actions)
+    }
 
     finalActions = newProtocol.toSeq ++ finalActions
 
@@ -432,6 +436,30 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   /**
+   * We want to check that the [[newSchema]] is compatible with the [[existingSchema]].
+   *
+   * If the table is empty, or if the current commit is removing all the files in the table,
+   * then we do not need to perform this compatibility check.
+   */
+  private def verifySchemaCompatibility(
+      existingSchema: StructType,
+      newSchema: StructType,
+      actions: Seq[Action]): Unit = {
+    val tableEmpty = snapshot.numOfFiles == 0
+
+    lazy val allCurrentFilesRemoved = {
+      val removeFiles = actions.collect { case r: RemoveFile => r }
+      removeFiles.map(_.path).toSet == snapshot.allFilesScala.map(_.path).toSet
+    }
+
+    if (tableEmpty || allCurrentFilesRemoved) return
+
+    if (!SchemaUtils.isWriteCompatible(existingSchema, newSchema)) {
+      throw DeltaErrors.schemaChangedException(existingSchema, newSchema)
+    }
+  }
+
+  /**
    * Returns true if we should checkpoint the version that has just been committed.
    */
   private def shouldCheckpoint(committedVersion: Long): Boolean = {
@@ -479,12 +507,4 @@ private[internal] class OptimisticTransactionImpl(
     super.logError(logPrefix + msg, throwable)
   }
 
-}
-
-private[internal] object OptimisticTransactionImpl {
-  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000 // TODO: DeltaConfig this
-
-//  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
-//    op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
-//  }
 }
