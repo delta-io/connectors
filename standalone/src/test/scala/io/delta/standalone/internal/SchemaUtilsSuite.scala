@@ -247,7 +247,7 @@ class SchemaUtilsSuite extends FunSuite {
       ("array", make(new ArrayType(new IntegerType(), true))), // containsNull
       ("map", make(new MapType(new StringType(), new FloatType(), true))) // valueContainsNull
     )
-    test(s"change of datatype should fail read compatibility - $scenario") {
+    test(s"change of datatype should fail write compatibility - $scenario") {
       for (a <- schemas.keys; b <- schemas.keys if a != b) {
         assert(!isWriteCompatible(schemas(a), schemas(b)),
           s"isWriteCompatible should have failed for: ${schemas(a)}, ${schemas(b)}")
@@ -272,12 +272,12 @@ class SchemaUtilsSuite extends FunSuite {
     val nonNullable = make(false)
 
     // restricted: nullable=true ==> nullable=false
-    test(s"restricted nullability should fail read compatibility - $scenario") {
+    test(s"restricted nullability should fail write compatibility - $scenario") {
       assert(!isWriteCompatible(nullable, nonNullable))
     }
 
     // relaxed: nullable=false ==> nullable=true
-    test(s"relaxed nullability should not fail read compatibility - $scenario") {
+    test(s"relaxed nullability should not fail write compatibility - $scenario") {
       assert(isWriteCompatible(nonNullable, nullable))
     }
   }
@@ -302,16 +302,16 @@ class SchemaUtilsSuite extends FunSuite {
     val withExtraNonNullable =
       make(struct => struct.add("extra", new StringType(), false)) // nullable = false
 
-    test(s"dropping a field should fail read compatibility - $scenario") {
+    test(s"dropping a field should fail write compatibility - $scenario") {
       assert(!isWriteCompatible(withExtraNullable, withoutExtra))
     }
-    test(s"adding a nullable field should not fail read compatibility - $scenario") {
+    test(s"adding a nullable field should not fail write compatibility - $scenario") {
       assert(isWriteCompatible(withoutExtra, withExtraNullable))
     }
-    test(s"adding a non-nullable field should not fail read compatibility - $scenario") {
+    test(s"adding a non-nullable field should not fail write compatibility - $scenario") {
       assert(isWriteCompatible(withoutExtra, withExtraNonNullable))
     }
-    test(s"case variation of field name should fail read compatibility - $scenario") {
+    test(s"case variation of field name should fail write compatibility - $scenario") {
       assert(!isWriteCompatible(withExtraNullable, withExtraMixedCase))
     }
 
