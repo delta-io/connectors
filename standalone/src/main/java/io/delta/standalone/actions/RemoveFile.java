@@ -13,10 +13,10 @@ import java.util.Optional;
  * Logical removal of a given file from the reservoir. Acts as a tombstone before a file is
  * deleted permanently.
  *
- * Note that for protocol compatibility reasons, the fields `partitionValues`, `size`, and `tags`
- * are only present when the extendedFileMetadata flag is true. New writers should generally be
- * setting this flag, but old writers (and FSCK) won't, so readers must check this flag before
- * attempting to consume those values.
+ * Note that for protocol compatibility reasons, the fields {@code partitionValues}, {@code size},
+ * and {@code tags} are only present when the extendedFileMetadata flag is true. New writers should
+ * generally be setting this flag, but old writers (and FSCK) won't, so readers must check this flag
+ * before attempting to consume those values.
  */
 public class RemoveFile implements FileAction {
     @Nonnull
@@ -78,7 +78,8 @@ public class RemoveFile implements FileAction {
     }
 
     /**
-     * @return true if the fields `partitionValues`, `size`, and `tags` are present
+     * @return true if the fields {@code partitionValues}, {@code size}, and {@code tags} are
+     *         present
      */
     public boolean isExtendedFileMetadata() {
         return extendedFileMetadata;

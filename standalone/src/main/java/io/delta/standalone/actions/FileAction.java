@@ -3,7 +3,7 @@
 package io.delta.standalone.actions;
 
 /**
- * Generic interface for Actions pertaining to the addition and removal of files.
+ * Generic interface for {@link Action}s pertaining to the addition and removal of files.
  */
 public interface FileAction extends Action {
 
