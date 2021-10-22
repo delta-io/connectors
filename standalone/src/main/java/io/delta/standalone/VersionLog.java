@@ -33,6 +33,7 @@ public class VersionLog {
     /**
      * @return an unmodifiable {@code List} of the actions for this table version
      */
+    @Nonnull
     public List<Action> getActions() {
         return Collections.unmodifiableList(actions);
     }

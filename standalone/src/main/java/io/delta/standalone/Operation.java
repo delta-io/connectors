@@ -1,9 +1,10 @@
+// TODO: copyright
+
 package io.delta.standalone;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * An operation that can be performed on a Delta table.

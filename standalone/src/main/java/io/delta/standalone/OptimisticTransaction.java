@@ -1,3 +1,5 @@
+// TODO: copyright
+
 package io.delta.standalone;
 
 import io.delta.standalone.actions.Action;
@@ -22,6 +24,8 @@ public interface OptimisticTransaction {
      * the given `lastVersion`. In the case of a conflict with a concurrent writer this
      * method will throw an exception.
      *
+     * @param <T>  A derived class of {@link Action}. This allows, for example, both a
+     *             {@code List<Action>} and a {@code List<AddFile>} to be accepted.
      * @param actions  Set of actions to commit.
      * @param op  Details of operation that is performing this transactional commit.
      * @param engineInfo  String used to identify the writer engine. It should resemble
