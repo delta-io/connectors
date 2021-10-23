@@ -61,7 +61,7 @@ public class SchemaConverter {
             case FLOAT:
                 return new FloatType();
             case INTEGER:
-                return new StringType();
+                return new IntegerType();
             case MAP:
                 org.apache.flink.table.types.logical.MapType mapType = (org.apache.flink.table.types.logical.MapType) flinkType;
                 DataType keyType = toDeltaDataType(mapType.getKeyType());

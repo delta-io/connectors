@@ -25,13 +25,14 @@ import io.delta.standalone.actions.Action;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.actions.SetTransaction;
-import io.delta.standalone.types.StringType;
 import io.delta.standalone.types.StructType;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
+import org.apache.flink.connector.delta.sink.SchemaConverter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
@@ -51,10 +52,18 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
     private final Path basePath;
 
+    private final RowType rowType;
+
+    private final boolean canOverwriteSchema;
+
     public DeltaGlobalCommitter(Configuration conf,
-                                Path basePath) {
+                                Path basePath,
+                                RowType rowType,
+                                boolean canOverwriteSchema) {
         this.conf = conf;
         this.basePath = basePath;
+        this.rowType = rowType;
+        this.canOverwriteSchema = canOverwriteSchema;
     }
 
 
@@ -74,32 +83,23 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
                 return deltaCommittable.getAppId();
             }
         }
-        return null;
+        return null; // to do throw custom exception here
     }
 
     @Override
     public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         if (!globalCommittables.isEmpty()) {
             String appId = resolveAppId(globalCommittables);
-
             Map<Long, List<Action>> addFileActionsPerCheckpoint = prepareAddFileActionsPerCheckpoint(globalCommittables);
+            DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
             for (long checkpointId : addFileActionsPerCheckpoint.keySet().stream().sorted().collect(Collectors.toList())) {
-                DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
-
                 if (checkpointId > lastCommittedVersion) {
-                    List<Action> actions = new ArrayList<>();
-
-                    SetTransaction setTransaction = new SetTransaction(appId, checkpointId, Optional.of(System.currentTimeMillis()));
-                    actions.add(setTransaction);
-                    List<Action> addFileActions = addFileActionsPerCheckpoint.get(checkpointId);
-                    actions.addAll(addFileActions);
-
-                    Operation operation = prepareDeltaLogOperation(globalCommittables, addFileActions.size());
-                    StructType structType = deltaLog.snapshot().getMetadata().getSchema();
-                    // TODO add schema validation / comparison using org.apache.flink.connector.delta.sink.SchemaConverter
+                    handleMetadataUpdate(transaction);
+                    List<Action> actions = prepareAllActions(appId, checkpointId, addFileActionsPerCheckpoint);
+                    Operation operation = prepareDeltaLogOperation(globalCommittables, addFileActionsPerCheckpoint.get(checkpointId).size());
 
                     transaction.commit(actions, operation, this.engineInfo);
                 }
@@ -107,6 +107,36 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
         }
         return Collections.emptyList();
+    }
+
+    private void handleMetadataUpdate(OptimisticTransaction transaction) {
+        Metadata metadataAction = prepareMetadata();
+        if (!metadataAction.getSchema().toJson().equals(transaction.metadata().getSchema().toJson())) {
+            if (canOverwriteSchema) {
+                transaction.updateMetadata(metadataAction);
+            } else {
+                throw new RuntimeException();
+            }
+        }
+        // schemas are matching so do nothing. We do not need to include the metadata in the commit actions
+    }
+
+    private List<Action> prepareAllActions(String appId,
+                                           long checkpointId,
+                                           Map<Long, List<Action>> addFileActionsPerCheckpoint) {
+        List<Action> actions = new ArrayList<>();
+
+        SetTransaction setTransaction = new SetTransaction(appId, checkpointId, Optional.of(System.currentTimeMillis()));
+        actions.add(setTransaction);
+
+        List<Action> addFileActions = addFileActionsPerCheckpoint.get(checkpointId);
+        actions.addAll(addFileActions);
+        return actions;
+    }
+
+    private Metadata prepareMetadata() {
+        StructType dataStreamSchema = new SchemaConverter().toDeltaFormat(rowType);
+        return new Metadata.Builder().schema(dataStreamSchema).build();
     }
 
     private Operation prepareDeltaLogOperation(List<DeltaGlobalCommittable> globalCommittables,
@@ -176,13 +206,6 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
     }
 
-    public Configuration getConf() {
-        return conf;
-    }
-
-    public Path getBasePath() {
-        return basePath;
-    }
 
 
 }

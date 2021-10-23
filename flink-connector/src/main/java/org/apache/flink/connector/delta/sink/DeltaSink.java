@@ -41,7 +41,6 @@ import org.apache.hadoop.conf.Configuration;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -73,10 +72,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
 
-    private final DeltaSinkBuilder<IN> bucketsBuilder;
+    private final DeltaSinkBuilder<IN> sinkBuilder;
 
     DeltaSink(DeltaSinkBuilder<IN> bucketsBuilder) {
-        this.bucketsBuilder = checkNotNull(bucketsBuilder);
+        this.sinkBuilder = checkNotNull(bucketsBuilder);
     }
 
     @Override
@@ -86,7 +85,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
     ) throws IOException {
         String appId = restoreOrCreateAppId(states);
         long nextCheckpointId = restoreOrGetNextCheckpointId(appId);
-        DeltaWriter<IN> writer = bucketsBuilder.createWriter(context, appId, nextCheckpointId);
+        DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
         return writer;
     }
@@ -103,7 +102,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
      */
     private String restoreOrCreateAppId(List<DeltaWriterBucketState> states) {
         if (states.isEmpty()) {
-            return UUID.randomUUID().toString();
+            return sinkBuilder.getAppId();
         }
         return states.get(0).getAppId();
     }
@@ -117,7 +116,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
      * @return last committed version for the provided appId
      */
     private long restoreOrGetNextCheckpointId(String appId) {
-        DeltaLog deltaLog = DeltaLog.forTable(this.bucketsBuilder.getSerializableConfiguration().conf(), this.bucketsBuilder.getTableBasePath().getPath());
+        DeltaLog deltaLog = DeltaLog.forTable(this.sinkBuilder.getSerializableConfiguration().conf(), this.sinkBuilder.getTableBasePath().getPath());
         long lastCommittedCheckpointId = deltaLog.startTransaction().txnVersion(appId);
         if (lastCommittedCheckpointId < 0) {
             return 1;
@@ -129,7 +128,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
     @Override
     public Optional<SimpleVersionedSerializer<DeltaWriterBucketState>> getWriterStateSerializer() {
         try {
-            return Optional.of(bucketsBuilder.getWriterStateSerializer());
+            return Optional.of(sinkBuilder.getWriterStateSerializer());
         } catch (IOException e) {
             // it's not optimal that we have to do this but creating the serializers for the
             // FileSink/DeltaSink requires (among other things) a call to FileSystem.get() which declares
@@ -140,13 +139,13 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
 
     @Override
     public Optional<Committer<DeltaCommittable>> createCommitter() throws IOException {
-        return Optional.of(bucketsBuilder.createCommitter());
+        return Optional.of(sinkBuilder.createCommitter());
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<DeltaCommittable>> getCommittableSerializer() {
         try {
-            return Optional.of(bucketsBuilder.getCommittableSerializer());
+            return Optional.of(sinkBuilder.getCommittableSerializer());
         } catch (IOException e) {
             // it's not optimal that we have to do this but creating the serializers for the
             // FileSink/DeltaSink requires (among other things) a call to FileSystem.get() which declares
@@ -158,13 +157,13 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
     @Override
     public Optional<GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>> createGlobalCommitter() throws IOException {
 
-        return Optional.of(bucketsBuilder.createGlobalCommitter());
+        return Optional.of(sinkBuilder.createGlobalCommitter());
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<DeltaGlobalCommittable>> getGlobalCommittableSerializer() {
         try {
-            return Optional.of(bucketsBuilder.getGlobalCommittableSerializer());
+            return Optional.of(sinkBuilder.getGlobalCommittableSerializer());
         } catch (IOException e) {
             // it's not optimal that we have to do this but creating the serializers for the
             // FileSink requires (among other things) a call to FileSystem.get() which declares

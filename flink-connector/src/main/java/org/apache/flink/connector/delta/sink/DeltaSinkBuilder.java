@@ -47,6 +47,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.UUID;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -77,6 +78,13 @@ public class DeltaSinkBuilder<IN>
 
     private final RowType rowType;
 
+    private final String appId;
+
+    private boolean canOverwriteSchema;
+
+    private static String generateNewAppId() {
+        return UUID.randomUUID().toString();
+    }
 
     protected DeltaSinkBuilder(
             Path basePath,
@@ -93,7 +101,9 @@ public class DeltaSinkBuilder<IN>
                 OnCheckpointRollingPolicy.build(),
                 new DefaultDeltaWriterBucketFactory<>(),
                 OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
-                rowType
+                rowType,
+                generateNewAppId(),
+                false
         );
     }
 
@@ -106,7 +116,9 @@ public class DeltaSinkBuilder<IN>
             CheckpointRollingPolicy<IN, String> policy,
             DeltaWriterBucketFactory<IN> bucketFactory,
             OutputFileConfig outputFileConfig,
-            RowType rowType) {
+            RowType rowType,
+            String appId,
+            boolean canOverwriteSchema) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
         this.bucketCheckInterval = bucketCheckInterval;
@@ -116,6 +128,8 @@ public class DeltaSinkBuilder<IN>
         this.bucketFactory = checkNotNull(bucketFactory);
         this.outputFileConfig = checkNotNull(outputFileConfig);
         this.rowType = rowType;
+        this.appId = appId;
+        this.canOverwriteSchema = canOverwriteSchema;
     }
 
     public DeltaSinkBuilder<IN> withBucketCheckInterval(final long interval) {
@@ -153,7 +167,44 @@ public class DeltaSinkBuilder<IN>
                 rollingPolicy,
                 bucketFactory,
                 outputFileConfig,
-                rowType);
+                rowType,
+                appId,
+                canOverwriteSchema);
+    }
+
+    public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
+        return new DeltaSinkBuilder<>(
+                tableBasePath,
+                serializableConfiguration.conf(),
+                bucketCheckInterval,
+                writerFactory,
+                bucketAssigner,
+                rollingPolicy,
+                bucketFactory,
+                outputFileConfig,
+                rowType,
+                appId,
+                canOverwriteSchema);
+    }
+
+    public DeltaSinkBuilder<IN> withAppId(final String appId) {
+        return new DeltaSinkBuilder<>(
+                tableBasePath,
+                serializableConfiguration.conf(),
+                bucketCheckInterval,
+                writerFactory,
+                bucketAssigner,
+                rollingPolicy,
+                bucketFactory,
+                outputFileConfig,
+                rowType,
+                appId,
+                canOverwriteSchema);
+    }
+
+    public DeltaSinkBuilder<IN> withCanOverwriteSchema(final boolean canOverwriteSchema) {
+        this.canOverwriteSchema = canOverwriteSchema;
+        return this;
     }
 
     /**
@@ -184,7 +235,7 @@ public class DeltaSinkBuilder<IN>
     }
 
     DeltaGlobalCommitter createGlobalCommitter() throws IOException {
-        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath, rowType);
+        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath, rowType, canOverwriteSchema);
     }
 
     SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
@@ -227,6 +278,14 @@ public class DeltaSinkBuilder<IN>
 
     SerializableConfiguration getSerializableConfiguration() {
         return serializableConfiguration;
+    }
+
+    String getAppId() {
+        return appId;
+    }
+
+    public boolean isCanOverwriteSchema() {
+        return canOverwriteSchema;
     }
 }
 

@@ -225,12 +225,13 @@ class DeltaWriterBucket<IN> {
         if (deltaInProgressPart != null) {
             InProgressFileWriter<IN, String> inProgressPart = deltaInProgressPart.getInProgressPart();
             inProgressFileRecoverable = inProgressPart.persist();
-            inProgressFileToCleanup = inProgressFileRecoverable;
             inProgressFileCreationTime = inProgressPart.getCreationTime();
             inProgressPartFileName = deltaInProgressPart.getFileName();
             recordCount = this.inProgressPartRecordCount;
             inProgressPartFileSize = inProgressPart.getSize();
             lastUpdateTime = inProgressPart.getLastUpdateTime();
+
+            inProgressFileToCleanup = inProgressFileRecoverable;
         }
 
         return new DeltaWriterBucketState(

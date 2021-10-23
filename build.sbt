@@ -622,17 +622,16 @@ lazy val flinkConnector = (project in file("flink-connector"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-
       "org.apache.flink" % "flink-core" % flinkVersion,
       "org.apache.flink" % "flink-connector-files" % flinkVersion,
       "org.apache.flink" % "flink-table-common" % flinkVersion,
       "org.apache.flink" %% "flink-parquet" % flinkVersion,
       "org.apache.flink" %% "flink-runtime" % flinkVersion,
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion,
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
       "org.apache.flink" %% "flink-streaming-java" % flinkVersion % "test",
-      "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
-      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "test"
+      "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test"
     )
   )
   .settings(releaseSettings)
