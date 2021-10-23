@@ -167,7 +167,7 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
     }
 
     private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
-        Map<String, String> partitionValues = Collections.emptyMap(); // TODO
+        Map<String, String> partitionValues = deltaPendingFile.getPartitionSpec();
         long modificationTime = deltaPendingFile.getLastUpdateTime();
         return new AddFile(deltaPendingFile.getFileName(), partitionValues, deltaPendingFile.getFileSize(), modificationTime, true, null, null);
 

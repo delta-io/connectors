@@ -19,7 +19,13 @@
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public class DeltaPendingFile {
+
+    private final LinkedHashMap<String, String> partitionSpec;
 
     private final String fileName;
 
@@ -32,11 +38,13 @@ public class DeltaPendingFile {
     private final long lastUpdateTime;
 
 
-    public DeltaPendingFile(String fileName,
+    public DeltaPendingFile(LinkedHashMap<String, String> partitionSpec,
+                            String fileName,
                             InProgressFileWriter.PendingFileRecoverable pendingFile,
                             long recordCount,
                             long fileSize,
                             long lastUpdateTime) {
+        this.partitionSpec = partitionSpec;
         this.fileName = fileName;
         this.pendingFile = pendingFile;
         this.fileSize = fileSize;
@@ -63,4 +71,9 @@ public class DeltaPendingFile {
     public long getLastUpdateTime() {
         return lastUpdateTime;
     }
+
+    public Map<String, String> getPartitionSpec() {
+        return Collections.unmodifiableMap(partitionSpec);
+    }
+
 }
