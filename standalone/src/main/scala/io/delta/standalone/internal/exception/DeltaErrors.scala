@@ -18,6 +18,8 @@ package io.delta.standalone.internal.exception
 
 import java.io.{FileNotFoundException, IOException}
 
+import scala.annotation.varargs
+
 
 import io.delta.standalone.types.{DataType, StructType}
 import io.delta.standalone.exceptions._
@@ -39,6 +41,13 @@ private[internal] object DeltaErrors {
        |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
        |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
        |""".stripMargin)
+
+  val EmptyCheckpointErrorMessage =
+    s"""
+       |Attempted to write an empty checkpoint without any actions. This checkpoint will not be
+       |useful in recomputing the state of the table. However this might cause other checkpoints to
+       |get deleted based on retention settings.
+     """.stripMargin
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
@@ -100,12 +109,21 @@ private[internal] object DeltaErrors {
   }
 
   def nullValueFoundForPrimitiveTypes(fieldName: String): Throwable = {
-    new NullPointerException(s"Read a null value for field $fieldName which is a primitive type")
+    new NullPointerException(s"Read a null value for field $fieldName which is a primitive type.")
   }
 
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
     new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
+  }
+
+  def fieldTypeMismatch(
+      fieldName: String,
+      expectedType: DataType,
+      actualType: String): Throwable = {
+    new ClassCastException(
+      s"The data type of field $fieldName is ${expectedType.getTypeName}. " +
+        s"Cannot cast it to $actualType")
   }
 
   def failOnDataLossException(expectedVersion: Long, seenVersion: Long): Throwable = {
@@ -281,6 +299,24 @@ private[internal] object DeltaErrors {
 
   def unknownConfigurationKeyException(confKey: String): Throwable = {
     new DeltaStandaloneException(s"Unknown configuration was specified: $confKey")
+  }
+
+  def schemaChangedException(oldSchema: StructType, newSchema: StructType): Throwable = {
+    val msg =
+      s"""Detected incompatible schema change:
+        |old schema: ${oldSchema.getTreeString}
+        |
+        |new schema: ${newSchema.getTreeString}
+      """.stripMargin
+    new IllegalStateException(msg)
+  }
+
+  @varargs def illegalExpressionValueType(
+      exprName: String,
+      expectedType: String,
+      realTypes: String*): RuntimeException = {
+    new IllegalArgumentException(
+      s"$exprName expression requires $expectedType type. But found ${realTypes.mkString(", ")}");
   }
 
   ///////////////////////////////////////////////////////////////////////////

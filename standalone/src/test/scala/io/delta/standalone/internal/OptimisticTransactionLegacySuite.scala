@@ -16,10 +16,12 @@
 
 package io.delta.standalone.internal
 
+import java.util.Collections
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-import io.delta.standalone.{DeltaLog, Operation, NAME, VERSION}
+import io.delta.standalone.{DeltaLog, NAME, Operation, VERSION}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDeleteDeleteException, ConcurrentDeleteReadException, ConcurrentTransactionException, MetadataChangedException, ProtocolChangedException}
 import io.delta.standalone.expressions.{EqualTo, Literal}
@@ -28,6 +30,7 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
 import io.delta.standalone.types._
 import io.delta.standalone.internal.util.TestUtils._
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -481,6 +484,15 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       "Found duplicate column(s)")
   }
 
+  test("can't have duplicate column names - case insensitive") {
+    val schema = new StructType(Array(
+      new StructField("col1", new IntegerType(), true),
+      new StructField("COL1", new StringType(), true)
+    ))
+    testMetadata[RuntimeException](Metadata(schemaString = schema.toJson),
+      "Found duplicate column(s)")
+  }
+
   test("column names (both data and partition) must be acceptable by parquet") {
     val schema = new StructType(Array(new StructField("bad;column,name", new IntegerType(), true)))
 
@@ -499,16 +511,17 @@ class OptimisticTransactionLegacySuite extends FunSuite {
 
   test("CommitInfo operation and engineInfo is persisted to the delta log") {
     withTempDir { dir =>
+      val opParams = Collections.singletonMap(Operation.Metrics.numAddedFiles, "0")
+      val op = new Operation(Operation.Name.MANUAL_UPDATE, opParams)
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(Metadata() :: Nil, manualUpdate, engineInfo)
+      log.startTransaction().commit(Metadata() :: Nil, op, engineInfo)
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val commitInfo = log2.getCommitInfoAt(0)
       assert(commitInfo.getEngineInfo.isPresent)
       assert(commitInfo.getEngineInfo.get() == s"$engineInfo $NAME/$VERSION")
-      assert(commitInfo.getOperation == manualUpdate.getName.toString)
-
-      // TODO: test commitInfo.operationParameters
+      assert(commitInfo.getOperation == op.getName.toString)
+      assert(commitInfo.getOperationParameters.asScala == Map("numAddedFiles" -> "0"))
     }
   }
 
@@ -570,14 +583,15 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   //////////////////////////////////
 
   test("concurrent metadata update should fail") {
-    withLog(Nil) { log =>
+    withLog(actions = Nil, partitionCols = Nil) { log =>
       val tx1 = log.startTransaction()
+
       val tx2 = log.startTransaction()
-      tx2.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "foo")))
+      tx2.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
       tx2.commit(Iterable().asJava, manualUpdate, engineInfo)
 
       assertThrows[MetadataChangedException] {
-        tx1.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "bar")))
+        tx1.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
         tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
       }
     }
