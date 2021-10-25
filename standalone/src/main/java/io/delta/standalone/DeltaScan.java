@@ -23,7 +23,7 @@ import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.expressions.Expression;
 
 /**
- * Provides access to a memory-optimized iterator over the files in this snapshot.
+ * Provides access to an iterator over the files in this snapshot.
  *
  * Typically created with a read predicate {@link Expression} to let users filter files.
  */
