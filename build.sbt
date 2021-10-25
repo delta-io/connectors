@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// scalastyle:off line.size.limit
+
 import ReleaseTransformations._
 
 parallelExecution in ThisBuild := false
@@ -258,6 +260,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
 )
 
 lazy val standalone = (project in file("standalone"))
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     name := "delta-standalone",
     commonSettings,
@@ -277,14 +280,51 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("com.fasterxml.jackson.module")
       ),
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-    ))
+    ),
 
-  /**
-   * Unidoc settings
-   * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
-   */
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
-  .settings(
+    /**
+     * Standalone packaged (unshaded) jar.
+     *
+     * Build with `build/sbt standalone/package` command.
+     * e.g. connectors/standalone/target/scala-2.12/delta-standalone-unshaded_2.12-0.2.1-SNAPSHOT.jar
+     */
+    artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
+      artifact.name + "-unshaded" + "_" + sv.binary + "-" + module.revision  + "." + artifact.extension
+    },
+
+    /**
+     * Standalone assembly (shaded) jar. This is what we want to release.
+     *
+     * Build with `build/sbt standalone/assembly` command.
+     * e.g. connectors/standalone/target/scala-2.12/delta-standalone_2.12-0.2.1-SNAPSHOT.jar
+     */
+    logLevel in assembly := Level.Info,
+    test in assembly := {},
+    assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}.jar",
+    assemblyExcludedJars in assembly := {
+      val cp = (fullClasspath in assembly).value
+      val allowedPrefixes = Set("META_INF", "io", "json4s", "jackson")
+      cp.filter { f =>
+        !allowedPrefixes.exists(prefix => f.data.getName.startsWith(prefix))
+      }
+    },
+    assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll,
+      ShadeRule.rename("org.json4s.**" -> "shadedelta.@0").inAll
+    ),
+    assemblyMergeStrategy in assembly := {
+      // Discard `module-info.class` to fix the `different file contents found` error.
+      // TODO Upgrade SBT to 1.5 which will do this automatically
+      case "module-info.class" => MergeStrategy.discard
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
+
+    /**
+     * Unidoc settings
+     * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
+     */
     javacOptions in (JavaUnidoc, unidoc) := Seq(
       "-public",
       "-windowtitle", "Delta Standalone Reader " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
