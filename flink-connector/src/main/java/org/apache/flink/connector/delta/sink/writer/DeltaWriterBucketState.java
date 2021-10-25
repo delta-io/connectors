@@ -58,6 +58,7 @@ public class DeltaWriterBucketState {
 
     private final String appId;
 
+    // TODO we probably do not need to snapshot state of the inprogress file - to be confirmed later
     public DeltaWriterBucketState(
             String bucketId,
             Path bucketPath,

@@ -18,9 +18,14 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
+import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
+import org.apache.flink.core.fs.Path;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Random;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests the serialization and deserialization for {@link DeltaWriterBucketState}.
@@ -29,12 +34,60 @@ public class DeltaWriterBucketStateSerializerTest {
 
     @Test
     public void testWithoutInProgressFile() throws IOException {
-
+        DeltaWriterBucketState bucketState =
+                new DeltaWriterBucketState(
+                        "bucketId",
+                        new Path("file:///tmp/bucketId"),
+                        0,
+                        null,
+                        null,
+                        0,
+                        0,
+                        System.currentTimeMillis(),
+                        "appId"
+                );
+        DeltaWriterBucketState deserialized = serializeAndDeserialize(bucketState);
+        assertBucketStateEquals(bucketState, deserialized);
     }
 
     @Test
     public void testWithInProgressFile() throws IOException {
+        DeltaWriterBucketState bucketState =
+                new DeltaWriterBucketState(
+                        "bucketId",
+                        new Path("file:///tmp/bucketId"),
+                        1429537268,
+                        new FileSinkTestUtils.TestInProgressFileRecoverable(),
+                        "fileName",
+                        new Random().nextInt(1000),
+                        new Random().nextInt(1000),
+                        System.currentTimeMillis(),
+                        "appId"
+                );
+        DeltaWriterBucketState deserialized = serializeAndDeserialize(bucketState);
+        assertBucketStateEquals(bucketState, deserialized);
+    }
 
+    private void assertBucketStateEquals(DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
+        assertEquals(bucketState.getBucketId(), deserialized.getBucketId());
+        assertEquals(bucketState.getBucketPath(), deserialized.getBucketPath());
+        assertEquals(bucketState.getInProgressFileCreationTime(), deserialized.getInProgressFileCreationTime());
+        assertEquals(bucketState.getInProgressFileRecoverable(), deserialized.getInProgressFileRecoverable());
+        assertEquals(bucketState.getInProgressPartFileName(), deserialized.getInProgressPartFileName());
+        assertEquals(bucketState.getLastUpdateTime(), deserialized.getLastUpdateTime());
+        assertEquals(bucketState.getRecordCount(), deserialized.getRecordCount());
+        assertEquals(bucketState.getAppId(), deserialized.getAppId());
+        assertEquals(bucketState.getInProgressPartFileSize(), deserialized.getInProgressPartFileSize());
+    }
+
+    private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)
+            throws IOException {
+        DeltaWriterBucketStateSerializer serializer =
+                new DeltaWriterBucketStateSerializer(
+                        new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(
+                                FileSinkTestUtils.TestInProgressFileRecoverable::new));
+        byte[] data = serializer.serialize(bucketState);
+        return serializer.deserialize(serializer.getVersion(), data);
     }
 
 }

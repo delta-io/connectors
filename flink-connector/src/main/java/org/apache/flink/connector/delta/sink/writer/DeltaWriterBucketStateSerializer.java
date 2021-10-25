@@ -87,7 +87,6 @@ public class DeltaWriterBucketStateSerializer
         // put the current open part file
         if (state.hasInProgressFileRecoverable()) {
             InProgressFileRecoverable inProgressFileRecoverable = state.getInProgressFileRecoverable();
-            assert inProgressFileRecoverable != null;
             assert state.getInProgressPartFileName() != null;
             dataOutputView.writeBoolean(true);
             dataOutputView.writeUTF(state.getInProgressPartFileName());
