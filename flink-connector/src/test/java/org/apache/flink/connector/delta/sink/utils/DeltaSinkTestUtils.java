@@ -17,7 +17,7 @@ public class DeltaSinkTestUtils {
         public static DeltaPendingFile getTestDeltaPendingFile(LinkedHashMap<String, String> partitionSpec) {
             return new DeltaPendingFile(
                     partitionSpec,
-                    "file_name",
+                    "file_name-" + UUID.randomUUID(),
                     new FileSinkTestUtils.TestPendingFileRecoverable(),
                     new Random().nextInt(30000),
                     new Random().nextInt(500000),
@@ -36,6 +36,15 @@ public class DeltaSinkTestUtils {
                     TestDeltaPendingFile.getTestDeltaPendingFile(partitionSpec),
                     TEST_APP_ID,
                     TEST_CHECKPOINT_ID
+            );
+        }
+
+        public static DeltaCommittable getTestDeltaCommittableWithPendingFile(LinkedHashMap<String, String> partitionSpec,
+                                                                              long checkpointId) {
+            return new DeltaCommittable(
+                    TestDeltaPendingFile.getTestDeltaPendingFile(partitionSpec),
+                    TEST_APP_ID,
+                    checkpointId
             );
         }
 
@@ -64,6 +73,14 @@ public class DeltaSinkTestUtils {
                     deserialized.getInProgressFileToCleanup()
             );
             assertEquals(expectedPartitionSpec, deserialized.getDeltaPendingFile().getPartitionSpec());
+        }
+    }
+
+    public static class HadoopConfTest {
+        public static org.apache.hadoop.conf.Configuration getHadoopConf() {
+            org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+            conf.set("parquet.compression", "SNAPPY");
+            return conf;
         }
     }
 

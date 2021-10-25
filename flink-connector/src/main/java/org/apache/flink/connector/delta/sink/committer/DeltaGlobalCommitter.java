@@ -39,9 +39,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
@@ -90,14 +93,15 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
     public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         if (!globalCommittables.isEmpty()) {
             String appId = resolveAppId(globalCommittables);
-            Map<Long, List<Action>> addFileActionsPerCheckpoint = prepareAddFileActionsPerCheckpoint(globalCommittables);
+            Map<Long, List<AddFile>> addFileActionsPerCheckpoint = prepareAddFileActionsPerCheckpoint(globalCommittables);
             DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
             for (long checkpointId : addFileActionsPerCheckpoint.keySet().stream().sorted().collect(Collectors.toList())) {
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
-                    handleMetadataUpdate(transaction);
+                    List<String> partitionColumns = resolvePartitionColumnsForCurrentCheckpoint(checkpointId, addFileActionsPerCheckpoint);
+                    handleMetadataUpdate(deltaLog.snapshot().getVersion(), transaction, partitionColumns);
                     List<Action> actions = prepareAllActions(appId, checkpointId, addFileActionsPerCheckpoint);
                     Operation operation = prepareDeltaLogOperation(globalCommittables, addFileActionsPerCheckpoint.get(checkpointId).size());
 
@@ -109,34 +113,41 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         return Collections.emptyList();
     }
 
-    private void handleMetadataUpdate(OptimisticTransaction transaction) {
-        Metadata metadataAction = prepareMetadata();
-        if (!metadataAction.getSchema().toJson().equals(transaction.metadata().getSchema().toJson())) {
-            if (canOverwriteSchema) {
-                transaction.updateMetadata(metadataAction);
-            } else {
-                throw new RuntimeException();
-            }
+    private List<String> resolvePartitionColumnsForCurrentCheckpoint(long checkpointId, Map<Long, List<AddFile>> addFileActionsPerCheckpoint) {
+        // at this point we have already assured that all AddFile actions per current checkpoint have the same partition columns
+        // so in order to get partition columns for current checkpoint we only need to reach the first in the list
+        Map<String, String> currentPartitionValues = addFileActionsPerCheckpoint.get(checkpointId).get(0).getPartitionValues();
+        return new ArrayList<>(currentPartitionValues.keySet());
+    }
+
+    private void handleMetadataUpdate(long currentTableVersion,
+                                      OptimisticTransaction transaction,
+                                      List<String> partitionValues) {
+        Metadata metadataAction = prepareMetadata(partitionValues);
+        boolean schemasAreMatching = metadataAction.getSchema().toJson().equals(transaction.metadata().getSchema().toJson());
+        if ((currentTableVersion == -1) || (!schemasAreMatching && canOverwriteSchema)) {
+            transaction.updateMetadata(metadataAction);
+        } else if (!schemasAreMatching) {
+            throw new RuntimeException();
         }
-        // schemas are matching so do nothing. We do not need to include the metadata in the commit actions
     }
 
     private List<Action> prepareAllActions(String appId,
                                            long checkpointId,
-                                           Map<Long, List<Action>> addFileActionsPerCheckpoint) {
+                                           Map<Long, List<AddFile>> addFileActionsPerCheckpoint) {
         List<Action> actions = new ArrayList<>();
 
         SetTransaction setTransaction = new SetTransaction(appId, checkpointId, Optional.of(System.currentTimeMillis()));
         actions.add(setTransaction);
 
-        List<Action> addFileActions = addFileActionsPerCheckpoint.get(checkpointId);
+        List<AddFile> addFileActions = addFileActionsPerCheckpoint.get(checkpointId);
         actions.addAll(addFileActions);
         return actions;
     }
 
-    private Metadata prepareMetadata() {
+    private Metadata prepareMetadata(List<String> partitionValues) {
         StructType dataStreamSchema = new SchemaConverter().toDeltaFormat(rowType);
-        return new Metadata.Builder().schema(dataStreamSchema).build();
+        return new Metadata.Builder().partitionColumns(partitionValues).schema(dataStreamSchema).build();
     }
 
     private Operation prepareDeltaLogOperation(List<DeltaGlobalCommittable> globalCommittables,
@@ -146,8 +157,10 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         return new Operation(Operation.Name.STREAMING_UPDATE, operationParameters, operationMetrics);
     }
 
-    private Map<Long, List<Action>> prepareAddFileActionsPerCheckpoint(List<DeltaGlobalCommittable> globalCommittables) {
-        Map<Long, List<Action>> addFilesPerCheckpoint = new HashMap<>();
+    private Map<Long, List<AddFile>> prepareAddFileActionsPerCheckpoint(List<DeltaGlobalCommittable> globalCommittables) {
+        Map<Long, List<AddFile>> addFilesPerCheckpoint = new HashMap<>();
+        Map<Long, Set<String>> partitionColumnsMetadataPerCheckpoint = new HashMap<>();
+
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
                 if (deltaCommittable.hasDeltaPendingFile()) {
@@ -158,13 +171,40 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
                     }
 
                     AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
-
                     addFilesPerCheckpoint.get(deltaCommittable.getCheckpointId()).add(action);
+
+                    LinkedHashMap<String, String> currentPartitionSpec = deltaPendingFile.getPartitionSpec();
+                    if (!partitionColumnsMetadataPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
+                        partitionColumnsMetadataPerCheckpoint.put(deltaCommittable.getCheckpointId(), currentPartitionSpec.keySet());
+                    }
+
+                    boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(currentPartitionSpec.keySet(), partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId()));
+                    if (!isPartitionColumnsMetadataRetained) {
+                        throw new RuntimeException(
+                                "Partition columns cannot be different for files within the same checkpointId. " +
+                                        "checkpointId=" + deltaCommittable.getCheckpointId() + " " +
+                                        "Partition spec " + deltaPendingFile.getPartitionSpec() + " does not comply with partition columns from previous files: " +
+                                        partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId())
+                        );
+                    }
+
                 }
             }
         }
         return addFilesPerCheckpoint;
     }
+
+    private boolean compareKeysOfLinkedSets(Set<String> first, Set<String> second) {
+        Iterator<String> firstIterator = first.iterator();
+        Iterator<String> secondIterator = second.iterator();
+        while (firstIterator.hasNext() && secondIterator.hasNext()) {
+            if (!firstIterator.next().equals(secondIterator.next())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 
     private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
         Map<String, String> partitionValues = deltaPendingFile.getPartitionSpec();
@@ -205,7 +245,6 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
     public void close() throws Exception {
 
     }
-
 
 
 }

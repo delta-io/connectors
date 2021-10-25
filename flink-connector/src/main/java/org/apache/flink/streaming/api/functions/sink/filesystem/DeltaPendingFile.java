@@ -72,8 +72,8 @@ public class DeltaPendingFile {
         return lastUpdateTime;
     }
 
-    public Map<String, String> getPartitionSpec() {
-        return Collections.unmodifiableMap(partitionSpec);
+    public LinkedHashMap<String, String> getPartitionSpec() {
+        return new LinkedHashMap<>(partitionSpec);
     }
 
 }
