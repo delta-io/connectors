@@ -27,7 +27,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaInProgressP
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
-import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
 import org.apache.flink.table.utils.PartitionPathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +56,7 @@ class DeltaWriterBucket<IN> {
 
     private final DeltaBulkBucketWriter<IN, String> bucketWriter;
 
-    private final RollingPolicy<IN, String> rollingPolicy;
+    private final CheckpointRollingPolicy<IN, String> rollingPolicy;
 
     private final OutputFileConfig outputFileConfig;
 
@@ -83,7 +83,7 @@ class DeltaWriterBucket<IN> {
             String bucketId,
             Path bucketPath,
             DeltaBulkBucketWriter<IN, String> bucketWriter,
-            RollingPolicy<IN, String> rollingPolicy,
+            CheckpointRollingPolicy<IN, String> rollingPolicy,
             OutputFileConfig outputFileConfig) throws IOException {
         this.bucketId = checkNotNull(bucketId);
         this.bucketPath = checkNotNull(bucketPath);
@@ -102,7 +102,7 @@ class DeltaWriterBucket<IN> {
      */
     private DeltaWriterBucket(
             DeltaBulkBucketWriter<IN, String> partFileFactory,
-            RollingPolicy<IN, String> rollingPolicy,
+            CheckpointRollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
             OutputFileConfig outputFileConfig)
             throws IOException {
@@ -189,7 +189,6 @@ class DeltaWriterBucket<IN> {
             deltaInProgressPart = rollPartFile(currentTime);
         }
 
-
         deltaInProgressPart.getInProgressPart().write(element, currentTime);
         ++inProgressPartRecordCount;
     }
@@ -214,7 +213,6 @@ class DeltaWriterBucket<IN> {
             committables.add(new DeltaCommittable(inProgressFileToCleanup, appId, checkpointId));
             inProgressFileToCleanup = null;
         }
-
 
         return committables;
     }
@@ -359,7 +357,7 @@ class DeltaWriterBucket<IN> {
             final String bucketId,
             final Path bucketPath,
             final DeltaBulkBucketWriter<IN, String> bucketWriter,
-            final RollingPolicy<IN, String> rollingPolicy,
+            final CheckpointRollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig) throws IOException {
         return new DeltaWriterBucket<IN>(
                 bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
@@ -368,7 +366,7 @@ class DeltaWriterBucket<IN> {
 
     static <IN> DeltaWriterBucket<IN> restore(
             final DeltaBulkBucketWriter<IN, String> bucketWriter,
-            final RollingPolicy<IN, String> rollingPolicy,
+            final CheckpointRollingPolicy<IN, String> rollingPolicy,
             final DeltaWriterBucketState bucketState,
             final OutputFileConfig outputFileConfig)
             throws IOException {

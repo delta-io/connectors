@@ -22,7 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
-import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -35,13 +35,13 @@ public interface DeltaWriterBucketFactory<IN> extends Serializable {
             String bucketId,
             Path bucketPath,
             DeltaBulkBucketWriter<IN, String> bucketWriter,
-            RollingPolicy<IN, String> rollingPolicy,
+            CheckpointRollingPolicy<IN, String> rollingPolicy,
             OutputFileConfig outputFileConfig)
             throws IOException;
 
     DeltaWriterBucket<IN> restoreBucket(
             DeltaBulkBucketWriter<IN, String> bucketWriter,
-            RollingPolicy<IN, String> rollingPolicy,
+            CheckpointRollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
             OutputFileConfig outputFileConfig)
             throws IOException;
