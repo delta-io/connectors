@@ -13,7 +13,9 @@ This project uses checkstyle to format Java code. If developing locally, please 
 - Set the version to 8.29.
 - Under the `Configuration File` heading, click the `+` symbol to add our specific configuration file.
 - Give our file a useful description, such as `Delta Connectors Java Checks`, and provide the `connectors/dev/checkstyle.xml` path.
-- Click `Next` to add the checkstyle file, and don't forget to check `Active` next to it once it has been added.
+- Click `Next` to add the checkstyle file
+- Check `Active` next to it once it has been added
+- In the top right, set the Scan Scope to `Only Java sources (including tests)`
 
 3. Now, on the bottom tab bar, there should be a `CheckStyle` tab that lets you run Java style checks against using the `Check Project` button.
 

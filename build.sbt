@@ -48,7 +48,7 @@ lazy val commonSettings = Seq(
   testScalastyle := scalastyle.in(Test).toTask("").value,
   (test in Test) := ((test in Test) dependsOn testScalastyle).value,
 
-  // Can be run explicitly via: build/sbt checkstyle
+  // Can be run explicitly via: build/sbt $module/checkstyle
   // Will automatically be run during compilation (e.g. build/sbt compile)
   // and during tests (e.g. build/sbt test)
   checkstyleConfigLocation := CheckstyleConfigLocation.File("dev/checkstyle.xml"),
