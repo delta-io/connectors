@@ -161,6 +161,7 @@
         import all other imports
         <blank line>
         import io.delta.standalone.*
+        import io.delta.standalone.internal.*
         -->
         <module name="ImportOrder">
             <property name="separated" value="true"/>
