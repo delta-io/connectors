@@ -113,7 +113,7 @@ public final class FieldMetadata {
                                 Arrays.hashCode((Object[]) entry.getValue()) :
                         entry.hashCode())
                 ).sum();
-        }
+    }
 
     /**
      * @return a new {@code FieldMetadata.Builder}
