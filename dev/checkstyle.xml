@@ -151,6 +151,18 @@
 <!--            <property name="lineWrappingIndentation" value="4"/>-->
 <!--            <property name="arrayInitIndent" value="4"/>-->
 <!--        </module>-->
+
+        <!--
+        We use the following import order:
+        import java.*
+        import javax.*
+        <blank line>
+        import scala.*
+        <blank line>
+        import all other imports
+        <blank line>
+        import io.delta.standalone.*
+        -->
         <module name="ImportOrder">
             <property name="separated" value="true"/>
             <property name="ordered" value="true"/>
@@ -160,13 +172,18 @@
         <!--
         As per https://checkstyle.sourceforge.io/config_imports.html, "There is no flexibility to
         enforce empty lines between some groups and no empty lines between other groups." However,
-        we want io.delta.standalone imports to come before io.delta.standalone.internal imports,
-        yet we do not want them to be separated by a blank line. This suppression is how we achieve
-        that.
+        sometimes we want import X to come before import Y, yet we do not want them to be separated
+        by a blank line. This suppression is how we achieve that.
         -->
+        <!-- io.delta.standalone and io.delta.standalone.internal -->
         <module name="SuppressionXpathSingleFilter">
             <property name="checks" value="ImportOrder"/>
             <property name="message" value="^'io.delta.standalone\..*'.*"/>
+        </module>
+        <!-- java and javax -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="ImportOrder"/>
+            <property name="message" value="^'javax\..*'.*"/>
         </module>
 
         <module name="MethodParamPad"/>
