@@ -259,12 +259,41 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
-lazy val standalone = (project in file("standalone"))
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
+/**
+ * We want to publish the `standalone` project's shaded JAR (created from the
+ * build/sbt standalone/assembly command).
+ *
+ * However, build/sbt standalone/publish and build/sbt standalone/publishLocal will use the
+ * non-shaded JAR from the build/sbt standalone/package command.
+ *
+ * So, we create an impostor, cosmetic project used only for publishing.
+ *
+ * build/sbt standaloneCosmetic/package
+ * - creates connectors/standalone/target/scala-2.12/delta-standalone-original-shaded_2.12-0.2.1-SNAPSHOT.jar
+ *   (this is the shaded JAR we want)
+ *
+ * build/sbt standaloneCosmetic/publishLocal
+ * - packages the shaded JAR (above) and then produces:
+ * -- .ivy2/local/io.delta/delta-standalone_2.12/0.2.1-SNAPSHOT/poms/delta-standalone_2.12.pom
+ * -- .ivy2/local/io.delta/delta-standalone_2.12/0.2.1-SNAPSHOT/jars/delta-standalone_2.12.jar
+ * -- .ivy2/local/io.delta/delta-standalone_2.12/0.2.1-SNAPSHOT/srcs/delta-standalone_2.12-sources.jar
+ * -- .ivy2/local/io.delta/delta-standalone_2.12/0.2.1-SNAPSHOT/docs/delta-standalone_2.12-javadoc.jar
+ */
+lazy val standaloneCosmetic = project
   .settings(
     name := "delta-standalone",
     commonSettings,
     releaseSettings,
+    packageBin in Compile := (assembly in standalone).value
+  )
+
+lazy val standalone = (project in file("standalone"))
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
+  .settings(
+    name := "delta-standalone-original",
+    skip in publish := true,
+    commonSettings,
+    skipReleaseSettings,
     mimaSettings,
     unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
     libraryDependencies ++= Seq(
@@ -286,7 +315,7 @@ lazy val standalone = (project in file("standalone"))
      * Standalone packaged (unshaded) jar.
      *
      * Build with `build/sbt standalone/package` command.
-     * e.g. connectors/standalone/target/scala-2.12/delta-standalone-unshaded_2.12-0.2.1-SNAPSHOT.jar
+     * e.g. connectors/standalone/target/scala-2.12/delta-standalone-original-unshaded_2.12-0.2.1-SNAPSHOT.jar
      */
     artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
       artifact.name + "-unshaded" + "_" + sv.binary + "-" + module.revision  + "." + artifact.extension
@@ -296,11 +325,11 @@ lazy val standalone = (project in file("standalone"))
      * Standalone assembly (shaded) jar. This is what we want to release.
      *
      * Build with `build/sbt standalone/assembly` command.
-     * e.g. connectors/standalone/target/scala-2.12/delta-standalone_2.12-0.2.1-SNAPSHOT.jar
+     * e.g. connectors/standalone/target/scala-2.12/delta-standalone-original-shaded_2.12-0.2.1-SNAPSHOT.jar
      */
     logLevel in assembly := Level.Info,
     test in assembly := {},
-    assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}.jar",
+    assemblyJarName in assembly := s"${name.value}-shaded_${scalaBinaryVersion.value}-${version.value}.jar",
     assemblyExcludedJars in assembly := {
       val cp = (fullClasspath in assembly).value
       val allowedPrefixes = Set("META_INF", "io", "json4s", "jackson")
@@ -320,7 +349,11 @@ lazy val standalone = (project in file("standalone"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-
+    artifact in assembly := {
+      val art = (artifact in assembly).value
+      art.withClassifier(Some("assembly"))
+    },
+    addArtifact(artifact in assembly, assembly),
     /**
      * Unidoc settings
      * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
