@@ -178,7 +178,7 @@
         <!-- io.delta.standalone and io.delta.standalone.internal -->
         <module name="SuppressionXpathSingleFilter">
             <property name="checks" value="ImportOrder"/>
-            <property name="message" value="^'io.delta.standalone\..*'.*"/>
+            <property name="message" value="^'io.delta.standalone.internal\..*'.*"/>
         </module>
         <!-- java and javax -->
         <module name="SuppressionXpathSingleFilter">
