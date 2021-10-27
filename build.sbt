@@ -330,15 +330,17 @@ lazy val standalone = (project in file("standalone"))
     logLevel in assembly := Level.Info,
     test in assembly := {},
     assemblyJarName in assembly := s"${name.value}-shaded_${scalaBinaryVersion.value}-${version.value}.jar",
+    // we exclude jars first, and then we shade what is remaining
     assemblyExcludedJars in assembly := {
       val cp = (fullClasspath in assembly).value
-      val allowedPrefixes = Set("META_INF", "io", "json4s", "jackson")
+      val allowedPrefixes = Set("META_INF", "io", "json4s", "jackson", "paranamer")
       cp.filter { f =>
         !allowedPrefixes.exists(prefix => f.data.getName.startsWith(prefix))
       }
     },
     assemblyShadeRules in assembly := Seq(
       ShadeRule.rename("com.fasterxml.jackson.**" -> "shadedelta.@0").inAll,
+      ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll,
       ShadeRule.rename("org.json4s.**" -> "shadedelta.@0").inAll
     ),
     assemblyMergeStrategy in assembly := {
