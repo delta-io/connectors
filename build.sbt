@@ -287,6 +287,32 @@ lazy val standaloneCosmetic = project
     packageBin in Compile := (assembly in standalone).value
   )
 
+/**
+ * We also want to test that the standaloneCosmetic project's packaged JAR (which is the same as the
+ * standalone project's assembly JAR) properly shaded classes.
+ *
+ * Thus, we `publishLocal` the standaloneCosmetic project before tests, and we depend on the
+ * just-locally-published io.delta.standalone JAR.
+ *
+ * test using: build/sbt testStandaloneCosmetic/test
+ */
+lazy val shellScript = taskKey[Unit]("Execute the standalone cosmetic publishLocal command")
+lazy val testStandaloneCosmetic = project
+  .settings(
+    name := "test-standalone-cosmetic",
+    commonSettings,
+    skipReleaseSettings,
+    shellScript := {
+      import scala.sys.process._
+      "build/sbt standaloneCosmetic/publishLocal" !
+    },
+    (test in Test) := ((test in Test) dependsOn shellScript).value,
+    libraryDependencies ++= Seq(
+      "io.delta" %% "delta-standalone" % version.value % "test",
+      "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    )
+  )
+
 lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
