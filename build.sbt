@@ -17,6 +17,8 @@
 // scalastyle:off line.size.limit
 
 import ReleaseTransformations._
+import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
+import scala.xml.transform._
 
 parallelExecution in ThisBuild := false
 scalastyleConfig in ThisBuild := baseDirectory.value / "scalastyle-config.xml"
@@ -30,6 +32,9 @@ val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
 val tezVersion = "0.9.2"
 val hiveDeltaVersion = "0.5.0"
+val parquet4sVersion = "1.2.1"
+val parquetHadoopVersion = "1.10.1"
+val scalaTestVersion = "3.0.5"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -284,31 +289,65 @@ lazy val standaloneCosmetic = project
     name := "delta-standalone",
     commonSettings,
     releaseSettings,
+    pomPostProcess := { (node: XmlNode) =>
+      val hardcodeDeps = new RewriteRule {
+        override def transform(n: XmlNode): XmlNodeSeq = n match {
+          case e: Elem if e != null && e.label == "dependencies" =>
+            <dependencies>
+              <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>{scalaVersion.value}</version>
+              </dependency>
+              <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-client</artifactId>
+                <version>{hadoopVersion}</version>
+                <scope>provided</scope>
+              </dependency>
+              <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-hadoop</artifactId>
+                <version>{parquetHadoopVersion}</version>
+                <scope>provided</scope>
+              </dependency>
+              <dependency>
+                <groupId>com.github.mjakubowski84</groupId>
+                <artifactId>parquet4s-core_{scalaBinaryVersion.value}</artifactId>
+                <version>{parquet4sVersion}</version>
+                <exclusions>
+                  <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                  </exclusion>
+                  <exclusion>
+                    <groupId>org.apache.parquet</groupId>
+                    <artifactId>parquet-hadoop</artifactId>
+                  </exclusion>
+                </exclusions>
+              </dependency>
+              <dependency>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest_{scalaBinaryVersion.value}</artifactId>
+                <version>{scalaTestVersion}</version>
+                <scope>test</scope>
+              </dependency>
+            </dependencies>
+          case _ => n
+        }
+      }
+      new RuleTransformer(hardcodeDeps).transform(node).head
+    },
+    exportJars := true,
     packageBin in Compile := (assembly in standalone).value
   )
 
-/**
- * We also want to test that the standaloneCosmetic project's packaged JAR (which is the same as the
- * standalone project's assembly JAR) properly shaded classes.
- *
- * Thus, we `publishLocal` the standaloneCosmetic project before tests, and we depend on the
- * just-locally-published io.delta.standalone JAR.
- *
- * test using: build/sbt testStandaloneCosmetic/test
- */
-lazy val shellScript = taskKey[Unit]("Execute the standalone cosmetic publishLocal command")
-lazy val testStandaloneCosmetic = project
+lazy val testStandaloneCosmetic = project.dependsOn(standaloneCosmetic)
   .settings(
     name := "test-standalone-cosmetic",
     commonSettings,
     skipReleaseSettings,
-    shellScript := {
-      import scala.sys.process._
-      "build/sbt standaloneCosmetic/publishLocal" !
-    },
-    (test in Test) := ((test in Test) dependsOn shellScript).value,
     libraryDependencies ++= Seq(
-      "io.delta" %% "delta-standalone" % version.value % "test",
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     )
   )
@@ -322,10 +361,12 @@ lazy val standalone = (project in file("standalone"))
     skipReleaseSettings,
     mimaSettings,
     unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
+    // When updating any dependency here, we should also review `pomPostProcess` in project
+    // `standaloneCosmetic` and update it accordingly.
     libraryDependencies ++= Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-      "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
-      "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll (
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
+      "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
       ),
@@ -334,7 +375,7 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("com.fasterxml.jackson.core"),
         ExclusionRule("com.fasterxml.jackson.module")
       ),
-      "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     ),
 
     /**
