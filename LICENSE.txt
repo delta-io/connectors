@@ -1,4 +1,4 @@
-Copyright (2021) The Delta Lake Project Authors.  All rights reserved.
+Copyright (2020-present) The Delta Lake Project Authors.  All rights reserved.
 
 
                                  Apache License
