@@ -16,14 +16,15 @@
 
 package io.delta.standalone.internal
 
+import java.text.DateFormat
 import java.util.{Calendar, TimeZone}
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.internal.util.FileNames.{checkpointPrefix, isCheckpointFile, isDeltaFile, checkpointVersion, deltaVersion}
-
 import org.apache.commons.lang.time.DateUtils
 import org.apache.hadoop.fs.{FileStatus, Path}
+
+import io.delta.standalone.internal.util.FileNames.{checkpointPrefix, checkpointVersion, deltaVersion, isCheckpointFile, isDeltaFile}
 
 private[internal] trait MetadataCleanup {
   self: DeltaLogImpl =>
@@ -50,7 +51,9 @@ private[internal] trait MetadataCleanup {
   def cleanUpExpiredLogs(): Unit = {
     val fileCutOffTime = truncateDay(clock.getTimeMillis() - deltaRetentionMillis).getTime
 
-    lazy val formattedDate = fileCutOffTime.toGMTString
+    lazy val dateFormat = DateFormat.getDateInstance()
+    dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"))
+    lazy val formattedDate = dateFormat.format(fileCutOffTime)
     logInfo(s"Starting the deletion of log files older than $formattedDate")
 
     var numDeleted = 0

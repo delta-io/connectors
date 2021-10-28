@@ -24,28 +24,37 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
  */
 object ImportRunner extends App {
 
-  override def main(args: Array[String]): Unit = {
-    val config = new ImportRunnerConfig(args)
+  /**
+   * This used to have
+   * ```
+   * override def main(args: Array[String]): Unit = {
+   *   // val config = ...
+   * }
+   * ```
+   *
+   * but overriding method main in trait App is deprecated (since 2.11.0).
+   */
 
-    implicit val spark = SparkSession
-      .builder()
-      .appName("sql-delta-import")
-      .getOrCreate()
+  val config = new ImportRunnerConfig(args)
 
-    val importConfig = ImportConfig(
-      config.source(),
-      config.destination(),
-      config.splitBy(),
-      config.chunks())
+  implicit val spark = SparkSession
+    .builder()
+    .appName("sql-delta-import")
+    .getOrCreate()
 
-    val transforms = new DataTransforms(Seq.empty)
+  val importConfig = ImportConfig(
+    config.source(),
+    config.destination(),
+    config.splitBy(),
+    config.chunks())
 
-   JDBCImport(
-      jdbcUrl = config.jdbcUrl(),
-      importConfig = importConfig,
-      dataTransforms = transforms
-   ).run
-  }
+  val transforms = new DataTransforms(Seq.empty)
+
+ JDBCImport(
+    jdbcUrl = config.jdbcUrl(),
+    importConfig = importConfig,
+    dataTransforms = transforms
+ ).run
 }
 
 class ImportRunnerConfig(arguments: Seq[String]) extends ScallopConf(arguments) {
