@@ -129,7 +129,7 @@ public abstract class LogStore {
      *
      * Resolve the fully qualified path for the given `path`.
      *
-     * @since 0.3.0 // TODO: double check this will be the new DSW version
+     * @since 0.3.0
      *
      * @param path  the path to resolve
      * @param hadoopConf  the latest hadoopConf
