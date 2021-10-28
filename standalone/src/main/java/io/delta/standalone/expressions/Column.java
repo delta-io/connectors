@@ -9,9 +9,9 @@ import io.delta.standalone.types.*;
 
 /**
  * A column whose row-value will be computed based on the data in a {@link RowRecord}.
- *
+ * <p>
  * Usage: {@code new Column(columnName, columnDataType)}.
- *
+ * <p>
  * It is recommended that you instantiate using an existing table schema ({@link StructType}).
  * e.g. {@code mySchema.column(columnName)}
  */
