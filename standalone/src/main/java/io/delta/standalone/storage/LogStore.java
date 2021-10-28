@@ -47,8 +47,9 @@ import io.delta.standalone.data.CloseableIterator;
  * as a single parameter. This constructor is used to dynamically create the LogStore.
  *
  * LogStore and its implementations are not meant for direct access but for configuration based
- * on storage system. See [[https://docs.delta.io/latest/delta-storage.html]] for details.
+ * on storage system.
  *
+ * @see <a href="https://docs.delta.io/latest/delta-storage.html" target="_blank">Delta Storage</a>
  * @since 0.3.0
  */
 public abstract class LogStore {
@@ -89,9 +90,9 @@ public abstract class LogStore {
      * :: DeveloperApi ::
      *
      * Write the given `actions` to the given `path` with or without overwrite as indicated.
-     * Implementation must throw [[java.nio.file.FileAlreadyExistsException]] exception if the file
-     * already exists and overwrite = false. Furthermore, if isPartialWriteVisible returns false,
-     * implementation must ensure that the entire file is made visible atomically, that is,
+     * Implementation must throw {@link java.nio.file.FileAlreadyExistsException} exception if the
+     * file already exists and overwrite = false. Furthermore, if isPartialWriteVisible returns
+     * false, implementation must ensure that the entire file is made visible atomically, that is,
      * it should not generate partial files.
      *
      * @since 0.3.0
@@ -100,6 +101,7 @@ public abstract class LogStore {
      * @param actions  actions to be written
      * @param overwrite  if true, overwrites the file if it already exists
      * @param hadoopConf  the latest hadoopConf
+     * @throws FileAlreadyExistsException if the file already exists and overwrite is {@code false}
      */
     public abstract void write(
         Path path,
@@ -119,6 +121,7 @@ public abstract class LogStore {
      * @param hadoopConf  the latest hadoopConf
      * @return an Iterator of the paths lexicographically greater or equal to (UTF-8 sorting) the
      *         given `path`
+     * @throws FileNotFoundException if the file does not exist
      */
     public abstract Iterator<FileStatus> listFrom(
         Path path,

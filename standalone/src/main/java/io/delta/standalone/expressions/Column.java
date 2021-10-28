@@ -8,12 +8,12 @@ import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
 /**
- * A column whose row-value will be computed based on the data in a [[RowRecord]].
+ * A column whose row-value will be computed based on the data in a {@link RowRecord}.
  *
- * Usage: new Column(columnName, columnDataType).
+ * Usage: {@code new Column(columnName, columnDataType)}.
  *
- * It is recommended that you instantiate using a table schema (StructType).
- * e.g. schema.column(columnName)
+ * It is recommended that you instantiate using an existing table schema ({@link StructType}).
+ * e.g. {@code mySchema.column(columnName)}
  */
 public final class Column extends LeafExpression {
     private final String name;
