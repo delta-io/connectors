@@ -21,7 +21,6 @@ package org.apache.flink.connector.delta.sink;
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.CommitInfo;
-import org.apache.commons.io.FileUtils;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.state.ListState;
@@ -30,6 +29,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
@@ -47,9 +47,6 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
-import org.apache.flink.table.types.logical.IntType;
-import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 import org.junit.After;
@@ -58,54 +55,47 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.LongStream;
+
+import static org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 
 
 @RunWith(Parameterized.class)
 public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
-    private static final RowType ROW_TYPE = new RowType(Arrays.asList(
-            new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
-            new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
-            new RowType.RowField("age", new IntType())
-    ));
-
-    String DELTA_TABLE_PATH;
-
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
-
-    private String latchId;
 
     @Parameterized.Parameters(
             name = "triggerFailover = {0}"
     )
     public static Collection<Object[]> params() {
-        return Arrays.asList(new Object[]{false}, new Object[]{true});
+        return Arrays.asList(
+                new Object[]{false},
+                new Object[]{true}
+        );
+    }
+
+    private String latchId;
+    String deltaTablePath;
+
+
+    public DeltaSinkITStreaming() throws IOException {
     }
 
     @Before
     public void setup() {
-        try {
-            DELTA_TABLE_PATH = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         this.latchId = UUID.randomUUID().toString();
         LATCH_MAP.put(latchId, new CountDownLatch(NUM_SOURCES * 2));
-        resetTestDeltaTableFromBkp();
+        try {
+            deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
+            TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Weren't able to setup the test dependencies", e);
+        }
     }
 
     @After
@@ -121,13 +111,13 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        org.apache.hadoop.conf.Configuration conf = getHadoopConf();
-        DeltaLog deltaLog = DeltaLog.forTable(conf, DELTA_TABLE_PATH);
+        org.apache.hadoop.conf.Configuration conf = HadoopConfTest.getHadoopConf();
+        DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
         assert initialDeltaFiles.size() == 2;
 
-        JobGraph jobGraph = createJobGraph(DELTA_TABLE_PATH);
+        JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
         try (MiniCluster miniCluster = getMiniCluster()) {
@@ -170,10 +160,13 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
     }
 
     private DeltaSink<RowData> createDeltaSink() {
-        ParquetWriterFactory<RowData> factory = ParquetRowDataBuilder.createWriterFactory(ROW_TYPE, getHadoopConf(), true);
+        ParquetWriterFactory<RowData> factory = ParquetRowDataBuilder.createWriterFactory(
+                TestDeltaLakeTable.TEST_ROW_TYPE,
+                HadoopConfTest.getHadoopConf(),
+                true);
 
         return DeltaSink
-                .forDeltaFormat(new Path(DELTA_TABLE_PATH), getHadoopConf(), factory, ROW_TYPE)
+                .forDeltaFormat(new Path(deltaTablePath), HadoopConfTest.getHadoopConf(), factory, TestDeltaLakeTable.TEST_ROW_TYPE)
                 .build();
     }
 
@@ -187,23 +180,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
                         .setConfiguration(config)
                         .build();
         return new MiniCluster(cfg);
-    }
-
-    private org.apache.hadoop.conf.Configuration getHadoopConf() {
-        org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-        conf.set("parquet.compression", "SNAPPY");
-        return conf;
-    }
-
-    private void resetTestDeltaTableFromBkp() {
-        String pathBkp = Objects.requireNonNull(getClass().getResource("/test/test-table-4-bkp")).getPath();
-
-        try {
-            FileUtils.copyDirectory(new File(pathBkp), new File(DELTA_TABLE_PATH));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
     }
 
     private StreamExecutionEnvironment getTestStreamEnv() {
@@ -225,7 +201,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER =
             DataFormatConverters.getConverterForDataType(
-                    TypeConversions.fromLogicalToDataType(ROW_TYPE)
+                    TypeConversions.fromLogicalToDataType(TestDeltaLakeTable.TEST_ROW_TYPE)
             );
 
 

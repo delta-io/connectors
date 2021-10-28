@@ -165,7 +165,7 @@ public class DeltaSinkITBatch {
     }
 
     private void resetTestDeltaTableFromBkp() {
-        String pathBkp = Objects.requireNonNull(getClass().getResource("/test/test-table-4-bkp")).getPath();
+        String pathBkp = Objects.requireNonNull(getClass().getResource("/test-data/test-table-4-bkp")).getPath();
 
         try {
             FileUtils.copyDirectory(new File(pathBkp), new File(DELTA_TABLE_PATH));
