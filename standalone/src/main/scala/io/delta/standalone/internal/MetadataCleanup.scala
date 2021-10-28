@@ -16,7 +16,6 @@
 
 package io.delta.standalone.internal
 
-import java.text.DateFormat
 import java.util.{Calendar, TimeZone}
 
 import scala.collection.JavaConverters._
@@ -51,9 +50,7 @@ private[internal] trait MetadataCleanup {
   def cleanUpExpiredLogs(): Unit = {
     val fileCutOffTime = truncateDay(clock.getTimeMillis() - deltaRetentionMillis).getTime
 
-    lazy val dateFormat = DateFormat.getDateInstance()
-    dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"))
-    lazy val formattedDate = dateFormat.format(fileCutOffTime)
+    lazy val formattedDate = fileCutOffTime.toGMTString
     logInfo(s"Starting the deletion of log files older than $formattedDate")
 
     var numDeleted = 0
