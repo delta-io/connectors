@@ -273,7 +273,7 @@ public final class Operation {
 
     /**
      * @param name  The {@link Name} of the operation.
-     * @param parameters  Any additional operation parameters, where values are JSON-encoded.
+     * @param parameters  Any relevant operation parameters, where values are JSON-encoded.
      */
     public Operation(@Nonnull Name name, @Nullable Map<String, String> parameters) {
         this(name, parameters, Collections.emptyMap(), Optional.empty());
