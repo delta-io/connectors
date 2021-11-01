@@ -28,11 +28,10 @@ import com.google.common.io.CountingOutputStream
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 
-import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.util.FileNames
 
 private[internal] class S3SingleDriverLogStore(override val initHadoopConf: Configuration)
-  extends HadoopFileSystemLogStore(initHadoopConf) with Logging {
+  extends HadoopFileSystemLogStore(initHadoopConf) {
 
   import S3SingleDriverLogStore._
 

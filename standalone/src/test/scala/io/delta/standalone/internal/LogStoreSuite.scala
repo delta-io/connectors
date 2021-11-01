@@ -30,7 +30,7 @@ import io.delta.standalone.data.{CloseableIterator => CloseableIteratorJ}
 import io.delta.standalone.storage.LogStore
 
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
-import io.delta.standalone.internal.storage.{AzureLogStore, HDFSLogStore, LogStoreProvider, S3SingleDriverLogStore}
+import io.delta.standalone.internal.storage.{AzureLogStore, HDFSLogStore, LocalLogStore, LogStoreProvider, S3SingleDriverLogStore}
 import io.delta.standalone.internal.util.TestUtils._
 
 abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
@@ -179,6 +179,11 @@ class AzureLogStoreSuite extends LogStoreSuiteBase {
 class S3SingleDriverLogStoreSuite extends LogStoreSuiteBase {
   override def logStoreClassName: Option[String] = Some(classOf[S3SingleDriverLogStore].getName)
   override protected def shouldUseRenameToWriteCheckpoint: Boolean = false
+}
+
+class LocalLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] = Some(classOf[LocalLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
 }
 
 /**
