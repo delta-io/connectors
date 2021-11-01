@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-
-package io.delta.standalone.internal.util
+package io.delta.standalone.internal.actions
 
 import java.util.TimeZone
 
@@ -27,23 +26,19 @@ import org.apache.hadoop.fs.Path
 
 import io.delta.standalone.storage.LogStore
 
-import io.delta.standalone.internal.actions.{Action, Parquet4sSingleActionWrapper, SingleAction}
+import io.delta.standalone.internal.util.JsonUtils
 
-private[internal] object MemoryOptimizedLogReplayUtil {
+private[internal] class MemoryOptimizedLogReplay(
+    files: Seq[Path],
+    logStore: LogStore,
+    hadoopConf: Configuration,
+    timeZone: TimeZone) {
 
   /**
-   * Replay the transaction logs from the newest log file to the oldest log file.
-   *
    * @param actionListener a listener to receive all actions when we are reading logs. The second
    *                       `Boolean` parameter means whether an action is loaded from a checkpoint.
    */
-  def replayActionsReversely(
-      files: Seq[Path],
-      logStore: LogStore,
-      hadoopConf: Configuration,
-      timeZone: TimeZone)(
-      actionListener: (Action, Boolean) => Unit): Unit = {
-
+  def replayActionsReversely(actionListener: (Action, Boolean) => Unit) : Unit = {
     files.sortWith(_.getName > _.getName).foreach { path =>
       if (path.getName.endsWith(".json")) {
         val iter = logStore.read(path, hadoopConf)

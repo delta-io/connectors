@@ -29,12 +29,12 @@ import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, 
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.expressions.Expression
 
-import io.delta.standalone.internal.actions.{AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
+import io.delta.standalone.internal.actions.{AddFile, InMemoryLogReplay, MemoryOptimizedLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.scan.{DeltaScanImpl, FilteredDeltaScanImpl}
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, MemoryOptimizedLogReplayUtil}
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 
 /**
  * Scala implementation of Java interface [[Snapshot]].
@@ -86,6 +86,9 @@ private[internal] class SnapshotImpl(
   // Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
+  val memoryOptimizedLogReplay =
+    new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
+
   /**
    * Returns an implementation that provides an accessor to the files as internal Scala
    * [[AddFile]]s. This prevents us from having to replay the log internally, generate Scala
@@ -121,9 +124,7 @@ private[internal] class SnapshotImpl(
     var metadata: Metadata = null
     // We replay logs from newest to oldest and will stop when we find the latest Protocol and
     // metadata.
-    MemoryOptimizedLogReplayUtil.replayActionsReversely(
-      files, deltaLog.store, hadoopConf, deltaLog.timezone) { (action, _) =>
-
+    memoryOptimizedLogReplay.replayActionsReversely { (action, _) =>
       action match {
         case p: Protocol =>
           if (null == protocol) {
