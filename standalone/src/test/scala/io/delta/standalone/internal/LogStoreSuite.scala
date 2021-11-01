@@ -30,7 +30,7 @@ import io.delta.standalone.data.{CloseableIterator => CloseableIteratorJ}
 import io.delta.standalone.storage.LogStore
 
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
-import io.delta.standalone.internal.storage.{HDFSLogStore, LogStoreProvider}
+import io.delta.standalone.internal.storage.{AzureLogStore, HDFSLogStore, LogStoreProvider}
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -176,11 +176,13 @@ object TrackingRenameFileSystem {
   @volatile var numOfRename = 0
 }
 
-/**
- * Test providing a system-defined (standalone.internal.storage) LogStore.
- */
 class HDFSLogStoreSuite extends LogStoreSuiteBase {
   override def logStoreClassName: Option[String] = Some(classOf[HDFSLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
+}
+
+class AzureLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] = Some(classOf[AzureLogStore].getName)
   override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
 }
 
