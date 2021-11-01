@@ -28,16 +28,11 @@ import io.delta.standalone.internal.util.ConversionUtils
 
 /**
  * Scala implementation of Java interface [[DeltaScan]].
- *
- * TODO this is currently a naive implementation, since
- * a) it takes in the in-memory AddFiles.
- * b) it uses the metadata.partitionColumns, but the metadata won't be known until the log files
- *    are scanned
  */
 private[internal] class DeltaScanImpl(files: Seq[AddFile]) extends DeltaScan {
 
   /**
-   * Whether or not the given [[addFile]] should be returned during iteration.
+   * Whether or not the given [[AddFile]] should be returned during iteration.
    */
   protected def accept(addFile: AddFile): Boolean = true
 
@@ -49,7 +44,6 @@ private[internal] class DeltaScanImpl(files: Seq[AddFile]) extends DeltaScan {
    */
   def getFilesScala: Seq[AddFile] = files.filter(accept)
 
-  // TODO: memory-optimized implementation
   override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
     private var nextValid: Option[AddFile] = None
     private val iter = files.iterator

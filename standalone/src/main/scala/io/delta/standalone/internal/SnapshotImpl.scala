@@ -34,7 +34,7 @@ import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.scan.{DeltaScanImpl, FilteredDeltaScanImpl}
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, MemoryOptimizedLogReplayUtil}
 
 /**
  * Scala implementation of Java interface [[Snapshot]].
@@ -64,11 +64,11 @@ private[internal] class SnapshotImpl(
     new FilteredDeltaScanImpl(
       allFilesScala,
       predicate,
-      metadataScala.partitionSchema)
+      lazyMetadataScala.partitionSchema)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
-  override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
+  override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(metadataScala)
 
   override def getVersion: Long = version
 
@@ -112,7 +112,55 @@ private[internal] class SnapshotImpl(
   def metadataScala: Metadata = state.metadata
   def numOfFiles: Long = state.numOfFiles
 
-  private def load(paths: Seq[Path]): Seq[SingleAction] = {
+  /** A map to look up transaction version by appId. */
+  lazy val transactions: Map[String, Long] =
+    setTransactionsScala.map(t => t.appId -> t.version).toMap
+
+  protected lazy val (lazyProtocolScala, lazyMetadataScala) = loadTableProtocolAndMetadata()
+
+  private def loadTableProtocolAndMetadata(): (Protocol, Metadata) = {
+    var protocol: Protocol = null
+    var metadata: Metadata = null
+    // We replay logs from newest to oldest and will stop when we find the latest Protocol and
+    // metadata.
+    MemoryOptimizedLogReplayUtil.replayActionsReversely(
+      files, deltaLog.store, hadoopConf, deltaLog.timezone) { (action, _) =>
+
+      action match {
+        case p: Protocol =>
+          if (null == protocol) {
+            // We only need the latest protocol
+            protocol = p
+
+            if (protocol != null && metadata != null) {
+              // Stop since we have found the latest Protocol and metadata.
+              return (protocol, metadata)
+            }
+          }
+        case m: Metadata =>
+          if (null == metadata) {
+            metadata = m
+
+            if (protocol != null && metadata != null) {
+              // Stop since we have found the latest Protocol and metadata.
+              return (protocol, metadata)
+            }
+          }
+        case _ => // do nothing
+      }
+    }
+
+    // Sanity check. Should not happen in any valid Delta logs.
+    if (protocol == null) {
+      throw DeltaErrors.actionNotFoundException("protocol", logSegment.version)
+    }
+    if (metadata == null) {
+      throw DeltaErrors.actionNotFoundException("metadata", logSegment.version)
+    }
+    throw new IllegalStateException("should not happen")
+  }
+
+  private def loadInMemory(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
       if (path.endsWith("json")) {
         import io.delta.standalone.internal.util.Implicits._
@@ -131,12 +179,8 @@ private[internal] class SnapshotImpl(
     }.toList
   }
 
-  /**
-   * Reconstruct the state by applying deltas in order to the checkpoint.
-   */
-  protected lazy val state: State = {
+  private def files: Seq[Path] = {
     val logPathURI = path.toUri
-    val replay = new InMemoryLogReplay(hadoopConf, minFileRetentionTimestamp)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
     // assert that the log belongs to table
@@ -149,7 +193,15 @@ private[internal] class SnapshotImpl(
       }
     }
 
-    val actions = load(files).map(_.unwrap)
+    files
+  }
+
+  /**
+   * Reconstruct the state by applying deltas in order to the checkpoint.
+   */
+  protected lazy val state: State = {
+    val replay = new InMemoryLogReplay(hadoopConf, minFileRetentionTimestamp)
+    val actions = loadInMemory(files).map(_.unwrap)
 
     replay.append(0, actions.iterator)
 
@@ -168,8 +220,6 @@ private[internal] class SnapshotImpl(
       replay.getTombstones,
       replay.sizeInBytes,
       replay.getActiveFiles.size,
-      replay.numMetadata,
-      replay.numProtocol,
       replay.getTombstones.size,
       replay.getSetTransactions.size
     )
@@ -178,14 +228,10 @@ private[internal] class SnapshotImpl(
   private lazy val activeFilesJ =
     state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
 
-  /** A map to look up transaction version by appId. */
-  lazy val transactions: Map[String, Long] =
-    setTransactionsScala.map(t => t.appId -> t.version).toMap
-
   logInfo(s"[tableId=${deltaLog.tableId}] Created snapshot $this")
 
   /** Complete initialization by checking protocol version. */
-  deltaLog.assertProtocolRead(protocolScala)
+  deltaLog.assertProtocolRead(lazyProtocolScala)
 }
 
 private[internal] object SnapshotImpl {
@@ -211,8 +257,6 @@ private[internal] object SnapshotImpl {
    * @param tombstones The unexpired tombstones
    * @param sizeInBytes The total size of the table (of active files, not including tombstones)
    * @param numOfFiles The number of files in this table
-   * @param numOfMetadata The number of metadata actions in the state. Should be 1
-   * @param numOfProtocol The number of protocol actions in the state. Should be 1
    * @param numOfRemoves The number of tombstones in the state
    * @param numOfSetTransactions Number of streams writing to this table
    */
@@ -224,8 +268,6 @@ private[internal] object SnapshotImpl {
       tombstones: Iterable[RemoveFile],
       sizeInBytes: Long,
       numOfFiles: Long,
-      numOfMetadata: Long,
-      numOfProtocol: Long,
       numOfRemoves: Long,
       numOfSetTransactions: Long)
 }
@@ -244,8 +286,12 @@ private class InitialSnapshotImpl(
   extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
 
   override lazy val state: SnapshotImpl.State = {
-    SnapshotImpl.State(Protocol(), Metadata(), Nil, Nil, Nil, 0L, 0L, 1L, 1L, 0L, 0L)
+    SnapshotImpl.State(Protocol(), Metadata(), Nil, Nil, Nil, 0L, 0L, 0L, 0L)
   }
+
+  override protected lazy val lazyProtocolScala: Protocol = Protocol()
+
+  override protected lazy val lazyMetadataScala: Metadata = Metadata()
 
   override def scan(): DeltaScan = new DeltaScanImpl(Nil)
 
