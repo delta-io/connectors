@@ -44,8 +44,6 @@ private[internal] object MemoryOptimizedLogReplayUtil {
       timeZone: TimeZone)(
       actionListener: (Action, Boolean) => Unit): Unit = {
 
-    // TODO: pass in an error wrapper? so we can catch FileNotFound exceptions?
-
     files.sortWith(_.getName > _.getName).foreach { path =>
       if (path.getName.endsWith(".json")) {
         val iter = logStore.read(path, hadoopConf)

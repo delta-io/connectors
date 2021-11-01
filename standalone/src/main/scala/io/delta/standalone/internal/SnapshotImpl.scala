@@ -64,7 +64,7 @@ private[internal] class SnapshotImpl(
     new FilteredDeltaScanImpl(
       allFilesScala,
       predicate,
-      lazyMetadataScala.partitionSchema)
+      metadataScala.partitionSchema)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
@@ -103,20 +103,18 @@ private[internal] class SnapshotImpl(
   def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
   def setTransactions: Seq[SetTransactionJ] =
     state.setTransactions.map(ConversionUtils.convertSetTransaction)
-  def protocol: ProtocolJ = ConversionUtils.convertProtocol(state.protocol)
+  def protocol: ProtocolJ = ConversionUtils.convertProtocol(protocolScala)
 
   def allFilesScala: Seq[AddFile] = state.activeFiles.toSeq
   def tombstonesScala: Seq[RemoveFile] = state.tombstones.toSeq
   def setTransactionsScala: Seq[SetTransaction] = state.setTransactions
-  def protocolScala: Protocol = state.protocol
-  def metadataScala: Metadata = state.metadata
   def numOfFiles: Long = state.numOfFiles
 
   /** A map to look up transaction version by appId. */
   lazy val transactions: Map[String, Long] =
     setTransactionsScala.map(t => t.appId -> t.version).toMap
 
-  protected lazy val (lazyProtocolScala, lazyMetadataScala) = loadTableProtocolAndMetadata()
+  lazy val (protocolScala, metadataScala) = loadTableProtocolAndMetadata()
 
   private def loadTableProtocolAndMetadata(): (Protocol, Metadata) = {
     var protocol: Protocol = null
@@ -213,8 +211,6 @@ private[internal] class SnapshotImpl(
     }
 
     State(
-      replay.currentProtocolVersion,
-      replay.currentMetaData,
       replay.getSetTransactions,
       replay.getActiveFiles,
       replay.getTombstones,
@@ -231,7 +227,7 @@ private[internal] class SnapshotImpl(
   logInfo(s"[tableId=${deltaLog.tableId}] Created snapshot $this")
 
   /** Complete initialization by checking protocol version. */
-  deltaLog.assertProtocolRead(lazyProtocolScala)
+  deltaLog.assertProtocolRead(protocolScala)
 }
 
 private[internal] object SnapshotImpl {
@@ -250,8 +246,6 @@ private[internal] object SnapshotImpl {
   /**
    * Metrics and metadata computed around the Delta table.
    *
-   * @param protocol The protocol version of the Delta table
-   * @param metadata The metadata of the table
    * @param setTransactions The streaming queries writing to this table
    * @param activeFiles The files in this table
    * @param tombstones The unexpired tombstones
@@ -261,8 +255,6 @@ private[internal] object SnapshotImpl {
    * @param numOfSetTransactions Number of streams writing to this table
    */
   case class State(
-      protocol: Protocol,
-      metadata: Metadata,
       setTransactions: Seq[SetTransaction],
       activeFiles: Iterable[AddFile],
       tombstones: Iterable[RemoveFile],
@@ -286,12 +278,12 @@ private class InitialSnapshotImpl(
   extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
 
   override lazy val state: SnapshotImpl.State = {
-    SnapshotImpl.State(Protocol(), Metadata(), Nil, Nil, Nil, 0L, 0L, 0L, 0L)
+    SnapshotImpl.State(Nil, Nil, Nil, 0L, 0L, 0L, 0L)
   }
 
-  override protected lazy val lazyProtocolScala: Protocol = Protocol()
+  override lazy val protocolScala: Protocol = Protocol()
 
-  override protected lazy val lazyMetadataScala: Metadata = Metadata()
+  override lazy val metadataScala: Metadata = Metadata()
 
   override def scan(): DeltaScan = new DeltaScanImpl(Nil)
 
