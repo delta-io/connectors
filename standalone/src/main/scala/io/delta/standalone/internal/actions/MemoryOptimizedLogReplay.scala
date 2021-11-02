@@ -88,7 +88,7 @@ private[internal] class MemoryOptimizedLogReplay(
       }
 
       override def next(): (Action, Boolean) = {
-        if (!hasNext) throw new NoSuchElementException
+        if (!hasNext()) throw new NoSuchElementException
 
         val result = if (jsonIter.isDefined) {
           val nextLine = jsonIter.get.next()

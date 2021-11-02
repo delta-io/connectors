@@ -148,8 +148,11 @@ class DeltaScanSuite extends FunSuite {
       val scan = log.update().scan(filter)
       val iter = scan.getFiles
       while (iter.hasNext) {
+        iter.hasNext // let's use another hasNext call to make sure it is idempotent
+
         set += iter.next()
       }
+
       assert(set == expectedSet)
 
       iter.close()

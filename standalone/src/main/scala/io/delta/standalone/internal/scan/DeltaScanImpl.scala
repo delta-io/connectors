@@ -108,7 +108,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     }
 
     override def next(): AddFile = {
-      if (!hasNext) throw new NoSuchElementException()
+      if (!hasNext()) throw new NoSuchElementException()
       nextIsLoaded = false
       nextMatching.get
     }
