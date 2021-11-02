@@ -435,7 +435,7 @@ abstract class DeltaLogSuiteBase extends FunSuite {
 // Concrete Implementations
 ///////////////////////////////////////////////////////////////////////////
 
-class DeltaLogSuite extends DeltaLogSuiteBase {
+class StandardDeltaLogSuite extends DeltaLogSuiteBase {
   class StandardSnapshot(snapshot: Snapshot) extends CustomAddFilesAccessor(snapshot) {
     override def _getFiles(): java.util.List[AddFileJ] = snapshot.getAllFiles
   }
