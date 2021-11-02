@@ -23,59 +23,112 @@ import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.expressions.Expression
 
-import io.delta.standalone.internal.actions.AddFile
+import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay, RemoveFile}
 import io.delta.standalone.internal.util.ConversionUtils
 
 /**
  * Scala implementation of Java interface [[DeltaScan]].
  */
-private[internal] class DeltaScanImpl(files: Seq[AddFile]) extends DeltaScan {
-
+private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends DeltaScan {
   /**
    * Whether or not the given [[AddFile]] should be returned during iteration.
    */
   protected def accept(addFile: AddFile): Boolean = true
 
-  /**
-   * This is a utility method for internal use cases where we need the filtered files
-   * as their Scala instances, instead of Java.
-   *
-   * Since this is for internal use, we can keep this as a [[Seq]].
-   */
-  def getFilesScala: Seq[AddFile] = files.filter(accept)
+  private def getIterScala: CloseableIterator[AddFile] = new CloseableIterator[AddFile] {
+    private val iter = replay.getReverseIterator
+    private val addFiles = new scala.collection.mutable.HashSet[String]()
+    private val tombstones = new scala.collection.mutable.HashSet[String]()
+    private var nextMatching: Option[AddFile] = None
 
-  override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
-    private var nextValid: Option[AddFile] = None
-    private val iter = files.iterator
+    // Initialize next matched element so that the first hasNext() and next() calls succeed
+    findNextMatching()
 
-    // Initialize next valid element so that the first hasNext() and next() calls succeed
-    findNextValid()
-
-    private def findNextValid(): Unit = {
+    /**
+     * @return the next AddFile in the log that has not been removed or returned already, or None
+     *         if no such AddFile exists.
+     */
+    private def findNextValid(): Option[AddFile] = {
       while (iter.hasNext) {
-        val next = iter.next()
-        if (accept(next)) {
-          nextValid = Some(next)
-          return
+        val (action, isCheckpoint) = iter.next()
+
+        action match {
+          case add: AddFile =>
+            val alreadyDeleted = tombstones.contains(add.path)
+            val alreadyReturned = addFiles.contains(add.path)
+            if (!alreadyDeleted && !alreadyReturned) {
+              addFiles += add.path
+              return Some(add)
+            } else if (!alreadyReturned) {
+              addFiles += add.path
+            }
+
+          // Note: `RemoveFile` in a checkpoint is useless since when we generate a checkpoint, an
+          // AddFile file must be removed if there is a `RemoveFile`
+          case remove: RemoveFile if !isCheckpoint =>
+            tombstones += remove.path
+          case _ => // do nothing
         }
       }
 
       // No next valid found
-      nextValid = None
+      None
+    }
+
+    /**
+     * Sets the [[nextMatching]] variable to the next valid AddFile that also passes the given
+     * [[accept]] check, or None if no such AddFile file exists.
+     */
+    private def findNextMatching(): Unit = {
+      while (true) {
+        val nextValid = findNextValid()
+        if (nextValid.isEmpty) {
+          nextMatching = None
+          return
+        } else if (accept(nextValid.get)) {
+          nextMatching = nextValid
+          return
+        }
+      }
+
+      // No next matching found
+      nextMatching = None
     }
 
     override def hasNext: Boolean = {
-      nextValid.isDefined
+      nextMatching.isDefined
     }
 
-    override def next(): AddFileJ = {
+    override def next(): AddFile = {
       if (!hasNext) throw new NoSuchElementException()
-      val ret = ConversionUtils.convertAddFile(nextValid.get)
-      findNextValid()
+      val ret = nextMatching.get
+      findNextMatching()
       ret
     }
 
-    override def close(): Unit = { }
+    override def close(): Unit = {
+      iter.close()
+    }
+  }
+
+  /**
+   * This is a utility method for internal use cases where we need the filtered files
+   * as their Scala instances, instead of Java.
+   */
+  def getFilesScala: Array[AddFile] = {
+    import io.delta.standalone.internal.util.Implicits._
+
+    getIterScala.toArray
+  }
+
+  override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
+    private val iter = getIterScala
+
+    override def hasNext: Boolean = iter.hasNext
+
+    override def next(): AddFileJ = ConversionUtils.convertAddFile(iter.next())
+
+    override def close(): Unit = iter.close()
   }
 
   override def getInputPredicate: Optional[Expression] = Optional.empty()

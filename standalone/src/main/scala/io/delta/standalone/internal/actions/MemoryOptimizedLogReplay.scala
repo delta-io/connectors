@@ -18,12 +18,11 @@ package io.delta.standalone.internal.actions
 
 import java.util.TimeZone
 
-import scala.collection.JavaConverters._
-
 import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
+import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.storage.LogStore
 
 import io.delta.standalone.internal.util.JsonUtils
@@ -34,42 +33,73 @@ private[internal] class MemoryOptimizedLogReplay(
     hadoopConf: Configuration,
     timeZone: TimeZone) {
 
-  /**
-   * @param actionListener a listener to receive all actions when we are reading logs. The second
-   *                       `Boolean` parameter means whether an action is loaded from a checkpoint.
-   */
-  def replayActionsReversely(actionListener: (Action, Boolean) => Unit) : Unit = {
-    files.sortWith(_.getName > _.getName).foreach { path =>
-      if (path.getName.endsWith(".json")) {
-        val iter = logStore.read(path, hadoopConf)
-        try {
-          iter
-            .asScala
-            .map { line =>
-              JsonUtils.mapper.readValue[SingleAction](line).unwrap
-            }
-            .foreach { action =>
-              actionListener(action, false)
-            }
-        } finally {
-          iter.close()
-        }
-      } else if (path.getName.endsWith(".parquet")) {
-        val iter = ParquetReader.read[Parquet4sSingleActionWrapper](
-          path.toString,
-          ParquetReader.Options(timeZone, hadoopConf = hadoopConf)
-        )
-        try {
-          iter.iterator.map(_.unwrap.unwrap).foreach { action =>
-            actionListener(action, true)
+  def getReverseIterator: CloseableIterator[(Action, Boolean)] =
+    new CloseableIterator[(Action, Boolean)] {
+      private val reverseFilesIter: Iterator[Path] = files.sortWith(_.getName > _.getName).iterator
+      private var jsonIter: Option[CloseableIterator[String]] = None
+      private var parquetIter: Option[Iterator[Parquet4sSingleActionWrapper]] = None
+
+      // Initialize next element so that the first hasNext() and next() calls succeed
+      prepareNext()
+
+      private def prepareNext(): Unit = {
+        if (jsonIter.isDefined && jsonIter.get.hasNext) return
+        if (parquetIter.isDefined && parquetIter.get.hasNext) return
+
+        if (jsonIter.isDefined) jsonIter.get.close()
+
+        if (!reverseFilesIter.hasNext) {
+          jsonIter = None
+          parquetIter = None
+        } else {
+          // TODO: what about empty JSON files?
+          val nextFile = reverseFilesIter.next()
+
+          if (nextFile.getName.endsWith(".json")) {
+            jsonIter = Some(logStore.read(nextFile, hadoopConf))
+            parquetIter = None
+          } else if (nextFile.getName.endsWith(".parquet")) {
+            val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
+              nextFile.toString,
+              ParquetReader.Options(timeZone, hadoopConf = hadoopConf)
+            )
+
+            parquetIter = Some(parquetIterable.iterator)
+            jsonIter = None
+          } else {
+            throw new IllegalStateException(s"unexpected log file path: $nextFile")
           }
-        } finally {
-          iter.close()
         }
-      } else {
-        throw new IllegalStateException(s"unexpected log file path: $path")
       }
-    }
+
+      override def hasNext: Boolean = {
+        if (jsonIter.isDefined) return jsonIter.get.hasNext
+        if (parquetIter.isDefined) return parquetIter.get.hasNext
+
+        false
+      }
+
+      override def next(): (Action, Boolean) = {
+        if (!hasNext) throw new NoSuchElementException
+
+        val result = if (jsonIter.isDefined) {
+          val nextLine = jsonIter.get.next()
+          (JsonUtils.mapper.readValue[SingleAction](nextLine).unwrap, false)
+        } else if (parquetIter.isDefined) {
+          val nextWrappedSingleAction = parquetIter.get.next()
+          (nextWrappedSingleAction.unwrap.unwrap, true)
+        } else {
+          throw new IllegalStateException("Impossible")
+        }
+
+        prepareNext()
+
+        result
+      }
+
+      override def close(): Unit = {
+        if (jsonIter.isDefined) jsonIter.get.close()
+      }
   }
 
 }

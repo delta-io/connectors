@@ -18,16 +18,20 @@ package io.delta.standalone.internal
 
 import scala.collection.JavaConverters._
 
+import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
+import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.expressions.{And, EqualTo, LessThan, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
-import io.delta.standalone.internal.actions.AddFile
-import io.delta.standalone.internal.scan.FilteredDeltaScanImpl
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
 import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaScanSuite extends FunSuite {
+
+  private val op = new Operation(Operation.Name.WRITE)
 
   private val schema = new StructType(Array(
     new StructField("col1", new IntegerType(), true),
@@ -49,35 +53,50 @@ class DeltaScanSuite extends FunSuite {
   private val metadataConjunct = new EqualTo(schema.column("col1"), Literal.of(0))
   private val dataConjunct = new EqualTo(schema.column("col3"), Literal.of(5))
 
-  test("properly splits metadata (pushed) and data (residual) predicates") {
-    val mixedConjunct = new LessThan(schema.column("col2"), schema.column("col4"))
-    val filter = new And(new And(metadataConjunct, dataConjunct), mixedConjunct)
-    val scan = new FilteredDeltaScanImpl(files, filter, partitionSchema)
+  def withLog(actions: Seq[Action])(test: DeltaLog => Unit): Unit = {
+    val metadata = Metadata(
+      partitionColumns = partitionSchema.getFieldNames, schemaString = schema.toJson)
 
-    assert(scan.getPushedPredicate.get == metadataConjunct)
-    assert(scan.getResidualPredicate.get == new And(dataConjunct, mixedConjunct))
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, op, "engineInfo")
+      log.startTransaction().commit(actions, op, "engineInfo")
+
+      test(log)
+    }
+  }
+
+  test("properly splits metadata (pushed) and data (residual) predicates") {
+    withLog(files) { log =>
+      val mixedConjunct = new LessThan(schema.column("col2"), schema.column("col4"))
+      val filter = new And(new And(metadataConjunct, dataConjunct), mixedConjunct)
+      val scan = log.update().scan(filter)
+      assert(scan.getPushedPredicate.get == metadataConjunct)
+      assert(scan.getResidualPredicate.get == new And(dataConjunct, mixedConjunct))
+    }
   }
 
   test("filtered scan with a metadata (pushed) conjunct should return matched files") {
-    val filter = new And(metadataConjunct, dataConjunct)
-    val scan = new FilteredDeltaScanImpl(files, filter, partitionSchema)
+    withLog(files) { log =>
+      val filter = new And(metadataConjunct, dataConjunct)
+      val scan = log.update().scan(filter)
 
-    assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) ==
-      files.filter(_.partitionValues("col1").toInt == 0))
-    assert(scan.getFilesScala == files.filter(_.partitionValues("col1").toInt == 0))
+      assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) ==
+        files.filter(_.partitionValues("col1").toInt == 0))
 
-    assert(scan.getPushedPredicate.get == metadataConjunct)
-    assert(scan.getResidualPredicate.get == dataConjunct)
+      assert(scan.getPushedPredicate.get == metadataConjunct)
+      assert(scan.getResidualPredicate.get == dataConjunct)
+    }
   }
 
   test("filtered scan with only data (residual) predicate should return all files") {
-    val filter = dataConjunct
-    val scan = new FilteredDeltaScanImpl(files, filter, partitionSchema)
+    withLog(files) { log =>
+      val filter = dataConjunct
+      val scan = log.update().scan(filter)
 
-    assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) == files)
-    assert(scan.getFilesScala == files)
-
-    assert(!scan.getPushedPredicate.isPresent)
-    assert(scan.getResidualPredicate.get == filter)
+      assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) == files)
+      assert(!scan.getPushedPredicate.isPresent)
+      assert(scan.getResidualPredicate.get == filter)
+    }
   }
 }

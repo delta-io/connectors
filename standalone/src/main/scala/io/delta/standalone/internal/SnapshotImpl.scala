@@ -54,15 +54,18 @@ private[internal] class SnapshotImpl(
 
   import SnapshotImpl._
 
+  private val memoryOptimizedLogReplay =
+    new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
+
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def scan(): DeltaScan = new DeltaScanImpl(allFilesScala)
+  override def scan(): DeltaScan = new DeltaScanImpl(memoryOptimizedLogReplay)
 
   override def scan(predicate: Expression): DeltaScan =
     new FilteredDeltaScanImpl(
-      allFilesScala,
+      memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema)
 
@@ -86,20 +89,17 @@ private[internal] class SnapshotImpl(
   // Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  val memoryOptimizedLogReplay =
-    new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
-
   /**
    * Returns an implementation that provides an accessor to the files as internal Scala
    * [[AddFile]]s. This prevents us from having to replay the log internally, generate Scala
    * actions, convert them to Java actions (as per the [[DeltaScan]] interface), and then
    * convert them back to Scala actions.
    */
-  def scanScala(): DeltaScanImpl = new DeltaScanImpl(allFilesScala)
+  def scanScala(): DeltaScanImpl = new DeltaScanImpl(memoryOptimizedLogReplay)
 
   def scanScala(predicate: Expression): DeltaScanImpl =
     new FilteredDeltaScanImpl(
-      allFilesScala,
+      memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema)
 
@@ -122,32 +122,40 @@ private[internal] class SnapshotImpl(
   private def loadTableProtocolAndMetadata(): (Protocol, Metadata) = {
     var protocol: Protocol = null
     var metadata: Metadata = null
-    // We replay logs from newest to oldest and will stop when we find the latest Protocol and
-    // metadata.
-    memoryOptimizedLogReplay.replayActionsReversely { (action, _) =>
-      action match {
-        case p: Protocol =>
-          if (null == protocol) {
-            // We only need the latest protocol
-            protocol = p
 
-            if (protocol != null && metadata != null) {
-              // Stop since we have found the latest Protocol and metadata.
-              return (protocol, metadata)
-            }
-          }
-        case m: Metadata =>
-          if (null == metadata) {
-            metadata = m
+    val iter = memoryOptimizedLogReplay.getReverseIterator
 
-            if (protocol != null && metadata != null) {
-              // Stop since we have found the latest Protocol and metadata.
-              return (protocol, metadata)
+    try {
+      // We replay logs from newest to oldest and will stop when we find the latest Protocol and
+      // metadata.
+      iter.asScala.foreach { case (action, _) =>
+        action match {
+          case p: Protocol =>
+            if (null == protocol) {
+              // We only need the latest protocol
+              protocol = p
+
+              if (protocol != null && metadata != null) {
+                // Stop since we have found the latest Protocol and metadata.
+                return (protocol, metadata)
+              }
             }
-          }
-        case _ => // do nothing
+          case m: Metadata =>
+            if (null == metadata) {
+              metadata = m
+
+              if (protocol != null && metadata != null) {
+                // Stop since we have found the latest Protocol and metadata.
+                return (protocol, metadata)
+              }
+            }
+          case _ => // do nothing
+        }
       }
+    } finally {
+      iter.close()
     }
+
 
     // Sanity check. Should not happen in any valid Delta logs.
     if (protocol == null) {
@@ -278,6 +286,9 @@ private class InitialSnapshotImpl(
     override val deltaLog: DeltaLogImpl)
   extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
 
+  private val memoryOptimizedLogReplay =
+    new MemoryOptimizedLogReplay(Nil, deltaLog.store, hadoopConf, deltaLog.timezone)
+
   override lazy val state: SnapshotImpl.State = {
     SnapshotImpl.State(Nil, Nil, Nil, 0L, 0L, 0L, 0L)
   }
@@ -286,8 +297,8 @@ private class InitialSnapshotImpl(
 
   override lazy val metadataScala: Metadata = Metadata()
 
-  override def scan(): DeltaScan = new DeltaScanImpl(Nil)
+  override def scan(): DeltaScan = new DeltaScanImpl(null)
 
   override def scan(predicate: Expression): DeltaScan =
-    new FilteredDeltaScanImpl(Nil, predicate, metadataScala.partitionSchema)
+    new FilteredDeltaScanImpl(memoryOptimizedLogReplay, predicate, metadataScala.partitionSchema)
 }
