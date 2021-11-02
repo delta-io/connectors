@@ -52,11 +52,16 @@ abstract class DeltaLogSuiteBase extends FunSuite {
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
 
-  abstract class CustomChildSnapshot(snapshot: Snapshot) {
+  // We want to allow concrete child test suites to use their own "get all AddFiles" APIs.
+  // e.g. snapshot.getAllFiles or snapshot.scan.getFiles
+  //
+  // Child test suites should create their own concrete `CustomAddFilesAccessor` class and then
+  // override `createCustomAddFilesAccessor` to return a new instance of it.
+  abstract class CustomAddFilesAccessor(snapshot: Snapshot) {
     def _getFiles(): java.util.List[AddFileJ]
   }
 
-  implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot
+  implicit def createCustomAddFilesAccessor(snapshot: Snapshot): CustomAddFilesAccessor
 
   // scalastyle:on funsuite
   test("checkpoint") {
@@ -426,18 +431,22 @@ abstract class DeltaLogSuiteBase extends FunSuite {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////
+// Concrete Implementations
+///////////////////////////////////////////////////////////////////////////
+
 class DeltaLogSuite extends DeltaLogSuiteBase {
-  class StandardSnapshot(snapshot: Snapshot) extends CustomChildSnapshot(snapshot) {
+  class StandardSnapshot(snapshot: Snapshot) extends CustomAddFilesAccessor(snapshot) {
     override def _getFiles(): java.util.List[AddFileJ] = snapshot.getAllFiles
   }
 
-  override implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot = {
+  override implicit def createCustomAddFilesAccessor(snapshot: Snapshot): CustomAddFilesAccessor = {
     new StandardSnapshot(snapshot)
   }
 }
 
 class MemoryOptimizedDeltaLogSuite extends DeltaLogSuiteBase {
-  class MemoryOptimizedSnapshot(snapshot: Snapshot) extends CustomChildSnapshot(snapshot) {
+  class MemoryOptimizedSnapshot(snapshot: Snapshot) extends CustomAddFilesAccessor(snapshot) {
     override def _getFiles(): java.util.List[AddFileJ] = {
       import io.delta.standalone.internal.util.Implicits._
 
@@ -445,7 +454,7 @@ class MemoryOptimizedDeltaLogSuite extends DeltaLogSuiteBase {
     }
   }
 
-  override implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot = {
+  override implicit def createCustomAddFilesAccessor(snapshot: Snapshot): CustomAddFilesAccessor = {
     new MemoryOptimizedSnapshot(snapshot)
   }
 }

@@ -27,6 +27,10 @@ import io.delta.standalone.storage.LogStore
 
 import io.delta.standalone.internal.util.JsonUtils
 
+/**
+ * Used to replay the transaction logs from the newest log file to the oldest log file, in a
+ * memory-efficient, lazy, iterated manner.
+ */
 private[internal] class MemoryOptimizedLogReplay(
     files: Seq[Path],
     logStore: LogStore,
@@ -34,9 +38,8 @@ private[internal] class MemoryOptimizedLogReplay(
     timeZone: TimeZone) {
 
   /**
-   * Replay the transaction logs from the newest log file to the oldest log file.
-   *
-   * @return a [[CloseableIterator]] of tuple (Action, isLoadedFromCheckpoint)
+   * @return a [[CloseableIterator]] of tuple (Action, isLoadedFromCheckpoint) in reverse
+   *         transaction log order
    */
   def getReverseIterator: CloseableIterator[(Action, Boolean)] =
     new CloseableIterator[(Action, Boolean)] {
@@ -63,7 +66,7 @@ private[internal] class MemoryOptimizedLogReplay(
           } else if (nextFile.getName.endsWith(".parquet")) {
             val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
               nextFile.toString,
-              ParquetReader.Options(timeZone, hadoopConf = hadoopConf)
+              ParquetReader.Options(timeZone, hadoopConf)
             )
             actionIter = Some(new CustomParquetIterator(parquetIterable))
           } else {
@@ -72,7 +75,7 @@ private[internal] class MemoryOptimizedLogReplay(
 
           if (actionIter.exists(_.hasNext)) return
 
-          // It was an empty file
+          // it was an empty file
           actionIter.foreach(_.close())
           actionIter = None
         }
@@ -81,8 +84,8 @@ private[internal] class MemoryOptimizedLogReplay(
       override def hasNext: Boolean = {
         ensureNextIterIsReady()
 
-        // from the semantics of `ensureNextIterIsReady()`, if `actionIter` is defined, then it has
-        // a next element
+        // from the semantics of `ensureNextIterIsReady()`, if `actionIter` is defined then it is
+        // guaranteed to have a next element
         actionIter.isDefined
       }
 
@@ -99,6 +102,10 @@ private[internal] class MemoryOptimizedLogReplay(
       }
   }
 }
+
+///////////////////////////////////////////////////////////////////////////
+// Helper Classes
+///////////////////////////////////////////////////////////////////////////
 
 private class CustomJsonIterator(iter: CloseableIterator[String])
   extends CloseableIterator[(Action, Boolean)] {
