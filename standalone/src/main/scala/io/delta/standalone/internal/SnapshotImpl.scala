@@ -122,12 +122,11 @@ private[internal] class SnapshotImpl(
   private def loadTableProtocolAndMetadata(): (Protocol, Metadata) = {
     var protocol: Protocol = null
     var metadata: Metadata = null
-
     val iter = memoryOptimizedLogReplay.getReverseIterator
 
     try {
       // We replay logs from newest to oldest and will stop when we find the latest Protocol and
-      // metadata.
+      // Metadata.
       iter.asScala.foreach { case (action, _) =>
         action match {
           case p: Protocol =>
@@ -155,7 +154,6 @@ private[internal] class SnapshotImpl(
     } finally {
       iter.close()
     }
-
 
     // Sanity check. Should not happen in any valid Delta logs.
     if (protocol == null) {

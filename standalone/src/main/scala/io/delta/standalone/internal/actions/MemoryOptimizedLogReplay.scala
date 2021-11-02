@@ -18,7 +18,7 @@ package io.delta.standalone.internal.actions
 
 import java.util.TimeZone
 
-import com.github.mjakubowski84.parquet4s.ParquetReader
+import com.github.mjakubowski84.parquet4s.{ParquetIterable, ParquetReader}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -33,39 +33,45 @@ private[internal] class MemoryOptimizedLogReplay(
     hadoopConf: Configuration,
     timeZone: TimeZone) {
 
+  /**
+   * Replay the transaction logs from the newest log file to the oldest log file.
+   *
+   * @return a [[CloseableIterator]] of tuple (Action, isLoadedFromCheckpoint)
+   */
   def getReverseIterator: CloseableIterator[(Action, Boolean)] =
     new CloseableIterator[(Action, Boolean)] {
       private val reverseFilesIter: Iterator[Path] = files.sortWith(_.getName > _.getName).iterator
       private var jsonIter: Option[CloseableIterator[String]] = None
-      private var parquetIter: Option[Iterator[Parquet4sSingleActionWrapper]] = None
+      private var parquetIter: Option[(
+        ParquetIterable[Parquet4sSingleActionWrapper],
+        Iterator[Parquet4sSingleActionWrapper])] = None
 
       // Initialize next element so that the first hasNext() and next() calls succeed
       prepareNext()
 
       private def prepareNext(): Unit = {
-        if (jsonIter.isDefined && jsonIter.get.hasNext) return
-        if (parquetIter.isDefined && parquetIter.get.hasNext) return
+        if (jsonIter.exists(_.hasNext)) return
+        if (parquetIter.exists(_._2.hasNext)) return
 
-        if (jsonIter.isDefined) jsonIter.get.close()
+        jsonIter.foreach(_.close())
+        parquetIter.foreach(_._1.close())
 
-        if (!reverseFilesIter.hasNext) {
-          jsonIter = None
-          parquetIter = None
-        } else {
+        jsonIter = None
+        parquetIter = None
+
+        if (reverseFilesIter.hasNext) {
           // TODO: what about empty JSON files?
           val nextFile = reverseFilesIter.next()
 
           if (nextFile.getName.endsWith(".json")) {
             jsonIter = Some(logStore.read(nextFile, hadoopConf))
-            parquetIter = None
           } else if (nextFile.getName.endsWith(".parquet")) {
             val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
               nextFile.toString,
               ParquetReader.Options(timeZone, hadoopConf = hadoopConf)
             )
 
-            parquetIter = Some(parquetIterable.iterator)
-            jsonIter = None
+            parquetIter = Some(parquetIterable, parquetIterable.iterator)
           } else {
             throw new IllegalStateException(s"unexpected log file path: $nextFile")
           }
@@ -74,7 +80,7 @@ private[internal] class MemoryOptimizedLogReplay(
 
       override def hasNext: Boolean = {
         if (jsonIter.isDefined) return jsonIter.get.hasNext
-        if (parquetIter.isDefined) return parquetIter.get.hasNext
+        if (parquetIter.isDefined) return parquetIter.get._2.hasNext
 
         false
       }
@@ -86,7 +92,7 @@ private[internal] class MemoryOptimizedLogReplay(
           val nextLine = jsonIter.get.next()
           (JsonUtils.mapper.readValue[SingleAction](nextLine).unwrap, false)
         } else if (parquetIter.isDefined) {
-          val nextWrappedSingleAction = parquetIter.get.next()
+          val nextWrappedSingleAction = parquetIter.get._2.next()
           (nextWrappedSingleAction.unwrap.unwrap, true)
         } else {
           throw new IllegalStateException("Impossible")
@@ -98,7 +104,8 @@ private[internal] class MemoryOptimizedLogReplay(
       }
 
       override def close(): Unit = {
-        if (jsonIter.isDefined) jsonIter.get.close()
+        jsonIter.foreach(_.close())
+        parquetIter.foreach(_._1.close())
       }
   }
 

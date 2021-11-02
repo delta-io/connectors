@@ -30,19 +30,26 @@ import io.delta.standalone.internal.util.ConversionUtils
  * Scala implementation of Java interface [[DeltaScan]].
  */
 private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends DeltaScan {
+
   /**
    * Whether or not the given [[AddFile]] should be returned during iteration.
    */
   protected def accept(addFile: AddFile): Boolean = true
 
+  /**
+   * Replay Delta transaction logs and return a [[CloseableIterator]] of all [[AddFile]]s
+   * that
+   * - are valid delta files (i.e. they have not been removed or returned already)
+   * - pass the given [[accept]] check
+   */
   private def getIterScala: CloseableIterator[AddFile] = new CloseableIterator[AddFile] {
     private val iter = replay.getReverseIterator
     private val addFiles = new scala.collection.mutable.HashSet[String]()
     private val tombstones = new scala.collection.mutable.HashSet[String]()
     private var nextMatching: Option[AddFile] = None
 
-    // Initialize next matched element so that the first hasNext() and next() calls succeed
-    findNextMatching()
+    // Initialize next matching element so that the first hasNext() and next() calls succeed
+    setNextMatching()
 
     /**
      * @return the next AddFile in the log that has not been removed or returned already, or None
@@ -79,7 +86,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
      * Sets the [[nextMatching]] variable to the next valid AddFile that also passes the given
      * [[accept]] check, or None if no such AddFile file exists.
      */
-    private def findNextMatching(): Unit = {
+    private def setNextMatching(): Unit = {
       while (true) {
         val nextValid = findNextValid()
         if (nextValid.isEmpty) {
@@ -102,7 +109,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     override def next(): AddFile = {
       if (!hasNext) throw new NoSuchElementException()
       val ret = nextMatching.get
-      findNextMatching()
+      setNextMatching()
       ret
     }
 
