@@ -39,6 +39,32 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
   protected def accept(addFile: AddFile): Boolean = true
 
   /**
+   * This is a utility method for internal use cases where we need the filtered files
+   * as their Scala instances, instead of Java.
+   */
+  def getFilesScala: Array[AddFile] = {
+    import io.delta.standalone.internal.util.Implicits._
+
+    getIterScala.toArray
+  }
+
+  override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
+    private val iter = getIterScala
+
+    override def hasNext: Boolean = iter.hasNext
+
+    override def next(): AddFileJ = ConversionUtils.convertAddFile(iter.next())
+
+    override def close(): Unit = iter.close()
+  }
+
+  override def getInputPredicate: Optional[Expression] = Optional.empty()
+
+  override def getPushedPredicate: Optional[Expression] = Optional.empty()
+
+  override def getResidualPredicate: Optional[Expression] = Optional.empty()
+
+  /**
    * Replay Delta transaction logs and return a [[CloseableIterator]] of all [[AddFile]]s
    * that
    * - are valid delta files (i.e. they have not been removed or returned already)
@@ -129,30 +155,4 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
       iter.close()
     }
   }
-
-  /**
-   * This is a utility method for internal use cases where we need the filtered files
-   * as their Scala instances, instead of Java.
-   */
-  def getFilesScala: Array[AddFile] = {
-    import io.delta.standalone.internal.util.Implicits._
-
-    getIterScala.toArray
-  }
-
-  override def getFiles: CloseableIterator[AddFileJ] = new CloseableIterator[AddFileJ] {
-    private val iter = getIterScala
-
-    override def hasNext: Boolean = iter.hasNext
-
-    override def next(): AddFileJ = ConversionUtils.convertAddFile(iter.next())
-
-    override def close(): Unit = iter.close()
-  }
-
-  override def getInputPredicate: Optional[Expression] = Optional.empty()
-
-  override def getPushedPredicate: Optional[Expression] = Optional.empty()
-
-  override def getResidualPredicate: Optional[Expression] = Optional.empty()
 }

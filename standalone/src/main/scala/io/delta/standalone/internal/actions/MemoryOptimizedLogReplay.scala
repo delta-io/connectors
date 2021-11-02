@@ -41,34 +41,26 @@ private[internal] class MemoryOptimizedLogReplay(
   def getReverseIterator: CloseableIterator[(Action, Boolean)] =
     new CloseableIterator[(Action, Boolean)] {
       private val reverseFilesIter: Iterator[Path] = files.sortWith(_.getName > _.getName).iterator
-      private var jsonIter: Option[CloseableIterator[String]] = None
-      private var parquetIter: Option[(
-        ParquetIterable[Parquet4sSingleActionWrapper],
-        Iterator[Parquet4sSingleActionWrapper])] = None
+      private var actionIter: Option[CloseableIterator[(Action, Boolean)]] = None
       private var nextIsLoaded = false
 
       private def prepareNext(): Unit = {
-        if (jsonIter.exists(_.hasNext)) return
-        if (parquetIter.exists(_._2.hasNext)) return
+        if (actionIter.exists(_.hasNext)) return
 
-        jsonIter.foreach(_.close())
-        parquetIter.foreach(_._1.close())
-
-        jsonIter = None
-        parquetIter = None
+        actionIter.foreach(_.close())
+        actionIter = None
 
         if (reverseFilesIter.hasNext) {
           val nextFile = reverseFilesIter.next()
 
           if (nextFile.getName.endsWith(".json")) {
-            jsonIter = Some(logStore.read(nextFile, hadoopConf))
+            actionIter = Some(new CustomJsonIterator(logStore.read(nextFile, hadoopConf)))
           } else if (nextFile.getName.endsWith(".parquet")) {
             val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
               nextFile.toString,
               ParquetReader.Options(timeZone, hadoopConf = hadoopConf)
             )
-
-            parquetIter = Some(parquetIterable, parquetIterable.iterator)
+            actionIter = Some(new CustomParquetIterator(parquetIterable))
           } else {
             throw new IllegalStateException(s"unexpected log file path: $nextFile")
           }
@@ -81,8 +73,7 @@ private[internal] class MemoryOptimizedLogReplay(
           nextIsLoaded = true
         }
 
-        if (jsonIter.isDefined) return jsonIter.get.hasNext
-        if (parquetIter.isDefined) return parquetIter.get._2.hasNext
+        if (actionIter.isDefined) return actionIter.get.hasNext
 
         false
       }
@@ -90,15 +81,9 @@ private[internal] class MemoryOptimizedLogReplay(
       override def next(): (Action, Boolean) = {
         if (!hasNext()) throw new NoSuchElementException
 
-        val result = if (jsonIter.isDefined) {
-          val nextLine = jsonIter.get.next()
-          (JsonUtils.mapper.readValue[SingleAction](nextLine).unwrap, false)
-        } else if (parquetIter.isDefined) {
-          val nextWrappedSingleAction = parquetIter.get._2.next()
-          (nextWrappedSingleAction.unwrap.unwrap, true)
-        } else {
-          throw new IllegalStateException("Impossible")
-        }
+        if (actionIter.isEmpty) throw new IllegalStateException("Impossible")
+
+        val result = actionIter.get.next()
 
         nextIsLoaded = false
 
@@ -106,9 +91,33 @@ private[internal] class MemoryOptimizedLogReplay(
       }
 
       override def close(): Unit = {
-        jsonIter.foreach(_.close())
-        parquetIter.foreach(_._1.close())
+        actionIter.foreach(_.close())
       }
   }
+}
 
+private class CustomJsonIterator(iter: CloseableIterator[String])
+  extends CloseableIterator[(Action, Boolean)] {
+
+  override def hasNext: Boolean = iter.hasNext
+
+  override def next(): (Action, Boolean) = {
+    (JsonUtils.mapper.readValue[SingleAction](iter.next).unwrap, false)
+  }
+
+  override def close(): Unit = iter.close()
+}
+
+private class CustomParquetIterator(iterable: ParquetIterable[Parquet4sSingleActionWrapper])
+  extends CloseableIterator[(Action, Boolean)] {
+
+  private val iter = iterable.iterator
+
+  override def hasNext: Boolean = iter.hasNext
+
+  override def next(): (Action, Boolean) = {
+    (iter.next().unwrap.unwrap, true)
+  }
+
+  override def close(): Unit = iterable.close()
 }
