@@ -47,9 +47,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     private val addFiles = new scala.collection.mutable.HashSet[String]()
     private val tombstones = new scala.collection.mutable.HashSet[String]()
     private var nextMatching: Option[AddFile] = None
-
-    // Initialize next matching element so that the first hasNext() and next() calls succeed
-    setNextMatching()
+    private var nextIsLoaded = false
 
     /**
      * @return the next AddFile in the log that has not been removed or returned already, or None
@@ -65,6 +63,8 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
             val alreadyReturned = addFiles.contains(add.path)
             if (!alreadyDeleted && !alreadyReturned) {
               addFiles += add.path
+              // scalastyle:off
+              println(s"Found matched ${add.path}")
               return Some(add)
             } else if (!alreadyReturned) {
               addFiles += add.path
@@ -103,14 +103,17 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     }
 
     override def hasNext: Boolean = {
+      if (!nextIsLoaded) {
+        setNextMatching()
+        nextIsLoaded = true
+      }
       nextMatching.isDefined
     }
 
     override def next(): AddFile = {
       if (!hasNext) throw new NoSuchElementException()
-      val ret = nextMatching.get
-      setNextMatching()
-      ret
+      nextIsLoaded = false
+      nextMatching.get
     }
 
     override def close(): Unit = {

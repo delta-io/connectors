@@ -45,9 +45,7 @@ private[internal] class MemoryOptimizedLogReplay(
       private var parquetIter: Option[(
         ParquetIterable[Parquet4sSingleActionWrapper],
         Iterator[Parquet4sSingleActionWrapper])] = None
-
-      // Initialize next element so that the first hasNext() and next() calls succeed
-      prepareNext()
+      private var nextIsLoaded = false
 
       private def prepareNext(): Unit = {
         if (jsonIter.exists(_.hasNext)) return
@@ -62,6 +60,10 @@ private[internal] class MemoryOptimizedLogReplay(
         if (reverseFilesIter.hasNext) {
           // TODO: what about empty JSON files?
           val nextFile = reverseFilesIter.next()
+
+          // scalastyle:off println
+          println(nextFile.getName)
+          // scalastyle:on println
 
           if (nextFile.getName.endsWith(".json")) {
             jsonIter = Some(logStore.read(nextFile, hadoopConf))
@@ -79,6 +81,11 @@ private[internal] class MemoryOptimizedLogReplay(
       }
 
       override def hasNext: Boolean = {
+        if (!nextIsLoaded) {
+          prepareNext()
+          nextIsLoaded = true
+        }
+
         if (jsonIter.isDefined) return jsonIter.get.hasNext
         if (parquetIter.isDefined) return parquetIter.get._2.hasNext
 
@@ -98,7 +105,7 @@ private[internal] class MemoryOptimizedLogReplay(
           throw new IllegalStateException("Impossible")
         }
 
-        prepareNext()
+        nextIsLoaded = false
 
         result
       }

@@ -112,32 +112,43 @@ class DeltaScanSuite extends FunSuite {
 
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(Metadata() :: Nil, op, "engineInfo")
 
-      log.startTransaction().commit(addA_0 :: Nil, op, "engineInfo")
-      log.startTransaction().commit(addA_1 :: Nil, op, "engineInfo")
-      log.startTransaction().commit(addB_2_0 :: addB_2_1 :: Nil, op, "engineInfo")
-      log.startTransaction().commit(addC_3 :: Nil, op, "engineInfo")
-      log.startTransaction().commit(addD_4 :: Nil, op, "engineInfo")
-      log.startTransaction().commit(removeC_5 :: Nil, op, "engineInfo")
+      def commitNil(): Unit = log.startTransaction().commit(Nil, op, "engineInfo")
+      log.startTransaction().commit(Metadata() :: Nil, op, "engineInfo") // v0
+      log.startTransaction().commit(addA_0 :: Nil, op, "engineInfo") // v1
+      log.startTransaction().commit(addA_1 :: Nil, op, "engineInfo") // v2
+      commitNil() // v3
+      log.startTransaction().commit(addB_2_0 :: addB_2_1 :: Nil, op, "engineInfo") // v4
+      commitNil() // v5
+      commitNil() // v6
+      log.startTransaction().commit(addC_3 :: Nil, op, "engineInfo") // v7
+      commitNil() // v8
+      commitNil() // v9
+      commitNil() // v10 (checkpoint)
+      log.startTransaction().commit(addD_4 :: Nil, op, "engineInfo") // v11
+      log.startTransaction().commit(removeC_5 :: Nil, op, "engineInfo") // v12
 
-      // addA_0 not returned since addA_1 was committed later and will be returned before it
-      // addB_2_1 will not be returned since addB_2_0 will be written ahead in the .json delta file
+      // TODO improve these comments
+      // addA_0 will not be returned since addA_1 was committed later and will be returned before it
+      // addB_2_1 will be returned since it will be written to the checkpoint instead of addB_2_0
       // addC_3 will not be returned since it was later deleted
       // addD_4 will be returned
-      val expectedSet = Set(addA_1, addB_2_0, addD_4).map(ConversionUtils.convertAddFile)
-
+      val expectedSet = Set(addA_1, addB_2_1, addD_4).map(ConversionUtils.convertAddFile)
+      // scalastyle:off println
+      println("aaa")
       val set = new scala.collection.mutable.HashSet[AddFileJ]()
+      println("bbb")
       val scan = log.update().scan()
+      println("ccc")
       val iter = scan.getFiles
+      println("!!!!!!!!")
+      // scalastyle:on println
       while (iter.hasNext) {
         set += iter.next()
       }
-
       assert(set == expectedSet)
 
       iter.close()
     }
-
   }
 }
