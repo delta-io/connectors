@@ -75,7 +75,6 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     private val addFiles = new scala.collection.mutable.HashSet[URI]()
     private val tombstones = new scala.collection.mutable.HashSet[URI]()
     private var nextMatching: Option[AddFile] = None
-    private var nextIsLoaded = false
 
     /**
      * @return the next AddFile in the log that has not been removed or returned already, or None
@@ -138,17 +137,21 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     }
 
     override def hasNext: Boolean = {
-      if (!nextIsLoaded) {
+      // nextMatching will be empty if
+      // a) this is the first time hasNext has been called
+      // b) we've run out of files to iterate over. in this case, setNextMatching() and
+      //    findNextValid() will both short circuit and return immediately
+      if (nextMatching.isEmpty) {
         setNextMatching()
-        nextIsLoaded = true
       }
       nextMatching.isDefined
     }
 
     override def next(): AddFile = {
       if (!hasNext()) throw new NoSuchElementException()
-      nextIsLoaded = false
-      nextMatching.get
+      val ret = nextMatching.get
+      nextMatching = None
+      ret
     }
 
     override def close(): Unit = {

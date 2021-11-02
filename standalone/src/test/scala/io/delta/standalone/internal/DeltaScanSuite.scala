@@ -27,7 +27,7 @@ import io.delta.standalone.expressions.{And, EqualTo, LessThan, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
-import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaScanSuite extends FunSuite {
@@ -104,6 +104,14 @@ class DeltaScanSuite extends FunSuite {
     }
   }
 
+  /**
+   * This tests the following DeltaScan MemoryOptimized functionalities:
+   * - skipping AddFiles that don't match the given filter
+   * - returning AddFiles that do match the given filter
+   * - skipping AddFiles that were later removed
+   * - returning only the latest AddFile that was added across different commits
+   * - returning the first AddFile that was written in the same commit .json
+   */
   test("correct reverse replay") {
     val filter = new And(
       new EqualTo(partitionSchema.column("col1"), Literal.of(0)),
@@ -116,39 +124,48 @@ class DeltaScanSuite extends FunSuite {
     val addC_7 = AddFile("c", Map("col1" -> "0", "col2" -> "0"), 1L, 70L, dataChange = true)
     val addD_8 = AddFile("d", Map("col1" -> "0", "col2" -> "0"), 1L, 80L, dataChange = true)
     val removeD_9 = addD_8.removeWithTimestamp(90L)
-    val addE_13_0 = AddFile("e", Map("col1" -> "0", "col2" -> "0"), 1L, 130L, dataChange = true)
-    val addE_13_1 = AddFile("e", Map("col1" -> "0", "col2" -> "0"), 1L, 131L, dataChange = true)
+    val addE_13 = AddFile("e", Map("col1" -> "0", "col2" -> "0"), 1L, 10L, dataChange = true)
+    val addF_16_0 = AddFile("f", Map("col1" -> "0", "col2" -> "0"), 1L, 130L, dataChange = true)
+    val addF_16_1 = AddFile("f", Map("col1" -> "0", "col2" -> "0"), 1L, 131L, dataChange = true)
 
     withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val log = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath)
 
       def commit(actions: Seq[Action]): Unit =
         log.startTransaction().commit(actions, op, "engineInfo")
 
-      commit(metadata :: Nil)
+      commit(metadata :: Nil) // v0
       commit(addA_1 :: Nil) // IGNORED - replaced later by addA_2
       commit(addA_2 :: Nil) // RETURNED - passes filter
-      commit(Nil)
+      commit(Nil) // v3
       commit(addB_4 :: Nil) // IGNORED - fails filter
-      commit(Nil)
-      commit(Nil)
+      commit(Nil) // v5
+      commit(Nil) // v6
       commit(addC_7 :: Nil) // RETURNED
       commit(addD_8 :: Nil) // IGNORED - deleted later
       commit(removeD_9 :: Nil)
-      commit(Nil)
-      commit(Nil)
-      commit(Nil)
-      commit(addE_13_0 :: addE_13_1 :: Nil) // addE_13_0 RETURNED, addE_13_1 IGNORED
+      commit(Nil) // v10
+      commit(Nil) // v11
+      commit(Nil) // v12 - will be overwritten to be an empty file
+      commit(addE_13 :: Nil) // RETURNED
+      commit(Nil) // v14 - will be overwritten to be an empty file
+      commit(Nil) // v15 - will be overwritten to be an empty file
+      commit(addF_16_0 :: addF_16_1 :: Nil) // addF_16_0 RETURNED, addF_16_1 IGNORED
+      commit(Nil) // v17 - will be overwritten to be an empty file
 
-      val expectedSet = Set(
-        addA_2.copy(dataChange = false), // will be read from checkpoint
-        addC_7.copy(dataChange = false), // will be read from checkpoint
-        addE_13_0.copy(dataChange = false)
-      ).map(ConversionUtils.convertAddFile)
+      Seq(12, 14, 15, 17).foreach { i =>
+        val path = FileNames.deltaFile(log.logPath, i)
+        log.store.write(path, Iterator().asJava, true, log.hadoopConf)
+      }
+
+      val expectedSet = Set(addA_2, addC_7, addE_13, addF_16_0)
+        .map(_.copy(dataChange = false))
+        .map(ConversionUtils.convertAddFile)
 
       val set = new scala.collection.mutable.HashSet[AddFileJ]()
       val scan = log.update().scan(filter)
       val iter = scan.getFiles
+
       while (iter.hasNext) {
         iter.hasNext // let's use another hasNext call to make sure it is idempotent
 

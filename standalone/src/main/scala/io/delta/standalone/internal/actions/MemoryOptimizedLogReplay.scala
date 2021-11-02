@@ -42,15 +42,20 @@ private[internal] class MemoryOptimizedLogReplay(
     new CloseableIterator[(Action, Boolean)] {
       private val reverseFilesIter: Iterator[Path] = files.sortWith(_.getName > _.getName).iterator
       private var actionIter: Option[CloseableIterator[(Action, Boolean)]] = None
-      private var nextIsLoaded = false
 
-      private def prepareNext(): Unit = {
+      /**
+       * If the current `actionIter` has no more elements, this function repeatedly reads the next
+       * file, if it exists, and creates the next `actionIter` until we find a non-empty file.
+       */
+      private def ensureNextIterIsReady(): Unit = {
+        // this iterator already has a next element, we can return early
         if (actionIter.exists(_.hasNext)) return
 
         actionIter.foreach(_.close())
         actionIter = None
 
-        if (reverseFilesIter.hasNext) {
+        // there might be empty files. repeat until we find a non-empty file or run out of files
+        while (reverseFilesIter.hasNext) {
           val nextFile = reverseFilesIter.next()
 
           if (nextFile.getName.endsWith(".json")) {
@@ -64,18 +69,21 @@ private[internal] class MemoryOptimizedLogReplay(
           } else {
             throw new IllegalStateException(s"unexpected log file path: $nextFile")
           }
+
+          if (actionIter.exists(_.hasNext)) return
+
+          // It was an empty file
+          actionIter.foreach(_.close())
+          actionIter = None
         }
       }
 
       override def hasNext: Boolean = {
-        if (!nextIsLoaded) {
-          prepareNext()
-          nextIsLoaded = true
-        }
+        ensureNextIterIsReady()
 
-        if (actionIter.isDefined) return actionIter.get.hasNext
-
-        false
+        // from the semantics of `ensureNextIterIsReady()`, if `actionIter` is defined, then it has
+        // a next element
+        actionIter.isDefined
       }
 
       override def next(): (Action, Boolean) = {
@@ -83,11 +91,7 @@ private[internal] class MemoryOptimizedLogReplay(
 
         if (actionIter.isEmpty) throw new IllegalStateException("Impossible")
 
-        val result = actionIter.get.next()
-
-        nextIsLoaded = false
-
-        result
+        actionIter.get.next()
       }
 
       override def close(): Unit = {
