@@ -16,6 +16,7 @@
 
 package io.delta.standalone.internal.scan
 
+import java.net.URI
 import java.util.{NoSuchElementException, Optional}
 
 import io.delta.standalone.DeltaScan
@@ -45,8 +46,8 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
    */
   private def getIterScala: CloseableIterator[AddFile] = new CloseableIterator[AddFile] {
     private val iter = replay.getReverseIterator
-    private val addFiles = new scala.collection.mutable.HashSet[String]()
-    private val tombstones = new scala.collection.mutable.HashSet[String]()
+    private val addFiles = new scala.collection.mutable.HashSet[URI]()
+    private val tombstones = new scala.collection.mutable.HashSet[URI]()
     private var nextMatching: Option[AddFile] = None
     private var nextIsLoaded = false
 
@@ -64,11 +65,11 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
               dataChange = false,
               path = canonicalizePath(add.path, replay.hadoopConf))
 
-            val alreadyDeleted = tombstones.contains(canonicalizeAdd.path)
-            val alreadyReturned = addFiles.contains(canonicalizeAdd.path)
+            val alreadyDeleted = tombstones.contains(canonicalizeAdd.pathAsUri)
+            val alreadyReturned = addFiles.contains(canonicalizeAdd.pathAsUri)
 
             if (!alreadyReturned) {
-              addFiles += canonicalizeAdd.path
+              addFiles += canonicalizeAdd.pathAsUri
 
               if (!alreadyDeleted) {
                 return Some(canonicalizeAdd)
@@ -81,7 +82,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
               dataChange = false,
               path = canonicalizePath(remove.path, replay.hadoopConf))
 
-            tombstones += canonicaleRemove.path
+            tombstones += canonicaleRemove.pathAsUri
           case _ => // do nothing
         }
       }
