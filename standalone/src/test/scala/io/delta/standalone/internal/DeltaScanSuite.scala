@@ -22,6 +22,7 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
+import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.expressions.{And, EqualTo, LessThan, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
@@ -98,5 +99,45 @@ class DeltaScanSuite extends FunSuite {
       assert(!scan.getPushedPredicate.isPresent)
       assert(scan.getResidualPredicate.get == filter)
     }
+  }
+
+  test("correct reverse replay") {
+    val addA_0 = AddFile("a", Map.empty, 100L, 100L, dataChange = true)
+    val addA_1 = AddFile("a", Map.empty, 100L, 200L, dataChange = true)
+    val addB_2_0 = AddFile("b", Map.empty, 100L, 300L, dataChange = true)
+    val addB_2_1 = AddFile("b", Map.empty, 100L, 400L, dataChange = true)
+    val addC_3 = AddFile("c", Map.empty, 100L, 500L, dataChange = true)
+    val addD_4 = AddFile("d", Map.empty, 100L, 600L, dataChange = true)
+    val removeC_5 = addC_3.removeWithTimestamp(700L)
+
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Nil, op, "engineInfo")
+
+      log.startTransaction().commit(addA_0 :: Nil, op, "engineInfo")
+      log.startTransaction().commit(addA_1 :: Nil, op, "engineInfo")
+      log.startTransaction().commit(addB_2_0 :: addB_2_1 :: Nil, op, "engineInfo")
+      log.startTransaction().commit(addC_3 :: Nil, op, "engineInfo")
+      log.startTransaction().commit(addD_4 :: Nil, op, "engineInfo")
+      log.startTransaction().commit(removeC_5 :: Nil, op, "engineInfo")
+
+      // addA_0 not returned since addA_1 was committed later and will be returned before it
+      // addB_2_1 will not be returned since addB_2_0 will be written ahead in the .json delta file
+      // addC_3 will not be returned since it was later deleted
+      // addD_4 will be returned
+      val expectedSet = Set(addA_1, addB_2_0, addD_4).map(ConversionUtils.convertAddFile)
+
+      val set = new scala.collection.mutable.HashSet[AddFileJ]()
+      val scan = log.update().scan()
+      val iter = scan.getFiles
+      while (iter.hasNext) {
+        set += iter.next()
+      }
+
+      assert(set == expectedSet)
+
+      iter.close()
+    }
+
   }
 }
