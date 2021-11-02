@@ -17,7 +17,6 @@
 package io.delta.standalone.internal
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
@@ -27,7 +26,7 @@ import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.expressions.{And, EqualTo, LessThan, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
-import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, RemoveFile}
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -54,6 +53,8 @@ class DeltaScanSuite extends FunSuite {
     val partitionValues = Map("col1" -> (i % 3).toString, "col2" -> (i % 2).toString)
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true)
   }
+
+  private val filesDataChangeFalse = files.map(_.copy(dataChange = false))
 
   private val metadataConjunct = new EqualTo(schema.column("col1"), Literal.of(0))
   private val dataConjunct = new EqualTo(schema.column("col3"), Literal.of(5))
@@ -84,7 +85,7 @@ class DeltaScanSuite extends FunSuite {
       val scan = log.update().scan(filter)
 
       assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) ==
-        files.filter(_.partitionValues("col1").toInt == 0))
+        filesDataChangeFalse.filter(_.partitionValues("col1").toInt == 0))
 
       assert(scan.getPushedPredicate.get == metadataConjunct)
       assert(scan.getResidualPredicate.get == dataConjunct)
@@ -96,7 +97,8 @@ class DeltaScanSuite extends FunSuite {
       val filter = dataConjunct
       val scan = log.update().scan(filter)
 
-      assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) == files)
+      assert(scan.getFiles.asScala.toSeq.map(ConversionUtils.convertAddFileJ) ==
+        filesDataChangeFalse)
       assert(!scan.getPushedPredicate.isPresent)
       assert(scan.getResidualPredicate.get == filter)
     }
@@ -141,7 +143,7 @@ class DeltaScanSuite extends FunSuite {
       val expectedSet = Set(
         addA_2.copy(dataChange = false), // will be read from checkpoint
         addC_7.copy(dataChange = false), // will be read from checkpoint
-        addE_13_0
+        addE_13_0.copy(dataChange = false)
       ).map(ConversionUtils.convertAddFile)
 
       val set = new scala.collection.mutable.HashSet[AddFileJ]()

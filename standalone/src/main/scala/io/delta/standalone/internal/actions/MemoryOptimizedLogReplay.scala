@@ -30,7 +30,7 @@ import io.delta.standalone.internal.util.JsonUtils
 private[internal] class MemoryOptimizedLogReplay(
     files: Seq[Path],
     logStore: LogStore,
-    hadoopConf: Configuration,
+    val hadoopConf: Configuration,
     timeZone: TimeZone) {
 
   /**

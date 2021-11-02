@@ -29,7 +29,7 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation, Snapshot}
-import io.delta.standalone.actions.{JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.actions.{AddFile => AddFileJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.exceptions.DeltaStandaloneException
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
@@ -47,17 +47,23 @@ import io.delta.standalone.internal.util.TestUtils._
  * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
  * been generated.
  */
-class DeltaLogSuite extends FunSuite {
+abstract class DeltaLogSuiteBase extends FunSuite {
 
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
+
+  abstract class CustomChildSnapshot(snapshot: Snapshot) {
+    def _getFiles(): java.util.List[AddFileJ]
+  }
+
+  implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot
 
   // scalastyle:on funsuite
   test("checkpoint") {
     withLogForGoldenTable("checkpoint") { log =>
       assert(log.snapshot.getVersion == 14)
-      assert(log.snapshot.getAllFiles.size == 1)
-      log.snapshot.getAllFiles.hashCode()
+      assert(log.snapshot._getFiles().size == 1)
+      log.snapshot._getFiles().hashCode()
     }
   }
 
@@ -74,9 +80,9 @@ class DeltaLogSuite extends FunSuite {
         expectedFiles: Array[File],
         expectedVersion: Int): Unit = {
       assert(snapshot.getVersion == expectedVersion)
-      assert(snapshot.getAllFiles.size() == expectedFiles.length)
+      assert(snapshot._getFiles().size() == expectedFiles.length)
       assert(
-        snapshot.getAllFiles.asScala.forall(f => expectedFiles.exists(_.getName == f.getPath)))
+        snapshot._getFiles().asScala.forall(f => expectedFiles.exists(_.getName == f.getPath)))
     }
 
     // Append data0
@@ -122,7 +128,7 @@ class DeltaLogSuite extends FunSuite {
 
     // Repartition into 2 files
     withLogForGoldenTable("snapshot-repartitioned") { log =>
-      assert(log.snapshot().getAllFiles.size == 2)
+      assert(log.snapshot()._getFiles().size == 2)
       assert(log.snapshot().getVersion == 5)
     }
 
@@ -217,24 +223,24 @@ class DeltaLogSuite extends FunSuite {
   test("paths should be canonicalized - normal characters") {
     withLogForGoldenTable("canonicalized-paths-normal-a") { log =>
       assert(log.update().getVersion == 1)
-      assert(log.snapshot.getAllFiles.size == 0)
+      assert(log.snapshot._getFiles().size == 0)
     }
 
     withLogForGoldenTable("canonicalized-paths-normal-b") { log =>
       assert(log.update().getVersion == 1)
-      assert(log.snapshot.getAllFiles.size == 0)
+      assert(log.snapshot._getFiles().size == 0)
     }
   }
 
   test("paths should be canonicalized - special characters") {
     withLogForGoldenTable("canonicalized-paths-special-a") { log =>
       assert(log.update().getVersion == 1)
-      assert(log.snapshot.getAllFiles.size == 0)
+      assert(log.snapshot._getFiles().size == 0)
     }
 
     withLogForGoldenTable("canonicalized-paths-special-b") { log =>
       assert(log.update().getVersion == 1)
-      assert(log.snapshot.getAllFiles.size == 0)
+      assert(log.snapshot._getFiles().size == 0)
     }
   }
 
@@ -261,14 +267,14 @@ class DeltaLogSuite extends FunSuite {
 
   test("delete and re-add the same file in different transactions") {
     withLogForGoldenTable("delete-re-add-same-file-different-transactions") { log =>
-      assert(log.snapshot().getAllFiles.size() == 2)
+      assert(log.snapshot()._getFiles().size() == 2)
 
-      assert(log.snapshot().getAllFiles.asScala.map(_.getPath).toSet == Set("foo", "bar"))
+      assert(log.snapshot()._getFiles().asScala.map(_.getPath).toSet == Set("foo", "bar"))
 
       // We added two add files with the same path `foo`. The first should have been removed.
       // The second should remain, and should have a hard-coded modification time of 1700000000000L
-      assert(log.snapshot().getAllFiles.asScala.find(_.getPath == "foo").get.getModificationTime
-        == 1700000000000L)
+      assert(log.snapshot()._getFiles().asScala.find(_.getPath == "foo").get
+        .getModificationTime == 1700000000000L)
     }
   }
 
@@ -417,5 +423,29 @@ class DeltaLogSuite extends FunSuite {
         FileUtils.deleteDirectory(tempDir)
       }
     }
+  }
+}
+
+class DeltaLogSuite extends DeltaLogSuiteBase {
+  class StandardSnapshot(snapshot: Snapshot) extends CustomChildSnapshot(snapshot) {
+    override def _getFiles(): java.util.List[AddFileJ] = snapshot.getAllFiles
+  }
+
+  override implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot = {
+    new StandardSnapshot(snapshot)
+  }
+}
+
+class MemoryOptimizedDeltaLogSuite extends DeltaLogSuiteBase {
+  class MemoryOptimizedSnapshot(snapshot: Snapshot) extends CustomChildSnapshot(snapshot) {
+    override def _getFiles(): java.util.List[AddFileJ] = {
+      import io.delta.standalone.internal.util.Implicits._
+
+      snapshot.scan().getFiles.toArray.toList.asJava
+    }
+  }
+
+  override implicit def createCustomChildSnapshot(snapshot: Snapshot): CustomChildSnapshot = {
+    new MemoryOptimizedSnapshot(snapshot)
   }
 }

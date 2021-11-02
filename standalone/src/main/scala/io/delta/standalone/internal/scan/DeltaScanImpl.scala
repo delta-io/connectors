@@ -23,6 +23,7 @@ import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.data.CloseableIterator
 import io.delta.standalone.expressions.Expression
 
+import io.delta.standalone.internal.SnapshotImpl.canonicalizePath
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay, RemoveFile}
 import io.delta.standalone.internal.util.ConversionUtils
 
@@ -59,18 +60,28 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
 
         action match {
           case add: AddFile =>
-            val alreadyDeleted = tombstones.contains(add.path)
-            val alreadyReturned = addFiles.contains(add.path)
-            if (!alreadyDeleted && !alreadyReturned) {
-              addFiles += add.path
-              return Some(add)
-            } else if (!alreadyReturned) {
-              addFiles += add.path
+            val canonicalizeAdd = add.copy(
+              dataChange = false,
+              path = canonicalizePath(add.path, replay.hadoopConf))
+
+            val alreadyDeleted = tombstones.contains(canonicalizeAdd.path)
+            val alreadyReturned = addFiles.contains(canonicalizeAdd.path)
+
+            if (!alreadyReturned) {
+              addFiles += canonicalizeAdd.path
+
+              if (!alreadyDeleted) {
+                return Some(canonicalizeAdd)
+              }
             }
           // Note: `RemoveFile` in a checkpoint is useless since when we generate a checkpoint, an
           // AddFile file must be removed if there is a `RemoveFile`
           case remove: RemoveFile if !isCheckpoint =>
-            tombstones += remove.path
+            val canonicaleRemove = remove.copy(
+              dataChange = false,
+              path = canonicalizePath(remove.path, replay.hadoopConf))
+
+            tombstones += canonicaleRemove.path
           case _ => // do nothing
         }
       }
