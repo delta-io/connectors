@@ -17,6 +17,7 @@
 package io.delta.standalone.internal
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
@@ -26,7 +27,7 @@ import io.delta.standalone.actions.{AddFile => AddFileJ}
 import io.delta.standalone.expressions.{And, EqualTo, LessThan, Literal}
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
-import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, RemoveFile}
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -46,6 +47,9 @@ class DeltaScanSuite extends FunSuite {
     new StructField("col2", new IntegerType(), true)
   ))
 
+  val metadata = Metadata(
+    partitionColumns = partitionSchema.getFieldNames, schemaString = schema.toJson)
+
   private val files = (1 to 10).map { i =>
     val partitionValues = Map("col1" -> (i % 3).toString, "col2" -> (i % 2).toString)
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true)
@@ -55,9 +59,6 @@ class DeltaScanSuite extends FunSuite {
   private val dataConjunct = new EqualTo(schema.column("col3"), Literal.of(5))
 
   def withLog(actions: Seq[Action])(test: DeltaLog => Unit): Unit = {
-    val metadata = Metadata(
-      partitionColumns = partitionSchema.getFieldNames, schemaString = schema.toJson)
-
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, op, "engineInfo")
@@ -102,47 +103,50 @@ class DeltaScanSuite extends FunSuite {
   }
 
   test("correct reverse replay") {
-    val addA_0 = AddFile("a", Map.empty, 100L, 100L, dataChange = true)
-    val addA_1 = AddFile("a", Map.empty, 100L, 200L, dataChange = true)
-    val addB_2_0 = AddFile("b", Map.empty, 100L, 300L, dataChange = true)
-    val addB_2_1 = AddFile("b", Map.empty, 100L, 400L, dataChange = true)
-    val addC_3 = AddFile("c", Map.empty, 100L, 500L, dataChange = true)
-    val addD_4 = AddFile("d", Map.empty, 100L, 600L, dataChange = true)
-    val removeC_5 = addC_3.removeWithTimestamp(700L)
+    val filter = new And(
+      new EqualTo(partitionSchema.column("col1"), Literal.of(0)),
+      new EqualTo(partitionSchema.column("col2"), Literal.of(0))
+    )
+
+    val addA_1 = AddFile("a", Map("col1" -> "0", "col2" -> "0"), 1L, 10L, dataChange = true)
+    val addA_2 = AddFile("a", Map("col1" -> "0", "col2" -> "0"), 1L, 20L, dataChange = true)
+    val addB_4 = AddFile("b", Map("col1" -> "0", "col2" -> "1"), 1L, 40L, dataChange = true) // FAIL
+    val addC_7 = AddFile("c", Map("col1" -> "0", "col2" -> "0"), 1L, 70L, dataChange = true)
+    val addD_8 = AddFile("d", Map("col1" -> "0", "col2" -> "0"), 1L, 80L, dataChange = true)
+    val removeD_9 = addD_8.removeWithTimestamp(90L)
+    val addE_13_0 = AddFile("e", Map("col1" -> "0", "col2" -> "0"), 1L, 130L, dataChange = true)
+    val addE_13_1 = AddFile("e", Map("col1" -> "0", "col2" -> "0"), 1L, 131L, dataChange = true)
 
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
 
-      def commitNil(): Unit = log.startTransaction().commit(Nil, op, "engineInfo")
-      log.startTransaction().commit(Metadata() :: Nil, op, "engineInfo") // v0
-      log.startTransaction().commit(addA_0 :: Nil, op, "engineInfo") // v1
-      log.startTransaction().commit(addA_1 :: Nil, op, "engineInfo") // v2
-      commitNil() // v3
-      log.startTransaction().commit(addB_2_0 :: addB_2_1 :: Nil, op, "engineInfo") // v4
-      commitNil() // v5
-      commitNil() // v6
-      log.startTransaction().commit(addC_3 :: Nil, op, "engineInfo") // v7
-      commitNil() // v8
-      commitNil() // v9
-      commitNil() // v10 (checkpoint)
-      log.startTransaction().commit(addD_4 :: Nil, op, "engineInfo") // v11
-      log.startTransaction().commit(removeC_5 :: Nil, op, "engineInfo") // v12
+      def commit(actions: Seq[Action]): Unit =
+        log.startTransaction().commit(actions, op, "engineInfo")
 
-      // TODO improve these comments
-      // addA_0 will not be returned since addA_1 was committed later and will be returned before it
-      // addB_2_1 will be returned since it will be written to the checkpoint instead of addB_2_0
-      // addC_3 will not be returned since it was later deleted
-      // addD_4 will be returned
-      val expectedSet = Set(addA_1, addB_2_1, addD_4).map(ConversionUtils.convertAddFile)
-      // scalastyle:off println
-      println("aaa")
+      commit(metadata :: Nil)
+      commit(addA_1 :: Nil) // IGNORED - replaced later by addA_2
+      commit(addA_2 :: Nil) // RETURNED - passes filter
+      commit(Nil)
+      commit(addB_4 :: Nil) // IGNORED - fails filter
+      commit(Nil)
+      commit(Nil)
+      commit(addC_7 :: Nil) // RETURNED
+      commit(addD_8 :: Nil) // IGNORED - deleted later
+      commit(removeD_9 :: Nil)
+      commit(Nil)
+      commit(Nil)
+      commit(Nil)
+      commit(addE_13_0 :: addE_13_1 :: Nil) // addE_13_0 RETURNED, addE_13_1 IGNORED
+
+      val expectedSet = Set(
+        addA_2.copy(dataChange = false), // will be read from checkpoint
+        addC_7.copy(dataChange = false), // will be read from checkpoint
+        addE_13_0
+      ).map(ConversionUtils.convertAddFile)
+
       val set = new scala.collection.mutable.HashSet[AddFileJ]()
-      println("bbb")
-      val scan = log.update().scan()
-      println("ccc")
+      val scan = log.update().scan(filter)
       val iter = scan.getFiles
-      println("!!!!!!!!")
-      // scalastyle:on println
       while (iter.hasNext) {
         set += iter.next()
       }

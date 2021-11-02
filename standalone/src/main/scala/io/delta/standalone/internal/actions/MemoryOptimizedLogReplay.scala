@@ -58,12 +58,7 @@ private[internal] class MemoryOptimizedLogReplay(
         parquetIter = None
 
         if (reverseFilesIter.hasNext) {
-          // TODO: what about empty JSON files?
           val nextFile = reverseFilesIter.next()
-
-          // scalastyle:off println
-          println(nextFile.getName)
-          // scalastyle:on println
 
           if (nextFile.getName.endsWith(".json")) {
             jsonIter = Some(logStore.read(nextFile, hadoopConf))

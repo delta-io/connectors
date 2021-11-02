@@ -63,13 +63,10 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
             val alreadyReturned = addFiles.contains(add.path)
             if (!alreadyDeleted && !alreadyReturned) {
               addFiles += add.path
-              // scalastyle:off
-              println(s"Found matched ${add.path}")
               return Some(add)
             } else if (!alreadyReturned) {
               addFiles += add.path
             }
-
           // Note: `RemoveFile` in a checkpoint is useless since when we generate a checkpoint, an
           // AddFile file must be removed if there is a `RemoveFile`
           case remove: RemoveFile if !isCheckpoint =>
@@ -83,7 +80,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     }
 
     /**
-     * Sets the [[nextMatching]] variable to the next valid AddFile that also passes the given
+     * Sets the [[nextMatching]] variable to the next "valid" AddFile that also passes the given
      * [[accept]] check, or None if no such AddFile file exists.
      */
     private def setNextMatching(): Unit = {
