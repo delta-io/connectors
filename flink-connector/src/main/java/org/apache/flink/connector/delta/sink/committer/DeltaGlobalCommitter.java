@@ -50,13 +50,12 @@ import java.util.stream.Collectors;
 
 /**
  * A {@link GlobalCommitter} implementation for {@link org.apache.flink.connector.delta.sink.DeltaSink}.
- *
+ * <p>
  * It commits written files to the DeltaLog and provides exactly once semantics by guaranteeing idempotence
  * behaviour of the commit phase. It means that when given the same set of {@link DeltaCommittable} objects
  * (that contain metadata about written files along with unique identifier of the given Flink's job and checkpoint id)
  * it will never commit them multiple times. Such behaviour is achieved by constructing transactional id using
  * mentioned app identifier and checkpointId.
- *
  */
 public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
 
@@ -222,8 +221,9 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
     /**
      * Constructs the final set of actions that will be committed with given transaction
-     * @param appId unique identifier of the application
-     * @param checkpointId current checkpointId
+     *
+     * @param appId          unique identifier of the application
+     * @param checkpointId   current checkpointId
      * @param addFileActions resolved list of {@link AddFile} actions for given checkpoint interval
      * @return list of {@link Action} objects that will be committed with current DeltaLog transaction
      */
@@ -246,9 +246,9 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
                                                int numAddedFiles,
                                                List<String> partitionColumns) {
         Map<String, String> operationMetrics = prepareOperationMetrics(globalCommittables, numAddedFiles);
-        Map<String, Object> operationParameters = new HashMap<String, Object>(){{
-          put("mode", APPEND_MODE);
-          put("partitionBy", partitionColumns);
+        Map<String, Object> operationParameters = new HashMap<String, Object>() {{
+            put("mode", APPEND_MODE);
+            put("partitionBy", partitionColumns);
         }};
         return new Operation(Operation.Name.STREAMING_UPDATE, operationParameters, operationMetrics);
     }
@@ -260,9 +260,10 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
      * {@link DeltaCommittable}). Additionally, during the iteration process we also validate whether the committables for
      * the same checkpoint interval have the same set of partition columns and throw a {@link RuntimeException} when this condition
      * is not met.
+     *
      * @param globalCommittables list of combined @link DeltaGlobalCommittable} objects
      * @return {@link AddFile} actions grouped by the checkpoint interval in the form of {@link java.util.Map}. It is guaranteed
-     *         that all actions per have the same partition columns within given checkpoint interval.
+     * that all actions per have the same partition columns within given checkpoint interval.
      */
     private Map<Long, List<AddFile>> prepareAddFileActionsPerCheckpoint(List<DeltaGlobalCommittable> globalCommittables) {
         Map<Long, List<AddFile>> addFilesPerCheckpoint = new HashMap<>();
@@ -270,31 +271,28 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
 
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
-                if (deltaCommittable.hasDeltaPendingFile()) {
-                    DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+                DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
 
-                    if (!addFilesPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
-                        addFilesPerCheckpoint.put(deltaCommittable.getCheckpointId(), new ArrayList<>());
-                    }
+                if (!addFilesPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
+                    addFilesPerCheckpoint.put(deltaCommittable.getCheckpointId(), new ArrayList<>());
+                }
 
-                    AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
-                    addFilesPerCheckpoint.get(deltaCommittable.getCheckpointId()).add(action);
+                AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
+                addFilesPerCheckpoint.get(deltaCommittable.getCheckpointId()).add(action);
 
-                    LinkedHashMap<String, String> currentPartitionSpec = deltaPendingFile.getPartitionSpec();
-                    if (!partitionColumnsMetadataPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
-                        partitionColumnsMetadataPerCheckpoint.put(deltaCommittable.getCheckpointId(), currentPartitionSpec.keySet());
-                    }
+                LinkedHashMap<String, String> currentPartitionSpec = deltaPendingFile.getPartitionSpec();
+                if (!partitionColumnsMetadataPerCheckpoint.containsKey(deltaCommittable.getCheckpointId())) {
+                    partitionColumnsMetadataPerCheckpoint.put(deltaCommittable.getCheckpointId(), currentPartitionSpec.keySet());
+                }
 
-                    boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(currentPartitionSpec.keySet(), partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId()));
-                    if (!isPartitionColumnsMetadataRetained) {
-                        throw new RuntimeException(
-                                "Partition columns cannot be different for files within the same checkpointId. " +
-                                        "checkpointId=" + deltaCommittable.getCheckpointId() + " " +
-                                        "Partition spec " + deltaPendingFile.getPartitionSpec() + " does not comply with partition columns from previous files: " +
-                                        partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId())
-                        );
-                    }
-
+                boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(currentPartitionSpec.keySet(), partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId()));
+                if (!isPartitionColumnsMetadataRetained) {
+                    throw new RuntimeException(
+                            "Partition columns cannot be different for files within the same checkpointId. " +
+                                    "checkpointId=" + deltaCommittable.getCheckpointId() + " " +
+                                    "Partition spec " + deltaPendingFile.getPartitionSpec() + " does not comply with partition columns from previous files: " +
+                                    partitionColumnsMetadataPerCheckpoint.get(deltaCommittable.getCheckpointId())
+                    );
                 }
             }
         }
@@ -326,11 +324,9 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         long cumulatedSize = 0;
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
-                if (deltaCommittable.hasDeltaPendingFile()) {
-                    DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
-                    cumulatedRecordCount += deltaPendingFile.getRecordCount();
-                    cumulatedSize += deltaPendingFile.getFileSize();
-                }
+                DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+                cumulatedRecordCount += deltaPendingFile.getRecordCount();
+                cumulatedSize += deltaPendingFile.getFileSize();
             }
         }
 

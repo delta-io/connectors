@@ -31,11 +31,6 @@ public class DeltaCommitterTest {
     }
 
     @Test
-    public void testCleanupInProgressFiles() throws Exception {
-
-    }
-
-    @Test
     public void testCommitMultiple() throws Exception {
 
     }

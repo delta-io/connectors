@@ -240,20 +240,14 @@ public class DeltaSinkBuilder<IN>
 
     SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
             throws IOException {
-        BucketWriter<IN, String> bucketWriter = createBucketWriter();
-
-        return new DeltaWriterBucketStateSerializer(
-                bucketWriter.getProperties().getInProgressFileRecoverableSerializer()
-        );
+        return new DeltaWriterBucketStateSerializer();
     }
 
     SimpleVersionedSerializer<DeltaCommittable> getCommittableSerializer()
             throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return new DeltaCommittableSerializer(
-                bucketWriter.getProperties().getPendingFileRecoverableSerializer(),
-                bucketWriter.getProperties().getInProgressFileRecoverableSerializer());
+        return new DeltaCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     SimpleVersionedSerializer<DeltaGlobalCommittable> getGlobalCommittableSerializer()

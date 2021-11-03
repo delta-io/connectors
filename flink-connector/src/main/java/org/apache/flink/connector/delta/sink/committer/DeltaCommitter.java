@@ -23,17 +23,7 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     @Override
     public List<DeltaCommittable> commit(List<DeltaCommittable> committables) throws IOException {
         for (DeltaCommittable committable : committables) {
-            if (committable.hasDeltaPendingFile()) {
-                // We should always use commitAfterRecovery which contains additional checks.
-                assert committable.getDeltaPendingFile() != null;
-                bucketWriter.recoverPendingFile(committable.getDeltaPendingFile().getPendingFile()).commitAfterRecovery();
-            }
-
-            if (committable.hasInProgressFileToCleanup()) {
-                bucketWriter.cleanupInProgressFileRecoverable(
-                        committable.getInProgressFileToCleanup()
-                );
-            }
+            bucketWriter.recoverPendingFile(committable.getDeltaPendingFile().getPendingFile()).commitAfterRecovery();
         }
 
         return Collections.emptyList();

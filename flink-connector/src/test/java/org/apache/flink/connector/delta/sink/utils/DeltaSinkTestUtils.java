@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 public class DeltaSinkTestUtils {
 
@@ -107,19 +106,9 @@ public class DeltaSinkTestUtils {
             );
         }
 
-        public static DeltaCommittable getTestDeltaCommittableWithInProgressFiles() {
-            return new DeltaCommittable(
-                    new FileSinkTestUtils.TestInProgressFileRecoverable(),
-                    TEST_APP_ID,
-                    TEST_CHECKPOINT_ID
-            );
-        }
-
         public static void validateDeltaCommittablesEquality(DeltaCommittable committable,
                                                              DeltaCommittable deserialized,
                                                              LinkedHashMap<String, String> expectedPartitionSpec) {
-            assertNull(committable.getInProgressFileToCleanup());
-            assertNull(deserialized.getInProgressFileToCleanup());
             assertEquals(committable.getDeltaPendingFile().getPendingFile(), deserialized.getDeltaPendingFile().getPendingFile());
             assertEquals(committable.getCheckpointId(), deserialized.getCheckpointId());
             assertEquals(committable.getAppId(), deserialized.getAppId());
@@ -127,23 +116,11 @@ public class DeltaSinkTestUtils {
             assertEquals(committable.getDeltaPendingFile().getFileSize(), deserialized.getDeltaPendingFile().getFileSize());
             assertEquals(committable.getDeltaPendingFile().getRecordCount(), deserialized.getDeltaPendingFile().getRecordCount());
             assertEquals(committable.getDeltaPendingFile().getLastUpdateTime(), deserialized.getDeltaPendingFile().getLastUpdateTime());
-            assertEquals(
-                    committable.getInProgressFileToCleanup(),
-                    deserialized.getInProgressFileToCleanup()
-            );
             assertEquals(expectedPartitionSpec, deserialized.getDeltaPendingFile().getPartitionSpec());
         }
     }
 
     public static class HadoopConfTest {
-        public static org.apache.hadoop.conf.Configuration getHadoopConf() {
-            org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-            conf.set("parquet.compression", "SNAPPY");
-            return conf;
-        }
-    }
-
-    public static class TestDeltaGlobalCommitter {
         public static org.apache.hadoop.conf.Configuration getHadoopConf() {
             org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
             conf.set("parquet.compression", "SNAPPY");

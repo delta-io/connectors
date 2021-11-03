@@ -27,28 +27,14 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
-import org.apache.flink.util.function.FunctionWithException;
 
 import java.io.IOException;
-
-import static org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter.InProgressFileRecoverable;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 @Internal
 public class DeltaWriterBucketStateSerializer
         implements SimpleVersionedSerializer<DeltaWriterBucketState> {
 
     private static final int MAGIC_NUMBER = 0x1e764b79;
-
-    private final SimpleVersionedSerializer<InProgressFileRecoverable>
-            inProgressFileRecoverableSerializer;
-
-
-    public DeltaWriterBucketStateSerializer(
-            SimpleVersionedSerializer<InProgressFileRecoverable> inProgressFileRecoverableSerializer
-    ) {
-        this.inProgressFileRecoverableSerializer = checkNotNull(inProgressFileRecoverableSerializer);
-    }
 
     @Override
     public int getVersion() {
@@ -79,39 +65,17 @@ public class DeltaWriterBucketStateSerializer
         SimpleVersionedSerialization.writeVersionAndSerialize(
                 SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
         dataOutputView.writeUTF(state.getBucketPath().toString());
-        dataOutputView.writeLong(state.getInProgressFileCreationTime());
-        dataOutputView.writeLong(state.getLastUpdateTime());
         dataOutputView.writeUTF(state.getAppId());
-
-
-        // put the current open part file
-        if (state.hasInProgressFileRecoverable()) {
-            InProgressFileRecoverable inProgressFileRecoverable = state.getInProgressFileRecoverable();
-            assert state.getInProgressPartFileName() != null;
-            dataOutputView.writeBoolean(true);
-            dataOutputView.writeUTF(state.getInProgressPartFileName());
-            dataOutputView.writeLong(state.getRecordCount());
-            dataOutputView.writeLong(state.getInProgressPartFileSize());
-            SimpleVersionedSerialization.writeVersionAndSerialize(
-                    inProgressFileRecoverableSerializer,
-                    inProgressFileRecoverable,
-                    dataOutputView
-            );
-        } else {
-            dataOutputView.writeBoolean(false);
-        }
     }
 
     private DeltaWriterBucketState deserializeV1(DataInputView in) throws IOException {
         return internalDeserialize(
-                in,
-                dataInputView -> SimpleVersionedSerialization.readVersionAndDeSerialize(inProgressFileRecoverableSerializer, dataInputView)
+                in
         );
     }
 
     private DeltaWriterBucketState internalDeserialize(
-            DataInputView dataInputView,
-            FunctionWithException<DataInputView, InProgressFileRecoverable, IOException> inProgressFileParser
+            DataInputView dataInputView
     ) throws IOException {
 
         String bucketId = SimpleVersionedSerialization.readVersionAndDeSerialize(
@@ -120,31 +84,11 @@ public class DeltaWriterBucketStateSerializer
         );
 
         String bucketPathStr = dataInputView.readUTF();
-        long creationTime = dataInputView.readLong();
-        long lastUpdateTime = dataInputView.readLong();
         String appId = dataInputView.readUTF();
-
-        // then get the current resumable stream
-        InProgressFileRecoverable current = null;
-        String inprogressFileName = null;
-        long recordCount = 0;
-        long inProgressPartFileSize = 0;
-        if (dataInputView.readBoolean()) {
-            inprogressFileName = dataInputView.readUTF();
-            recordCount = dataInputView.readLong();
-            inProgressPartFileSize = dataInputView.readLong();
-            current = inProgressFileParser.apply(dataInputView);
-        }
 
         return new DeltaWriterBucketState(
                 bucketId,
                 new Path(bucketPathStr),
-                creationTime,
-                current,
-                inprogressFileName,
-                recordCount,
-                inProgressPartFileSize,
-                lastUpdateTime,
                 appId
         );
     }

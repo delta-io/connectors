@@ -20,9 +20,7 @@ package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
-import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 
-import javax.annotation.Nullable;
 import java.io.Serializable;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -31,64 +29,22 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @Internal
 public class DeltaCommittable implements Serializable {
 
-    @Nullable
     private final DeltaPendingFile deltaPendingFile;
-
-
-    @Nullable
-    private final InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup;
 
     private final String appId;
 
     private final long checkpointId;
 
-
     public DeltaCommittable(DeltaPendingFile deltaPendingFile,
                             String appId,
                             long checkpointId) {
         this.deltaPendingFile = checkNotNull(deltaPendingFile);
-        this.inProgressFileToCleanup = null;
         this.appId = appId;
         this.checkpointId = checkpointId;
     }
 
-    public DeltaCommittable(
-            InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup,
-            String appId,
-            long checkpointId) {
-        this.deltaPendingFile = null;
-        this.inProgressFileToCleanup = checkNotNull(inProgressFileToCleanup);
-        this.appId = appId;
-        this.checkpointId = checkpointId;
-    }
-
-    DeltaCommittable(
-            @Nullable DeltaPendingFile deltaPendingFile,
-            @Nullable InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup,
-            String appId,
-            long checkpointId) {
-        this.deltaPendingFile = deltaPendingFile;
-        this.inProgressFileToCleanup = inProgressFileToCleanup;
-        this.appId = appId;
-        this.checkpointId = checkpointId;
-    }
-
-    public boolean hasDeltaPendingFile() {
-        return deltaPendingFile != null;
-    }
-
-    @Nullable
     public DeltaPendingFile getDeltaPendingFile() {
         return deltaPendingFile;
-    }
-
-    public boolean hasInProgressFileToCleanup() {
-        return inProgressFileToCleanup != null;
-    }
-
-    @Nullable
-    public InProgressFileWriter.InProgressFileRecoverable getInProgressFileToCleanup() {
-        return inProgressFileToCleanup;
     }
 
     public long getCheckpointId() {

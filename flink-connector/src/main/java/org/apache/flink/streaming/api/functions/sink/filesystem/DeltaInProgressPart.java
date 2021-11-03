@@ -20,7 +20,6 @@ package org.apache.flink.streaming.api.functions.sink.filesystem;
 
 public class DeltaInProgressPart<IN> {
 
-    // TODO extend with bucket prefix
     private final String fileName;
 
     private final DeltaBulkPartWriter<IN, String> inProgressPart;

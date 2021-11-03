@@ -25,9 +25,6 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
 /**
  * Tests the serialization and deserialization for {@link DeltaCommittable}.
  */
@@ -62,29 +59,11 @@ public class DeltaCommittableSerializerTest {
         TestDeltaCommittable.validateDeltaCommittablesEquality(committable, deserialized, partitionSpec);
     }
 
-    @Test
-    public void testCommittableWithInProgressFileToCleanup() throws IOException {
-        // GIVEN
-        DeltaCommittable committable = TestDeltaCommittable.getTestDeltaCommittableWithInProgressFiles();
-
-        // WHEN
-        DeltaCommittable deserialized = serializeAndDeserialize(committable);
-
-        // THEN
-        assertNull(committable.getDeltaPendingFile());
-        assertEquals(
-                committable.getInProgressFileToCleanup(),
-                deserialized.getInProgressFileToCleanup());
-    }
-
     private DeltaCommittable serializeAndDeserialize(DeltaCommittable committable)
             throws IOException {
         DeltaCommittableSerializer serializer =
                 new DeltaCommittableSerializer(
-                        new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(
-                                FileSinkTestUtils.TestPendingFileRecoverable::new),
-                        new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(
-                                FileSinkTestUtils.TestInProgressFileRecoverable::new));
+                        new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(FileSinkTestUtils.TestPendingFileRecoverable::new));
         byte[] data = serializer.serialize(committable);
         return serializer.deserialize(serializer.getVersion(), data);
     }
