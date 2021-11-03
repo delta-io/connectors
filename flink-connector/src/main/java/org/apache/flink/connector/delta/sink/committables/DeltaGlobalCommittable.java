@@ -35,8 +35,8 @@ public class DeltaGlobalCommittable {
         this.deltaCommittables = checkNotNull(deltaCommittables);
     }
 
-
     public List<DeltaCommittable> getDeltaCommittables() {
         return deltaCommittables;
     }
+
 }

@@ -81,7 +81,6 @@ public class DeltaGlobalCommittableSerializer
             new DeltaCommittableSerializer(pendingFileSerializer).serializeV1(deltaCommittable, dataOutputView);
         }
 
-
     }
 
     private DeltaGlobalCommittable deserializeV1(DataInputView dataInputView) throws IOException {

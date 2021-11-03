@@ -204,12 +204,14 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
      * Convenience method where developer must ensure that writerFactory is configured to use SNAPPY
      * compression codec.
      *
-     * @param basePath      path of the DeltaLake's table
-     * @param conf          Hadoop configuration object that will be used for creating instances of {@link io.delta.standalone.DeltaLog}
-     * @param writerFactory writer factory with predefined configuration for creating new writers that will be writing Parquet
-     *                      files with DeltaLake's expected format
-     * @param <IN>          Type of the elements in the input of the sink that are also the elements to be
-     *                      *     written to its output
+     * @param basePath           path of the DeltaLake's table
+     * @param conf               Hadoop configuration object that will be used for creating instances of {@link io.delta.standalone.DeltaLog}
+     * @param writerFactory      writer factory with predefined configuration for creating new writers that will be writing Parquet
+     *                           files with DeltaLake's expected format
+     * @param rowType            Flink's RowType object to indicate the structure of the events in the stream
+     * @param partitionAssigner  partition assigner containing the logic how to assign particular events to their partitions
+     * @param <IN>               Type of the elements in the input of the sink that are also the elements to be
+     *                           *     written to its output
      * @return builder for the DeltaSink
      */
     public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(

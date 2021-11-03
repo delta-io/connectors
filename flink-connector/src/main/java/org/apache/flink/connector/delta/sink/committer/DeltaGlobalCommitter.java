@@ -92,7 +92,6 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         this.canTryUpdateSchema = canTryUpdateSchema;
     }
 
-
     @Override
     public List<DeltaGlobalCommittable> filterRecoveredCommittables(List<DeltaGlobalCommittable> globalCommittables) {
         return globalCommittables;
@@ -340,14 +339,13 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
     }
 
     @Override
-    public void endOfInput() throws IOException {
+    public void endOfInput() {
 
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
 
     }
-
 
 }

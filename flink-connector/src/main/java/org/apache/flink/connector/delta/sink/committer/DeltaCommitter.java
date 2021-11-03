@@ -30,8 +30,7 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     }
 
     @Override
-    public void close() throws Exception {
-
+    public void close() {
     }
 
 }
