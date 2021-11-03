@@ -103,11 +103,11 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
           // Note: `RemoveFile` in a checkpoint is useless since when we generate a checkpoint, an
           // AddFile file must be removed if there is a `RemoveFile`
           case remove: RemoveFile if !isCheckpoint =>
-            val canonicaleRemove = remove.copy(
+            val canonicalizeRemove = remove.copy(
               dataChange = false,
               path = canonicalizePath(remove.path, replay.hadoopConf))
 
-            tombstones += canonicaleRemove.pathAsUri
+            tombstones += canonicalizeRemove.pathAsUri
           case _ => // do nothing
         }
       }
@@ -139,7 +139,7 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     override def hasNext: Boolean = {
       // nextMatching will be empty if
       // a) this is the first time hasNext has been called
-      // b) we've run out of files to iterate over. in this case, setNextMatching() and
+      // b) we've run out of actions to iterate over. in this case, setNextMatching() and
       //    findNextValid() will both short circuit and return immediately
       if (nextMatching.isEmpty) {
         setNextMatching()
