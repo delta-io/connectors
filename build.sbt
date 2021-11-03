@@ -614,7 +614,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
   .settings(releaseSettings)
 
 
-val flinkVersion = "1.12.1"
+val flinkVersion = "1.12.0"
 lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",

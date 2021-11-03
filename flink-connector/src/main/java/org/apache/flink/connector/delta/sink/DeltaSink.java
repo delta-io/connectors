@@ -180,6 +180,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
      * @param conf          Hadoop configuration object that will be used for creating instances of {@link io.delta.standalone.DeltaLog}
      * @param writerFactory writer factory with predefined configuration for creating new writers that will be writing Parquet
      *                      files with DeltaLake's expected format
+     * @param rowType       Flink's RowType object to indicate the structure of the events in the stream
      * @param <IN>          Type of the elements in the input of the sink that are also the elements to be
      *                      *     written to its output
      * @return builder for the DeltaSink
@@ -229,7 +230,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
 
 
     /**
-     * A builder for configuring the sink for bulk-encoding formats, e.g. Parquet/ORC.
+     * A builder for configuring the sink for bulk-encoding formats, e.g. Parquet.
      */
     public static final class DefaultDeltaFormatBuilder<IN> extends DeltaSinkBuilder<IN> {
 

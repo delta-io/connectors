@@ -30,6 +30,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
@@ -83,9 +84,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
     String deltaTablePath;
 
 
-    public DeltaSinkITStreaming() throws IOException {
-    }
-
     @Before
     public void setup() {
         this.latchId = UUID.randomUUID().toString();
@@ -126,6 +124,8 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         }
 
         // THEN
+        TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assert finalDeltaFiles.size() > initialDeltaFiles.size();
         Iterator<Long> it = LongStream.range(initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();

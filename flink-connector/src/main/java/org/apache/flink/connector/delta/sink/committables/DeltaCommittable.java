@@ -38,7 +38,6 @@ public class DeltaCommittable implements Serializable {
     @Nullable
     private final InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup;
 
-    // TODO when confirmed that we can resolve flink's jobId globally then this variable won't be needed
     private final String appId;
 
     private final long checkpointId;

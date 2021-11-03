@@ -14,8 +14,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -145,6 +148,22 @@ public class DeltaSinkTestUtils {
             org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
             conf.set("parquet.compression", "SNAPPY");
             return conf;
+        }
+    }
+
+    public static class TestFileSystem {
+        public static void validateIfPathContainsParquetFilesWithData(String deltaTablePath) {
+            List<File> files = Stream.of(Objects.requireNonNull(new File(deltaTablePath).listFiles()))
+                    .filter(file -> !file.isDirectory())
+                    .filter(file -> !file.getName().contains("inprogress"))
+                    .filter(file -> file.getName().endsWith(".snappy.parquet"))
+                    .collect(Collectors.toList());
+
+            assert files.size() > 0;
+
+            for (File file : files) {
+                assert file.length() > 100; // simple check if files contain any data
+            }
         }
     }
 

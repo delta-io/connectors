@@ -197,14 +197,19 @@ class DeltaWriterBucket<IN> {
     List<DeltaCommittable> prepareCommit(boolean flush,
                                          String appId,
                                          long checkpointId) throws IOException {
-        if (deltaInProgressPart != null
-                && (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(
-                        "Closing in-progress part file for bucket id={} on checkpoint.", bucketId);
+        if (deltaInProgressPart != null) {
+            if (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush) {
+                if (LOG.isDebugEnabled())
+                    LOG.debug("Closing in-progress part file for bucket id={} on checkpoint.", bucketId);
+
+                closePartFile();
+            } else {
+                throw new RuntimeException(
+                        "Unexpected behaviour. Bulk format writers should always roll part files on checkpoint. " +
+                                "To resolve this issue verify behaviour of your rolling policy.");
             }
-            closePartFile();
         }
+
 
         List<DeltaCommittable> committables = new ArrayList<>();
         pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile, appId, checkpointId)));
