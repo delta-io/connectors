@@ -30,10 +30,11 @@ import io.delta.standalone.types._
  *
  * Iterates file by file, row by row.
  *
- * @param dataFilePathsAndPartitions paths of files and partitions to iterate over, not null
+ * @param dataFilePathsAndPartitions Seq of (paths of files, partitions) tuples to iterate over,
+ *                                   not null
  * @param schema for file data and partition values, not null. Used to read and verify the parquet
  *               data in file and partition data
- * @param readTimeZone time zone ID for data, can be null. Used to ensure proper Date and Timestamp
+ * @param readTimeZone time zone ID for data, not null. Used to ensure proper Date and Timestamp
  *                     decoding
  */
 private[internal] case class CloseableParquetDataIterator(
@@ -42,13 +43,11 @@ private[internal] case class CloseableParquetDataIterator(
     readTimeZone: TimeZone,
     hadoopConf: Configuration) extends CloseableIterator[RowParquetRecordJ] {
 
-  /** Iterator over the `dataFilePathsAndPartitions`. */
   private val dataFilePathsAndPartitionsIter = dataFilePathsAndPartitions.iterator
 
   /**
    * Iterable resource that allows for iteration over the parquet rows for a single file
-   * and its partitions info.
-   * Must be closed.
+   * and its partitions info. Must be closed.
    */
   private var parquetRows = if (dataFilePathsAndPartitionsIter.hasNext) readNextFile else null
 
@@ -74,20 +73,27 @@ private[internal] case class CloseableParquetDataIterator(
       return false
     }
 
-    // More rows in current file
-    if (parquetRowsIter.hasNext) return true
+    // We need to search for the next non-empty file
+    while (true) {
+      // More rows in current file
+      if (parquetRowsIter.hasNext) return true
 
-    // No more rows in current file and no more files
-    if (!dataFilePathsAndPartitionsIter.hasNext) {
-      close()
-      return false
+      // No more rows in current file and no more files
+      if (!dataFilePathsAndPartitionsIter.hasNext) {
+        close()
+        return false
+      }
+
+      // No more rows in this file, but there is a next file
+      parquetRows.close()
+
+      // Repeat the search at the next file
+      parquetRows = readNextFile
+      parquetRowsIter = parquetRows.iterator
     }
 
-    // No more rows in this file, but there is a next file
-    parquetRows.close()
-    parquetRows = readNextFile
-    parquetRowsIter = parquetRows.iterator
-    parquetRowsIter.hasNext
+    // Impossible
+    throw new RuntimeException("Some bug in CloseableParquetDataIterator::hasNext")
   }
 
   /**

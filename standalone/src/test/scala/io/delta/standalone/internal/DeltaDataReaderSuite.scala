@@ -22,8 +22,9 @@ import java.util.{TimeZone, List => JList, Map => JMap}
 import java.util.Arrays.{asList => asJList}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
-import io.delta.standalone.data.{RowRecord => JRowRecord}
+import io.delta.standalone.data.{CloseableIterator, RowRecord => JRowRecord}
 import io.delta.standalone.DeltaLog
 
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
@@ -386,4 +387,52 @@ class DeltaDataReaderSuite extends FunSuite {
       new IntegerType,
       new ArrayType(new DoubleType, true),
       false))
+
+  test("toJson fromJson for field metadata") {
+    val emptyMetadata = FieldMetadata.builder().build()
+    val singleStringMetadata = FieldMetadata.builder().putString("test", "test_value").build()
+    val singleBooleanMetadata = FieldMetadata.builder().putBoolean("test", true).build()
+    val singleIntegerMetadata = FieldMetadata.builder().putLong("test", 2L).build()
+    val singleDoubleMetadata = FieldMetadata.builder().putDouble("test", 2.0).build()
+    val singleMapMetadata = FieldMetadata.builder().putMetadata("test_outside",
+      FieldMetadata.builder().putString("test_inside", "test_inside_value").build()).build()
+    val singleListMetadata = FieldMetadata.builder().putLongArray("test", Array(0L, 1L, 2L)).build()
+    val multipleEntriesMetadata = FieldMetadata.builder().putString("test", "test_value")
+      .putDouble("test", 2.0).putLongArray("test", Array(0L, 1L, 2L)).build()
+
+    val field_array = Array(
+      new StructField("emptyMetadata", new BooleanType, true, emptyMetadata),
+      new StructField("singleStringMetadata", new BooleanType, true, singleStringMetadata),
+      new StructField("singleBooleanMetadata", new BooleanType, true, singleBooleanMetadata),
+      new StructField("singleIntegerMetadata", new BooleanType, true, singleIntegerMetadata),
+      new StructField("singleDoubleMetadata", new BooleanType, true, singleDoubleMetadata),
+      new StructField("singleMapMetadata", new BooleanType, true, singleMapMetadata),
+      new StructField("singleListMetadata", new BooleanType, true, singleListMetadata),
+      new StructField("multipleEntriesMetadata", new BooleanType, true, multipleEntriesMetadata))
+    val struct = new StructType(field_array)
+    assert(struct == DataTypeParser.fromJson(struct.toJson()))
+  }
+
+  // scalastyle:off line.size.limit
+  test("#125: CloseableParquetDataIterator should not stop iteration when processing an empty file") {
+    // scalastyle:on line.size.limit
+    withLogForGoldenTable("125-iterator-bug") { log =>
+      var datas = new ListBuffer[Int]()
+      var dataIter: CloseableIterator[JRowRecord] = null
+      try {
+        dataIter = log.update().open()
+        while (dataIter.hasNext) {
+          datas += dataIter.next().getInt("col1")
+        }
+
+        assert(datas.length == 5)
+        assert(datas.toSet == Set(1, 2, 3, 4, 5))
+      } finally {
+        if (null != dataIter) {
+          dataIter.close()
+        }
+      }
+    }
+  }
 }
+
