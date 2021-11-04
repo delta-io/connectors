@@ -295,7 +295,7 @@ private class InitialSnapshotImpl(
 
   override lazy val metadataScala: Metadata = Metadata()
 
-  override def scan(): DeltaScan = new DeltaScanImpl(null)
+  override def scan(): DeltaScan = new DeltaScanImpl(memoryOptimizedLogReplay)
 
   override def scan(predicate: Expression): DeltaScan =
     new FilteredDeltaScanImpl(memoryOptimizedLogReplay, predicate, metadataScala.partitionSchema)
