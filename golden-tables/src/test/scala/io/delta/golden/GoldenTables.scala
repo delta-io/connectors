@@ -538,7 +538,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
         i.toString, java.sql.Date.valueOf("2021-09-08"),
         java.sql.Timestamp.valueOf("2021-09-08 11:11:11"), new JBigDecimal(i),
         Array(Row(i), Row(i), Row(i)),
-//        Row(Row(i.toString, i.toString, Row(i, i.toLong))),
         Row(i.toString, i.toString, Row(i, i.toLong)),
         i.toString)
     }
@@ -546,7 +545,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     def createRowWithNullPartitionValues(): Row = {
       Row(null, null, null, null, null, null, null, null, null, null, null,
         Array(Row(2), Row(2), Row(2)),
-//        Row(Row("2", "2", Row(2, 2L))),
         Row("2", "2", Row(2, 2L)),
         "2")
     }

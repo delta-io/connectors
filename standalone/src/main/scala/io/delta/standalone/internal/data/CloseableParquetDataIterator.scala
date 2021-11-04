@@ -30,7 +30,7 @@ import io.delta.standalone.types._
  *
  * Iterates file by file, row by row.
  *
- * @param dataFilePathsAndPartitions Seq of (paths of files, partitions) tuples to iterate over,
+ * @param dataFilePathsAndPartitions Seq of (file path, file partitions) tuples to iterate over,
  *                                   not null
  * @param schema for file data and partition values, not null. Used to read and verify the parquet
  *               data in file and partition data
@@ -46,11 +46,17 @@ private[internal] case class CloseableParquetDataIterator(
   private val dataFilePathsAndPartitionsIter = dataFilePathsAndPartitions.iterator
 
   /**
-   * Iterable resource that allows for iteration over the parquet rows for a single file
-   * and its partitions info. Must be closed.
+   * Iterable resource that allows for iteration over the parquet rows of a single file.
+   * Must be closed.
    */
   private var parquetRows = if (dataFilePathsAndPartitionsIter.hasNext) readNextFile else null
 
+  /**
+   * Deserialized partition values. This variable gets updated every time `readNextFile` is called
+   *
+   * It makes more sense to deserialize partition values once per file than N times for each N row
+   * in a file.
+   */
   private var partitionValues: Map[String, Any] = _
 
   /**

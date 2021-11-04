@@ -65,7 +65,7 @@ import io.delta.standalone.types._
  * @param record the internal parquet4s record
  * @param schema the intended schema for this record
  * @param timeZone the timeZone as which time-based data will be read
- * @param partitionValues the partition values of current record
+ * @param partitionValues the deserialized partition values of current record
  */
 private[internal] case class RowParquetRecordImpl(
     record: RowParquetRecord,
