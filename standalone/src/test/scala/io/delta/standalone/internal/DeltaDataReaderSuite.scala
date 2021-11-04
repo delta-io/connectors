@@ -25,13 +25,15 @@ import scala.collection.JavaConverters._
 
 import io.delta.standalone.data.{RowRecord => JRowRecord}
 import io.delta.standalone.DeltaLog
+
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.DataTypeParser
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import io.delta.standalone.types._
 import org.apache.hadoop.conf.Configuration
-
 import org.scalatest.FunSuite
+
+import io.delta.standalone.internal.data.RowParquetRecordImpl
 
 /**
  * Instead of using Spark in this project to WRITE data and log files for tests, we have
@@ -304,16 +306,20 @@ class DeltaDataReaderSuite extends FunSuite {
 
   test("data reader can read partition values") {
     withLogForGoldenTable("data-reader-partition-values") { log =>
-      val recordIter = log.snapshot().open()
+      val snapshot = log.update()
+      val partitionColumns = snapshot.getMetadata.getPartitionColumns.asScala.toSet
+      val recordIter = snapshot.open()
+
       if (!recordIter.hasNext) fail(s"No row record")
-      while(recordIter.hasNext()) {
+
+      while (recordIter.hasNext) {
         val row = recordIter.next()
-        assert(row.getLength == 12)
+        assert(row.getLength == 14)
 
-        assert(row.getString("value") != null)
+        assert(!row.isNullAt("value"))
 
-        if(row.getString("value") == "2") { // null partition columns
-          for (fieldName <- row.getSchema().getFieldNames().filterNot("value".equals(_))) {
+        if (row.getString("value") == "2") { // null partition columns
+          for (fieldName <- row.getSchema.getFieldNames.filter(partitionColumns.contains)) {
             assert(row.isNullAt(fieldName))
           }
         } else {
@@ -323,7 +329,7 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
-  def doMatch(row: JRowRecord, i: Int): Unit = {
+  private def doMatch(row: JRowRecord, i: Int): Unit = {
     assert(row.getInt("as_int") == i)
     assert(row.getLong("as_long") == i.longValue)
     assert(row.getByte("as_byte") == i.toByte)
@@ -335,18 +341,27 @@ class DeltaDataReaderSuite extends FunSuite {
     assert(row.getDate("as_date") == java.sql.Date.valueOf("2021-09-08"))
     assert(row.getTimestamp("as_timestamp") == java.sql.Timestamp.valueOf("2021-09-08 11:11:11"))
     assert(row.getBigDecimal("as_big_decimal") == new JBigDecimal(i))
+
+    val recordsList = row.getList[JRowRecord]("as_list_of_records")
+    assert(recordsList.get(0).asInstanceOf[RowParquetRecordImpl].partitionValues.isEmpty)
+    assert(recordsList.get(0).getInt("val") == i)
+
+    val nestedStruct = row.getRecord("as_nested_struct")
+    assert(nestedStruct.asInstanceOf[RowParquetRecordImpl].partitionValues.isEmpty)
+    val nestedNestedStruct = nestedStruct.getRecord("ac")
+    assert(nestedNestedStruct.asInstanceOf[RowParquetRecordImpl].partitionValues.isEmpty)
   }
 
-  def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {
+  private def checkDataTypeToJsonFromJson(dataType: DataType): Unit = {
     test(s"DataType to Json and from Json - $dataType") {
-      assert(DataTypeParser.fromJson(dataType.toJson()) === dataType)
+      assert(DataTypeParser.fromJson(dataType.toJson) === dataType)
     }
 
     test(s"DataType inside StructType to Json and from Json - $dataType") {
       val field1 = new StructField("foo", dataType, true)
       val field2 = new StructField("bar", dataType, true)
       val struct = new StructType(Array(field1, field2))
-      assert(DataTypeParser.fromJson(struct.toJson()) === struct)
+      assert(DataTypeParser.fromJson(struct.toJson) === struct)
     }
   }
 

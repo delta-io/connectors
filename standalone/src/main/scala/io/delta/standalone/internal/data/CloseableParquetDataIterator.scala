@@ -27,13 +27,14 @@ import io.delta.standalone.types._
 
 /**
  * A [[CloseableIterator]] over [[RowParquetRecordJ]]s.
+ *
  * Iterates file by file, row by row.
  *
  * @param dataFilePathsAndPartitions paths of files and partitions to iterate over, not null
- * @param schema for file data and partition values, not null.
- *        Used to read and verify the parquet data in file and partition data
- * @param timeZoneId time zone ID for data, can be null. Used to ensure proper Date and Timestamp
- *                   decoding
+ * @param schema for file data and partition values, not null. Used to read and verify the parquet
+ *               data in file and partition data
+ * @param readTimeZone time zone ID for data, can be null. Used to ensure proper Date and Timestamp
+ *                     decoding
  */
 private[internal] case class CloseableParquetDataIterator(
     dataFilePathsAndPartitions: Seq[(String, Map[String, String])],
@@ -140,7 +141,10 @@ private[internal] case class CloseableParquetDataIterator(
       nextDataFilePath, Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
   }
 
-  // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Partition-Value-Serialization
+  /**
+   * Follows deserialization as specified here
+   * https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Partition-Value-Serialization
+   */
   private def decodePartition(elemType: DataType, partitionVal: String): Any = {
     elemType match {
       case _: StringType => partitionVal
