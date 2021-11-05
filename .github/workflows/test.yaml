@@ -19,19 +19,18 @@ jobs:
             ~/.ivy2
             ~/.cache/coursier
           key: delta-sbt-cache-hive23
-      - name: Run Scala/Java and Python tests
+      - name: Run SBT tests
+        strategy:
+          matrix:
+            scala: [2.12.8, 2.11.12]
         shell: bash -l {0}
         run: |
-          build/sbt "++ 2.12.8 standalone/test"
-          build/sbt "++ 2.12.8 hiveMR/test"
-          build/sbt "++ 2.12.8 hiveTez/test"
-          build/sbt "++ 2.12.8 hive2MR/test"
-          build/sbt "++ 2.12.8 hive2Tez/test"
-          build/sbt "++ 2.12.8 sqlDeltaImport/test"
-          build/sbt "++ 2.12.8 testStandaloneCosmetic/test"
-          build/sbt "++ 2.11.12 standalone/test"
-          build/sbt "++ 2.11.12 hiveMR/test"
-          build/sbt "++ 2.11.12 hiveTez/test"
-          build/sbt "++ 2.11.12 hive2MR/test"
-          build/sbt "++ 2.11.12 hive2Tez/test"
-          build/sbt "++ 2.11.12 testStandaloneCosmetic/test"
+          build/sbt "++ ${{ matrix.scala }} standalone/test"
+          build/sbt "++ ${{ matrix.scala }} hiveMR/test"
+          build/sbt "++ ${{ matrix.scala }} hiveTez/test"
+          build/sbt "++ ${{ matrix.scala }} hive2MR/test"
+          build/sbt "++ ${{ matrix.scala }} hive2Tez/test"
+          build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
+      - name: Run sqlDeltaImport tests
+        shell: bash -l {0}
+        run: build/sbt "++ 2.12.8 sqlDeltaImport/test"
