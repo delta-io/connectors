@@ -4,6 +4,9 @@ jobs:
   build:
     name: "Run tests "
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        scala: [2.12.8, 2.11.12]
     steps:
       - uses: actions/checkout@v2
       - name: install java
@@ -20,9 +23,6 @@ jobs:
             ~/.cache/coursier
           key: delta-sbt-cache-hive23
       - name: Run SBT tests
-        strategy:
-          matrix:
-            scala: [2.12.8, 2.11.12]
         shell: bash -l {0}
         run: |
           build/sbt "++ ${{ matrix.scala }} standalone/test"
@@ -33,4 +33,5 @@ jobs:
           build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
       - name: Run sqlDeltaImport tests
         shell: bash -l {0}
-        run: build/sbt "++ 2.12.8 sqlDeltaImport/test"
+        run: build/sbt "++ ${{ matrix.scala }} sqlDeltaImport/test"
+        if: ${{ matrix.scala }} != '2.11.12'
