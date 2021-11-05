@@ -22,6 +22,10 @@ jobs:
             ~/.ivy2
             ~/.cache/coursier
           key: delta-sbt-cache-hive23
+      - name: Run sqlDeltaImport tests
+        shell: bash -l {0}
+        run: build/sbt "++ ${{ matrix.scala }} sqlDeltaImport/test"
+        if: matrix.scala != '2.11.12'
       - name: Run SBT tests
         shell: bash -l {0}
         run: |
@@ -31,7 +35,3 @@ jobs:
           build/sbt "++ ${{ matrix.scala }} hive2MR/test"
           build/sbt "++ ${{ matrix.scala }} hive2Tez/test"
           build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
-      - name: Run sqlDeltaImport tests
-        shell: bash -l {0}
-        run: build/sbt "++ ${{ matrix.scala }} sqlDeltaImport/test"
-        if: ${{ matrix.scala }} != '2.11.12'
