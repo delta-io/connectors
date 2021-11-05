@@ -137,13 +137,15 @@ private[internal] case class CloseableParquetDataIterator(
 
     if (null != nextPartitionVals) {
       nextPartitionVals.foreach { case (fieldName, value) =>
-        if (value == null || "null" == value) {
+        if (value == null) {
           partitionValues += (fieldName -> null)
         } else {
           val schemaField = schema.get(fieldName)
           if (schemaField != null) {
             val decodedFieldValue = decodePartition(schemaField.getDataType, value)
             partitionValues += (fieldName -> decodedFieldValue)
+          } else {
+            throw new IllegalStateException(s"StructField with name $schemaField was null.")
           }
         }
       }

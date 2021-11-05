@@ -315,7 +315,7 @@ class DeltaDataReaderSuite extends FunSuite {
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
-        assert(row.getLength == 14)
+        assert(row.getLength == 15)
 
         assert(!row.isNullAt("value"))
 
@@ -339,6 +339,7 @@ class DeltaDataReaderSuite extends FunSuite {
     assert(row.getFloat("as_float") == i.floatValue)
     assert(row.getDouble("as_double") == i.doubleValue)
     assert(row.getString("as_string") == i.toString)
+    assert(row.getString("as_string_lit_null") == "null")
     assert(row.getDate("as_date") == java.sql.Date.valueOf("2021-09-08"))
     assert(row.getTimestamp("as_timestamp") == java.sql.Timestamp.valueOf("2021-09-08 11:11:11"))
     assert(row.getBigDecimal("as_big_decimal") == new JBigDecimal(i))

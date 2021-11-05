@@ -535,7 +535,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   generateGoldenTable("data-reader-partition-values") { tablePath =>
     def createRow(i: Int): Row = {
       Row(i, i.longValue, i.toByte, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
-        i.toString, java.sql.Date.valueOf("2021-09-08"),
+        i.toString, "null", java.sql.Date.valueOf("2021-09-08"),
         java.sql.Timestamp.valueOf("2021-09-08 11:11:11"), new JBigDecimal(i),
         Array(Row(i), Row(i), Row(i)),
         Row(i.toString, i.toString, Row(i, i.toLong)),
@@ -543,7 +543,10 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     }
 
     def createRowWithNullPartitionValues(): Row = {
-      Row(null, null, null, null, null, null, null, null, null, null, null,
+      Row(
+        // partition values
+        null, null, null, null, null, null, null, null, null, null, null, null,
+        // data values
         Array(Row(2), Row(2), Row(2)),
         Row("2", "2", Row(2, 2L)),
         "2")
@@ -559,6 +562,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       .add("as_float", FloatType)
       .add("as_double", DoubleType)
       .add("as_string", StringType)
+      .add("as_string_lit_null", StringType)
       .add("as_date", DateType)
       .add("as_timestamp", TimestampType)
       .add("as_big_decimal", DecimalType(1, 0))
@@ -580,7 +584,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     df.write
       .format("delta")
       .partitionBy("as_int", "as_long", "as_byte", "as_short", "as_boolean", "as_float",
-        "as_double", "as_string", "as_date", "as_timestamp", "as_big_decimal")
+        "as_double", "as_string", "as_string_lit_null", "as_date", "as_timestamp", "as_big_decimal")
       .save(tablePath)
   }
 

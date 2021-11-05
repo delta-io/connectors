@@ -88,13 +88,10 @@ private[internal] case class RowParquetRecordImpl(
 
   override def isNullAt(fieldName: String): Boolean = {
     if (partitionValues.contains(fieldName)) { // is partition field
-        if (partitionValues(fieldName) == null) {
-            return true
-        }
-        return false
+      partitionValues(fieldName) == null
+    } else {
+      record.get(fieldName) == NullValue
     }
-
-    record.get(fieldName) == NullValue
   }
 
   override def getInt(fieldName: String): Int = getAs[Int](fieldName)
@@ -146,7 +143,6 @@ private[internal] case class RowParquetRecordImpl(
     val schemaField = schema.get(fieldName)
 
     if (partitionValues.contains(fieldName)) { // partition field
-      if (partitionValues(fieldName) == null) return null.asInstanceOf[T]
       return partitionValues(fieldName).asInstanceOf[T]
     }
     val parquetVal = record.get(fieldName)
