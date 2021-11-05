@@ -47,6 +47,25 @@ private[internal] class MemoryOptimizedLogReplay(
       private var actionIter: Option[CloseableIterator[(Action, Boolean)]] = None
 
       /**
+       * Requires that `reverseFilesIter.hasNext` is true
+       */
+      private def getNextIter: Option[CloseableIterator[(Action, Boolean)]] = {
+        val nextFile = reverseFilesIter.next()
+
+        if (nextFile.getName.endsWith(".json")) {
+          Some(new CustomJsonIterator(logStore.read(nextFile, hadoopConf)))
+        } else if (nextFile.getName.endsWith(".parquet")) {
+          val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
+            nextFile.toString,
+            ParquetReader.Options(timeZone, hadoopConf)
+          )
+          Some(new CustomParquetIterator(parquetIterable))
+        } else {
+          throw new IllegalStateException(s"unexpected log file path: $nextFile")
+        }
+      }
+
+      /**
        * If the current `actionIter` has no more elements, this function repeatedly reads the next
        * file, if it exists, and creates the next `actionIter` until we find a non-empty file.
        */
@@ -59,19 +78,7 @@ private[internal] class MemoryOptimizedLogReplay(
 
         // there might be empty files. repeat until we find a non-empty file or run out of files
         while (reverseFilesIter.hasNext) {
-          val nextFile = reverseFilesIter.next()
-
-          if (nextFile.getName.endsWith(".json")) {
-            actionIter = Some(new CustomJsonIterator(logStore.read(nextFile, hadoopConf)))
-          } else if (nextFile.getName.endsWith(".parquet")) {
-            val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
-              nextFile.toString,
-              ParquetReader.Options(timeZone, hadoopConf)
-            )
-            actionIter = Some(new CustomParquetIterator(parquetIterable))
-          } else {
-            throw new IllegalStateException(s"unexpected log file path: $nextFile")
-          }
+          actionIter = getNextIter
 
           if (actionIter.exists(_.hasNext)) return
 
@@ -113,7 +120,7 @@ private class CustomJsonIterator(iter: CloseableIterator[String])
   override def hasNext: Boolean = iter.hasNext
 
   override def next(): (Action, Boolean) = {
-    (JsonUtils.mapper.readValue[SingleAction](iter.next).unwrap, false)
+    (JsonUtils.mapper.readValue[SingleAction](iter.next()).unwrap, false)
   }
 
   override def close(): Unit = iter.close()

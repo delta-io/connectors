@@ -117,6 +117,10 @@ private[internal] class SnapshotImpl(
   lazy val transactions: Map[String, Long] =
     setTransactionsScala.map(t => t.appId -> t.version).toMap
 
+  // These values need to be declared lazy. In Scala, strict values (i.e. non-lazy) in superclasses
+  // (e.g. SnapshotImpl) are fully initialized before subclasses (e.g. InitialSnapshotImpl).
+  // If these were 'strict', or 'eager', vals, then `loadTableProtocolAndMetadata` would be called
+  // for all new InitialSnapshotImpl instances, causing an exception.
   lazy val (protocolScala, metadataScala) = loadTableProtocolAndMetadata()
 
   private def loadTableProtocolAndMetadata(): (Protocol, Metadata) = {
@@ -129,24 +133,20 @@ private[internal] class SnapshotImpl(
       // Metadata.
       iter.asScala.foreach { case (action, _) =>
         action match {
-          case p: Protocol =>
-            if (null == protocol) {
-              // We only need the latest protocol
-              protocol = p
+          case p: Protocol if null == protocol =>
+            // We only need the latest protocol
+            protocol = p
 
-              if (protocol != null && metadata != null) {
-                // Stop since we have found the latest Protocol and metadata.
-                return (protocol, metadata)
-              }
+            if (protocol != null && metadata != null) {
+              // Stop since we have found the latest Protocol and metadata.
+              return (protocol, metadata)
             }
-          case m: Metadata =>
-            if (null == metadata) {
-              metadata = m
+          case m: Metadata if null == metadata =>
+            metadata = m
 
-              if (protocol != null && metadata != null) {
-                // Stop since we have found the latest Protocol and metadata.
-                return (protocol, metadata)
-              }
+            if (protocol != null && metadata != null) {
+              // Stop since we have found the latest Protocol and metadata.
+              return (protocol, metadata)
             }
           case _ => // do nothing
         }

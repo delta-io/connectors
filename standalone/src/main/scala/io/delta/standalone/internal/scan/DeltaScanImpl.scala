@@ -94,7 +94,11 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
             val alreadyReturned = addFiles.contains(canonicalizeAdd.pathAsUri)
 
             if (!alreadyReturned) {
-              addFiles += canonicalizeAdd.pathAsUri
+              // no AddFile will appear twice in a checkpoint so we only need non-checkpoint
+              // AddFiles in the set
+              if (!isCheckpoint) {
+                addFiles += canonicalizeAdd.pathAsUri
+              }
 
               if (!alreadyDeleted) {
                 return Some(canonicalizeAdd)
@@ -121,15 +125,15 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
      * [[accept]] check, or None if no such AddFile file exists.
      */
     private def setNextMatching(): Unit = {
-      while (true) {
-        val nextValid = findNextValid()
-        if (nextValid.isEmpty) {
-          nextMatching = None
-          return
-        } else if (accept(nextValid.get)) {
+      var nextValid = findNextValid()
+
+      while (nextValid.isDefined) {
+        if (accept(nextValid.get)) {
           nextMatching = nextValid
           return
         }
+
+        nextValid = findNextValid()
       }
 
       // No next matching found
@@ -139,7 +143,9 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
     override def hasNext: Boolean = {
       // nextMatching will be empty if
       // a) this is the first time hasNext has been called
-      // b) we've run out of actions to iterate over. in this case, setNextMatching() and
+      // b) next() was just called and successfully returned a next element, setting nextMatching to
+      //    None
+      // c) we've run out of actions to iterate over. in this case, setNextMatching() and
       //    findNextValid() will both short circuit and return immediately
       if (nextMatching.isEmpty) {
         setNextMatching()
