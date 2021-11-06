@@ -25,6 +25,7 @@ import org.apache.hadoop.mapred.{JobConf, MiniMRCluster}
 import org.apache.hadoop.mapreduce.MRJobConfig
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 
+/** This file is duplicated in hive-mr and hive2-mr. Please update both when modifying this file. */
 class HiveMRSuite extends HiveConnectorTest {
 
   override val engine: String = "mr"

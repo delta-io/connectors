@@ -555,8 +555,12 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
-      // We don't need to publish this project in Scala 2.11. Define Spark and Delta versions with
-      // 2.12 so that running `build/sbt "++ 2.11.12 publishLocal"` doesn't fail.
+      // We config this project to skip the publish step when running
+      // `build/sbt "++ 2.11.12 publishLocal"` because it doesn't support Scala 2.11. However,
+      // SBT will still try to resolve dependencies when running
+      // `build/sbt "++ 2.11.12 publishLocal"` because Spark 3.0.0 and Delta 0.7.0 don't support
+      // 2.11 and don't have the jars for Scala 2.11. In order to make our publish command pass, we
+      // define Spark and Delta versions with 2.12 to make dependency resolution pass.
       "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "provided",
       "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
