@@ -26,6 +26,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
@@ -36,8 +37,6 @@ import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.util.DataFormatConverters;
-import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.LongStream;
-
 
 public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
@@ -163,16 +161,10 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         for (int i = 0; i < NUM_RECORDS; i++) {
             Integer v = i;
             rows.add(
-                    CONVERTER.toInternal(Row.of(String.valueOf(v), String.valueOf((v + v)), v))
+                    TestDeltaLakeTable.CONVERTER.toInternal(Row.of(String.valueOf(v), String.valueOf((v + v)), v))
             );
         }
         return rows;
     }
-
-    private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER =
-            DataFormatConverters.getConverterForDataType(
-                    TypeConversions.fromLogicalToDataType(DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE)
-            );
-
 
 }

@@ -37,6 +37,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -136,8 +137,8 @@ public class DeltaGlobalCommitterTestParametrized {
         assertEquals(snapshot.getMetadata().getPartitionColumns(), partitionColumns);
     }
 
-    private static void validateCurrentTableFiles(Snapshot snapshot,
-                                                  LinkedHashMap<String, String> partitionSpec) {
+    private void validateCurrentTableFiles(Snapshot snapshot,
+                                           LinkedHashMap<String, String> partitionSpec) throws URISyntaxException, IOException {
         CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
         while (filesIterator.hasNext()) {
             AddFile addFile = filesIterator.next();

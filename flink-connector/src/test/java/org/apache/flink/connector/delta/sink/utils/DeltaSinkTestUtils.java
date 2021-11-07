@@ -4,9 +4,13 @@ import org.apache.commons.io.FileUtils;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.util.DataFormatConverters;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.table.types.utils.TypeConversions;
+import org.apache.flink.types.Row;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +35,11 @@ public class DeltaSinkTestUtils {
                 new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
                 new RowType.RowField("age", new IntType())
         ));
+
+        public static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER =
+                DataFormatConverters.getConverterForDataType(
+                        TypeConversions.fromLogicalToDataType(TestDeltaLakeTable.TEST_ROW_TYPE)
+                );
 
         public static LinkedHashMap<String, String> getEmptyTestPartitionSpec() {
             return new LinkedHashMap<>();

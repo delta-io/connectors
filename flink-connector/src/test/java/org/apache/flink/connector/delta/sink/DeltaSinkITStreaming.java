@@ -31,10 +31,9 @@ import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
+import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.formats.parquet.ParquetWriterFactory;
-import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
@@ -47,8 +46,6 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.util.DataFormatConverters;
-import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 import org.junit.After;
 import org.junit.Before;
@@ -57,7 +54,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.LongStream;
@@ -113,6 +117,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
+        int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
         assert initialDeltaFiles.size() == 2;
 
         JobGraph jobGraph = createJobGraph(deltaTablePath);
@@ -122,6 +127,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
+
 
         // THEN
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
@@ -140,10 +146,13 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             totalAddedFiles += Long.parseLong(operationMetrics.get().get("numAddedFiles"));
 
             assert Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0;
+
         }
+        int finalTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
 
         assert totalAddedFiles == finalDeltaFiles.size() - initialDeltaFiles.size();
         assert totalRowsAdded == (NUM_RECORDS * NUM_SOURCES);
+        assert totalRowsAdded == finalTableRecordsCount - initialTableRecordsCount;
     }
 
     @Override
@@ -196,11 +205,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
         return env;
     }
-
-    private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER =
-            DataFormatConverters.getConverterForDataType(
-                    TypeConversions.fromLogicalToDataType(TestDeltaLakeTable.TEST_ROW_TYPE)
-            );
 
 
     // ------------------------ Streaming mode user functions ----------------------------------
@@ -285,7 +289,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private void sendRecordsUntil(int targetNumber, SourceContext<RowData> ctx) {
             while (!isCanceled && nextValue < targetNumber) {
                 synchronized (ctx.getCheckpointLock()) {
-                    RowData row = CONVERTER.toInternal(Row.of(String.valueOf(nextValue), String.valueOf((nextValue + nextValue)), nextValue));
+                    RowData row = TestDeltaLakeTable.CONVERTER.toInternal(Row.of(String.valueOf(nextValue), String.valueOf((nextValue + nextValue)), nextValue));
                     ctx.collect(row);
                     nextValue++;
                 }

@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Operation;
 import io.delta.standalone.OptimisticTransaction;
@@ -245,10 +247,16 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
                                                int numAddedFiles,
                                                List<String> partitionColumns) {
         Map<String, String> operationMetrics = prepareOperationMetrics(globalCommittables, numAddedFiles);
-        Map<String, Object> operationParameters = new HashMap<String, Object>() {{
-            put("mode", APPEND_MODE);
-            put("partitionBy", partitionColumns);
-        }};
+        Map<String, String> operationParameters = new HashMap<>();
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            operationParameters.put("mode", objectMapper.writeValueAsString(APPEND_MODE));
+            // we need to perform mapping to JSON object twice for partition columns. First to map the list to string type
+            // and then again to make this string JSON encoded
+            operationParameters.put("partitionBy", objectMapper.writeValueAsString(objectMapper.writeValueAsString(partitionColumns)));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Cannot map object to JSON", e);
+        }
         return new Operation(Operation.Name.STREAMING_UPDATE, operationParameters, operationMetrics);
     }
 
