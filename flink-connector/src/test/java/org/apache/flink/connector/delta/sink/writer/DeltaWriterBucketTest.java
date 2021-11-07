@@ -18,11 +18,11 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
+import java.io.IOException;
+
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-
-import java.io.IOException;
 
 /**
  * Tests for {@link DeltaWriterBucket}.

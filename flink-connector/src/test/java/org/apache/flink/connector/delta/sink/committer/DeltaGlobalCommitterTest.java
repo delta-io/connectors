@@ -18,7 +18,8 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
-import io.delta.standalone.DeltaLog;
+import java.io.IOException;
+
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 import org.apache.flink.core.fs.Path;
 import org.junit.After;
@@ -27,7 +28,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.IOException;
+import io.delta.standalone.DeltaLog;
 
 /**
  * Tests for {@link DeltaGlobalCommitter}.
@@ -52,17 +53,18 @@ public class DeltaGlobalCommitterTest {
 
     }
 
-
     /**
      * Test cases to cover:
-     * test commit twice same committables (after second trial DeltaLog should have the same version)
+     * test commit twice same data (after second trial DeltaLog should have the same version)
      * test with non-matching datastream schema and canTryUpdateSchema set to false
      * test with non-matching datastream schema and canTryUpdateSchema set to true
      * test with different stream's partition values
      * test with committables from different checkpoint intervals (both should pass)
-     * test with committables from different checkpoint intervals, one outdated (only one should pass)
+     * test with committables from different checkpoint intervals,
+     * one outdated (only one should pass)
      * test with committables from different checkpoint intervals with different schemas
-     * test with committables from the same checkpoint interval containg different partition columns (should fail)
+     * test with committables from the same checkpoint interval containg different
+     * partition columns (should fail)
      */
 
     @Test

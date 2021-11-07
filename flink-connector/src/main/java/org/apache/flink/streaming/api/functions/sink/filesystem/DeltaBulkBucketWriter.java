@@ -18,17 +18,17 @@
 
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
+import java.io.IOException;
+
 import org.apache.flink.api.common.serialization.BulkWriter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.fs.RecoverableFsDataOutputStream;
 import org.apache.flink.core.fs.RecoverableWriter;
 import org.apache.flink.util.Preconditions;
 
-import java.io.IOException;
-
 /**
  * This class is provided as a part of workaround for getting actual file size.
- *
+ * <p>
  * Compared to its original version {@link BulkPartWriter} it changes only the return types
  * for methods {@link this#resumeFrom} and {@link this#openNew} to a custom implementation
  * of {@link BulkPartWriter} that is {@link DeltaBulkPartWriter}.
@@ -42,7 +42,7 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
 
     public DeltaBulkBucketWriter(final RecoverableWriter recoverableWriter,
                                  BulkWriter.Factory<IN> writerFactory)
-            throws IOException {
+        throws IOException {
         super(recoverableWriter, writerFactory);
         this.writerFactory = writerFactory;
     }
@@ -53,11 +53,11 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
 
     @Override
     public DeltaBulkPartWriter<IN, BucketID> resumeFrom(
-            final BucketID bucketId,
-            final RecoverableFsDataOutputStream stream,
-            final RecoverableWriter.ResumeRecoverable resumable,
-            final long creationTime)
-            throws IOException {
+        final BucketID bucketId,
+        final RecoverableFsDataOutputStream stream,
+        final RecoverableWriter.ResumeRecoverable resumable,
+        final long creationTime)
+        throws IOException {
         Preconditions.checkNotNull(stream);
         Preconditions.checkNotNull(resumable);
 
@@ -68,11 +68,11 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
 
     @Override
     public DeltaBulkPartWriter<IN, BucketID> openNew(
-            final BucketID bucketId,
-            final RecoverableFsDataOutputStream stream,
-            final Path path,
-            final long creationTime)
-            throws IOException {
+        final BucketID bucketId,
+        final RecoverableFsDataOutputStream stream,
+        final Path path,
+        final long creationTime)
+        throws IOException {
 
         Preconditions.checkNotNull(stream);
         Preconditions.checkNotNull(path);

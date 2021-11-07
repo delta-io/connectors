@@ -18,11 +18,10 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
-import org.apache.flink.core.fs.Path;
-import org.junit.Test;
-
 import java.io.IOException;
 
+import org.apache.flink.core.fs.Path;
+import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -33,26 +32,27 @@ public class DeltaWriterBucketStateSerializerTest {
     @Test
     public void testSerde() throws IOException {
         DeltaWriterBucketState bucketState =
-                new DeltaWriterBucketState(
-                        "bucketId",
-                        new Path("file:///tmp/bucketId"),
-                        "appId"
-                );
+            new DeltaWriterBucketState(
+                "bucketId",
+                new Path("file:///tmp/bucketId"),
+                "appId"
+            );
         DeltaWriterBucketState deserialized = serializeAndDeserialize(bucketState);
         assertBucketStateEquals(bucketState, deserialized);
     }
 
 
-    private void assertBucketStateEquals(DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
+    private void assertBucketStateEquals(
+        DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
         assertEquals(bucketState.getBucketId(), deserialized.getBucketId());
         assertEquals(bucketState.getBucketPath(), deserialized.getBucketPath());
         assertEquals(bucketState.getAppId(), deserialized.getAppId());
     }
 
     private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)
-            throws IOException {
+        throws IOException {
         DeltaWriterBucketStateSerializer serializer =
-                new DeltaWriterBucketStateSerializer();
+            new DeltaWriterBucketStateSerializer();
         byte[] data = serializer.serialize(bucketState);
         return serializer.deserialize(serializer.getVersion(), data);
     }

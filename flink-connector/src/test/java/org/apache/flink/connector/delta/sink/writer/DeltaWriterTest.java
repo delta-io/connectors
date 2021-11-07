@@ -18,9 +18,9 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
-import org.junit.Test;
-
 import java.io.IOException;
+
+import org.junit.Test;
 
 /**
  * Tests for {@link DeltaWriter}.

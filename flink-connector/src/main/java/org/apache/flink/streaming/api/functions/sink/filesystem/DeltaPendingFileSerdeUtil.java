@@ -1,21 +1,22 @@
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 
 public final class DeltaPendingFileSerdeUtil {
 
-    public static void serialize(DeltaPendingFile deltaPendingFile,
-                                 DataOutputView dataOutputView,
-                                 SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
-                                         pendingFileSerializer) throws IOException {
+    public static void serialize(
+        DeltaPendingFile deltaPendingFile,
+        DataOutputView dataOutputView,
+        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer) throws IOException {
         assert deltaPendingFile.getFileName() != null;
         assert deltaPendingFile.getPendingFile() != null;
 
@@ -31,15 +32,16 @@ public final class DeltaPendingFileSerdeUtil {
         dataOutputView.writeLong(deltaPendingFile.getLastUpdateTime());
 
         SimpleVersionedSerialization.writeVersionAndSerialize(
-                pendingFileSerializer,
-                deltaPendingFile.getPendingFile(),
-                dataOutputView
+            pendingFileSerializer,
+            deltaPendingFile.getPendingFile(),
+            dataOutputView
         );
     }
 
-    public static DeltaPendingFile deserialize(DataInputView dataInputView,
-                                               SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
-                                                       pendingFileSerializer) throws IOException {
+    public static DeltaPendingFile deserialize(
+        DataInputView dataInputView,
+        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer) throws IOException {
         LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
         int partitionSpecEntriesCount = dataInputView.readInt();
         for (int i = 0; i < partitionSpecEntriesCount; i++) {
@@ -51,9 +53,15 @@ public final class DeltaPendingFileSerdeUtil {
         long pendingFileSize = dataInputView.readLong();
         long lastUpdateTime = dataInputView.readLong();
         InProgressFileWriter.PendingFileRecoverable pendingFile =
-                SimpleVersionedSerialization.readVersionAndDeSerialize(
-                        pendingFileSerializer, dataInputView);
-        return new DeltaPendingFile(partitionSpec, pendingFileName, pendingFile, pendingFileRecordCount, pendingFileSize, lastUpdateTime);
+            SimpleVersionedSerialization.readVersionAndDeSerialize(
+                pendingFileSerializer, dataInputView);
+        return new DeltaPendingFile(
+            partitionSpec,
+            pendingFileName,
+            pendingFile,
+            pendingFileRecordCount,
+            pendingFileSize,
+            lastUpdateTime);
     }
 
 }

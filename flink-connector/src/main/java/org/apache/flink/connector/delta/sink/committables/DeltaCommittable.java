@@ -18,11 +18,10 @@
 
 package org.apache.flink.connector.delta.sink.committables;
 
-import org.apache.flink.annotation.Internal;
-import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
-
 import java.io.Serializable;
 
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 

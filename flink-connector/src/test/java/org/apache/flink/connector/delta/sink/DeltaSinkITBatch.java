@@ -18,15 +18,20 @@
 
 package org.apache.flink.connector.delta.sink;
 
-import io.delta.standalone.DeltaLog;
-import io.delta.standalone.actions.AddFile;
-import io.delta.standalone.actions.CommitInfo;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.LongStream;
+
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
@@ -41,13 +46,10 @@ import org.apache.flink.types.Row;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.LongStream;
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.CommitInfo;
+
 
 public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
@@ -57,7 +59,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
     public void setup() {
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            DeltaSinkTestUtils.TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+            TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -86,17 +88,19 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         }
 
         // THEN
-        DeltaSinkTestUtils.TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assert finalDeltaFiles.size() > initialDeltaFiles.size();
-        Iterator<Long> it = LongStream.range(initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();
+        Iterator<Long> it = LongStream.range(
+            initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();
         long totalRowsAdded = 0;
         long totalAddedFiles = 0;
         while (it.hasNext()) {
             long currentVersion = it.next();
             CommitInfo currentCommitInfo = deltaLog.getCommitInfoAt(currentVersion);
-            Optional<Map<String, String>> operationMetrics = currentCommitInfo.getOperationMetrics();
+            Optional<Map<String, String>> operationMetrics =
+                currentCommitInfo.getOperationMetrics();
             assert operationMetrics.isPresent();
             totalRowsAdded += Long.parseLong(operationMetrics.get().get("numOutputRows"));
             totalAddedFiles += Long.parseLong(operationMetrics.get().get("numAddedFiles"));
@@ -112,31 +116,37 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
         env.fromCollection(getTestRows())
-                .setParallelism(1)
-                .sinkTo(createDeltaSink())
-                .setParallelism(NUM_SINKS);
+            .setParallelism(1)
+            .sinkTo(createDeltaSink())
+            .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
         return streamGraph.getJobGraph();
     }
 
     private DeltaSink<RowData> createDeltaSink() {
-        ParquetWriterFactory<RowData> factory = ParquetRowDataBuilder.createWriterFactory(DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE, getHadoopConf(), true);
+        ParquetWriterFactory<RowData> factory =
+            ParquetRowDataBuilder.createWriterFactory(
+                TestDeltaLakeTable.TEST_ROW_TYPE, getHadoopConf(), true);
 
         return DeltaSink
-                .forDeltaFormat(new Path(deltaTablePath), getHadoopConf(), factory, DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE)
-                .build();
+            .forDeltaFormat(
+                new Path(deltaTablePath),
+                getHadoopConf(),
+                factory,
+                TestDeltaLakeTable.TEST_ROW_TYPE)
+            .build();
     }
 
     private MiniCluster getMiniCluster() {
         final Configuration config = new Configuration();
         config.setString(RestOptions.BIND_PORT, "18081-19000");
         final MiniClusterConfiguration cfg =
-                new MiniClusterConfiguration.Builder()
-                        .setNumTaskManagers(1)
-                        .setNumSlotsPerTaskManager(4)
-                        .setConfiguration(config)
-                        .build();
+            new MiniClusterConfiguration.Builder()
+                .setNumTaskManagers(1)
+                .setNumSlotsPerTaskManager(4)
+                .setConfiguration(config)
+                .build();
         return new MiniCluster(cfg);
     }
 
@@ -161,7 +171,12 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         for (int i = 0; i < NUM_RECORDS; i++) {
             Integer v = i;
             rows.add(
-                    TestDeltaLakeTable.CONVERTER.toInternal(Row.of(String.valueOf(v), String.valueOf((v + v)), v))
+                TestDeltaLakeTable.CONVERTER.toInternal(
+                    Row.of(
+                        String.valueOf(v),
+                        String.valueOf((v + v)),
+                        v)
+                )
             );
         }
         return rows;

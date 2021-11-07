@@ -18,6 +18,10 @@
 
 package org.apache.flink.connector.delta.sink;
 
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.UUID;
+
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittableSerializer;
@@ -42,20 +46,15 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.UUID;
-
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A builder class for {@link DeltaSink}.
  * <p>
  * Most of the logic for this class was sourced from
- * {@link org.apache.flink.connector.file.sink.FileSink.BulkFormatBuilder} as the behaviour is very similar.
- * The main difference is that this {@link DeltaSinkBuilder} was extended with DeltaLake's specific parts
- * that are explicitly marked in the implementation below.
+ * {@link org.apache.flink.connector.file.sink.FileSink.BulkFormatBuilder} as the behaviour is very
+ * similar. The main difference is that this {@link DeltaSinkBuilder} was extended with DeltaLake's
+ * specific parts that are explicitly marked in the implementation below.
  *
  * @param <IN> The type of input elements.
  */
@@ -195,7 +194,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     }
 
     DeltaGlobalCommitter createGlobalCommitter() {
-        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
+        return new DeltaGlobalCommitter(
+                serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
     }
 
     Path getTableBasePath() {
@@ -224,7 +224,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         return this;
     }
 
-    public DeltaSinkBuilder<IN> withRollingPolicy(CheckpointRollingPolicy<IN, String> rollingPolicy) {
+    public DeltaSinkBuilder<IN> withRollingPolicy(
+            CheckpointRollingPolicy<IN, String> rollingPolicy) {
         this.rollingPolicy = checkNotNull(rollingPolicy);
         return this;
     }
@@ -253,13 +254,13 @@ public class DeltaSinkBuilder<IN> implements Serializable {
      * Creates the actual sink.
      */
     public DeltaSink<IN> build() {
-        return new DeltaSink<IN>(this);
+        return new DeltaSink<>(this);
     }
 
     DeltaWriter<IN> createWriter(Sink.InitContext context,
                                  String appId,
                                  long nextCheckpointId) throws IOException {
-        return new DeltaWriter<IN>(
+        return new DeltaWriter<>(
                 tableBasePath,
                 bucketAssigner,
                 createBucketWriter(),
@@ -280,14 +281,16 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return new DeltaCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+        return new DeltaCommittableSerializer(
+                bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     SimpleVersionedSerializer<DeltaGlobalCommittable> getGlobalCommittableSerializer()
             throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return new DeltaGlobalCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+        return new DeltaGlobalCommittableSerializer(
+                bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     private DeltaBulkBucketWriter<IN, String> createBucketWriter() throws IOException {

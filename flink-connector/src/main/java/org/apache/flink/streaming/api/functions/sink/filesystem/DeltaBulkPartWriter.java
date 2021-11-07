@@ -18,11 +18,11 @@
 
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
+import java.io.IOException;
+
 import org.apache.flink.api.common.serialization.BulkWriter;
 import org.apache.flink.core.fs.RecoverableFsDataOutputStream;
 import org.apache.flink.util.Preconditions;
-
-import java.io.IOException;
 
 /**
  * This class is provided as a workaround for getting actual size of in-progress file
@@ -42,7 +42,8 @@ import java.io.IOException;
  * @param <IN>       The type of input elements.
  * @param <BucketID> The type of bucket identifier
  */
-public class DeltaBulkPartWriter<IN, BucketID> extends OutputStreamBasedPartFileWriter<IN, BucketID> {
+public class DeltaBulkPartWriter<IN, BucketID>
+        extends OutputStreamBasedPartFileWriter<IN, BucketID> {
 
     private final BulkWriter<IN> writer;
 

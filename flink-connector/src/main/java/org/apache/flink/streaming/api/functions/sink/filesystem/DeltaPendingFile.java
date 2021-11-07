@@ -22,7 +22,8 @@ import java.util.LinkedHashMap;
 
 /**
  * Wrapper class for {@link InProgressFileWriter.PendingFileRecoverable} object.
- * This class carries the internal committable information to be used during the checkpoint/commit phase.
+ * This class carries the internal committable information to be used during the checkpoint/commit
+ * phase.
  *
  * As similar to {@link org.apache.flink.connector.file.sink.FileSink} we need to carry
  * {@link InProgressFileWriter.PendingFileRecoverable} information to perform "local" commit

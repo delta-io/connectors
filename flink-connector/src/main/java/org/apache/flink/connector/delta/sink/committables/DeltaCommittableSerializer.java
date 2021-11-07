@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.delta.sink.committables;
 
+import java.io.IOException;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
@@ -27,9 +29,6 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFileSerdeUtil;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
-
-import java.io.IOException;
-
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
@@ -76,13 +75,15 @@ public class DeltaCommittableSerializer
             throws IOException {
         dataOutputView.writeUTF(committable.getAppId());
         dataOutputView.writeLong(committable.getCheckpointId());
-        DeltaPendingFileSerdeUtil.serialize(committable.getDeltaPendingFile(), dataOutputView, pendingFileSerializer);
+        DeltaPendingFileSerdeUtil.serialize(
+                committable.getDeltaPendingFile(), dataOutputView, pendingFileSerializer);
     }
 
     DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
         String appId = dataInputView.readUTF();
         long checkpointId = dataInputView.readLong();
-        DeltaPendingFile deltaPendingFile = DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer);
+        DeltaPendingFile deltaPendingFile =
+                DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer);
         return new DeltaCommittable(deltaPendingFile, appId, checkpointId);
     }
 

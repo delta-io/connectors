@@ -18,6 +18,14 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import javax.annotation.Nullable;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
@@ -31,22 +39,13 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 import org.apache.flink.table.utils.PartitionPathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 
 /**
- * Internal implementation for writing the actual events to the underlying files in the correct buckets
- * / partitions.
+ * Internal implementation for writing the actual events to the underlying files in the correct
+ * buckets / partitions.
  *
  * <p>
  * In reference to the Flink's {@link org.apache.flink.api.connector.sink.Sink} topology
@@ -101,11 +100,11 @@ class DeltaWriterBucket<IN> {
      * Constructor to create a new empty bucket.
      */
     private DeltaWriterBucket(
-            String bucketId,
-            Path bucketPath,
-            DeltaBulkBucketWriter<IN, String> bucketWriter,
-            CheckpointRollingPolicy<IN, String> rollingPolicy,
-            OutputFileConfig outputFileConfig) throws IOException {
+        String bucketId,
+        Path bucketPath,
+        DeltaBulkBucketWriter<IN, String> bucketWriter,
+        CheckpointRollingPolicy<IN, String> rollingPolicy,
+        OutputFileConfig outputFileConfig) throws IOException {
         this.bucketId = checkNotNull(bucketId);
         this.bucketPath = checkNotNull(bucketPath);
         this.bucketWriter = checkNotNull(bucketWriter);
@@ -122,18 +121,18 @@ class DeltaWriterBucket<IN> {
      * Constructor to restore a bucket from checkpointed state.
      */
     private DeltaWriterBucket(
-            DeltaBulkBucketWriter<IN, String> partFileFactory,
-            CheckpointRollingPolicy<IN, String> rollingPolicy,
-            DeltaWriterBucketState bucketState,
-            OutputFileConfig outputFileConfig)
-            throws IOException {
+        DeltaBulkBucketWriter<IN, String> partFileFactory,
+        CheckpointRollingPolicy<IN, String> rollingPolicy,
+        DeltaWriterBucketState bucketState,
+        OutputFileConfig outputFileConfig)
+        throws IOException {
 
         this(
-                bucketState.getBucketId(),
-                bucketState.getBucketPath(),
-                partFileFactory,
-                rollingPolicy,
-                outputFileConfig);
+            bucketState.getBucketId(),
+            bucketState.getBucketPath(),
+            partFileFactory,
+            rollingPolicy,
+            outputFileConfig);
     }
 
     /**
@@ -146,29 +145,35 @@ class DeltaWriterBucket<IN> {
      *       to the committables
      *   <li>it does not handle any in progress files to cleanup as it's supposed to always roll
      *       part files on checkpoint which is also the default behaviour for bulk formats in
-     *       {@link org.apache.flink.connector.file.sink.FileSink} as well. The reason why its needed
-     *       for FileSink is that it also provides support for row wise formats which is not required
-     *       in case of DeltaSink.
+     *       {@link org.apache.flink.connector.file.sink.FileSink} as well. The reason why its
+     *       needed for FileSink is that it also provides support for row wise formats which is not
+     *       required in case of DeltaSink.
      * </ol>
      */
     List<DeltaCommittable> prepareCommit(boolean flush,
                                          String appId,
                                          long checkpointId) throws IOException {
         if (deltaInProgressPart != null) {
-            if (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush) {
-                if (LOG.isDebugEnabled())
-                    LOG.debug("Closing in-progress part file for bucket id={} on checkpoint.", bucketId);
+            if (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart())
+                || flush) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(
+                        "Closing in-progress part file for bucket id={} on checkpoint.",
+                        bucketId);
+                }
 
                 closePartFile();
             } else {
                 throw new RuntimeException(
-                        "Unexpected behaviour. Bulk format writers should always roll part files on checkpoint. " +
-                                "To resolve this issue verify behaviour of your rolling policy.");
+                    "Unexpected behaviour. Bulk format writers should always roll part files " +
+                        "on checkpoint. To resolve this issue verify behaviour of your" +
+                        " rolling policy.");
             }
         }
 
         List<DeltaCommittable> committables = new ArrayList<>();
-        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile, appId, checkpointId)));
+        pendingFiles.forEach(pendingFile -> committables.add(
+            new DeltaCommittable(pendingFile, appId, checkpointId)));
         pendingFiles.clear();
 
         return committables;
@@ -189,9 +194,9 @@ class DeltaWriterBucket<IN> {
      */
     DeltaWriterBucketState snapshotState(String appId) {
         return new DeltaWriterBucketState(
-                bucketId,
-                bucketPath,
-                appId
+            bucketId,
+            bucketPath,
+            appId
         );
     }
 
@@ -202,7 +207,8 @@ class DeltaWriterBucket<IN> {
      * @param currentTime current processing time
      * @return new in progress part instance representing part file that the writer will start
      * write data to
-     * @throws IOException
+     * @throws IOException Thrown if the writer cannot be opened, or if the output stream throws an
+     * exception.
      * @implNote This method behaves in the similar way as
      * org.apache.flink.connector.file.sink.writer.FileWriterBucket#rollPartFile
      * except that it uses custom implementation to represent the in-progress part file.
@@ -215,20 +221,22 @@ class DeltaWriterBucket<IN> {
 
         if (LOG.isDebugEnabled()) {
             LOG.debug(
-                    "Opening new part file \"{}\" for bucket id={}.",
-                    partFilePath.getName(),
-                    bucketId);
-        }
-
-        DeltaBulkPartWriter<IN, String> fileWriter = (DeltaBulkPartWriter<IN, String>) bucketWriter.openNewInProgressFile(bucketId, partFilePath, currentTime);
-
-        LOG.debug(
-                "Successfully opened new part file \"{}\" for bucket id={}.",
+                "Opening new part file \"{}\" for bucket id={}.",
                 partFilePath.getName(),
                 bucketId);
+        }
+
+        DeltaBulkPartWriter<IN, String> fileWriter =
+            (DeltaBulkPartWriter<IN, String>) bucketWriter.openNewInProgressFile(
+                bucketId, partFilePath, currentTime);
+
+        LOG.debug(
+            "Successfully opened new part file \"{}\" for bucket id={}.",
+            partFilePath.getName(),
+            bucketId);
 
 
-        return new DeltaInProgressPart<IN>(partFilePath.getName(), fileWriter);
+        return new DeltaInProgressPart<>(partFilePath.getName(), fileWriter);
     }
 
     /**
@@ -237,36 +245,38 @@ class DeltaWriterBucket<IN> {
      * during commit will become critical part of committables information passed to both
      * types of committers.
      *
-     * @throws IOException
+     * @throws IOException Thrown if the encoder cannot be flushed, or if the output stream throws
+     *                     an exception.
      * @implNote This method behaves in the similar way as
      * org.apache.flink.connector.file.sink.writer.FileWriterBucket#closePartFile
      * however it adds some implementation details.
      * <ol>
-     *   <li>it uses custom {@link DeltaInProgressPart} implementation in order to be able to explicitly
-     *       close the internal file writer what allows to get the actual file size. It is necessary
-     *       as original implementation of {@link InProgressFileWriter} used by
+     *   <li>it uses custom {@link DeltaInProgressPart} implementation in order to be able to
+     *       explicitly close the internal file writer what allows to get the actual file size. It
+     *       is necessary as original implementation of {@link InProgressFileWriter} used by
      *       {@link org.apache.flink.connector.file.sink.FileSink} does not provide us with correct
-     *       file size because for bulk formats it shows the file size before flushing the internal buffer,
+     *       file size because for bulk formats it shows the file size before flushing the internal
+     *       buffer,
      *   <li>it enriches the {@link DeltaPendingFile} with closed file's metadata
      *   <li>it resets the counter for currently opened part file
      * </ol>
      */
     private void closePartFile() throws IOException {
         if (deltaInProgressPart != null) {
-            // we need to close the writer explicitly before calling closeForCommit() in order to get
-            // the actual file size
+            // we need to close the writer explicitly before calling closeForCommit() in order to
+            // get the actual file size
             deltaInProgressPart.getInProgressPart().closeWriter();
             long fileSize = deltaInProgressPart.getInProgressPart().getSize();
             InProgressFileWriter.PendingFileRecoverable pendingFileRecoverable =
-                    deltaInProgressPart.getInProgressPart().closeForCommit();
+                deltaInProgressPart.getInProgressPart().closeForCommit();
 
             DeltaPendingFile pendingFile = new DeltaPendingFile(
-                    partitionSpec,
-                    deltaInProgressPart.getFileName(),
-                    pendingFileRecoverable,
-                    this.inProgressPartRecordCount,
-                    fileSize,
-                    deltaInProgressPart.getInProgressPart().getLastUpdateTime()
+                partitionSpec,
+                deltaInProgressPart.getFileName(),
+                pendingFileRecoverable,
+                this.inProgressPartRecordCount,
+                fileSize,
+                deltaInProgressPart.getInProgressPart().getLastUpdateTime()
             );
             pendingFiles.add(pendingFile);
             deltaInProgressPart = null;
@@ -285,12 +295,13 @@ class DeltaWriterBucket<IN> {
      * counts the events written to the currently opened part file.
      */
     void write(IN element, long currentTime) throws IOException {
-        if (deltaInProgressPart == null || rollingPolicy.shouldRollOnEvent(deltaInProgressPart.getInProgressPart(), element)) {
+        if (deltaInProgressPart == null || rollingPolicy.shouldRollOnEvent(
+            deltaInProgressPart.getInProgressPart(), element)) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug(
-                        "Opening new part file for bucket id={} due to element {}.",
-                        bucketId,
-                        element);
+                    "Opening new part file for bucket id={} due to element {}.",
+                    bucketId,
+                    element);
             }
             deltaInProgressPart = rollPartFile(currentTime);
         }
@@ -317,17 +328,20 @@ class DeltaWriterBucket<IN> {
 
     void onProcessingTime(long timestamp) throws IOException {
         if (deltaInProgressPart != null
-                && rollingPolicy.shouldRollOnProcessingTime(deltaInProgressPart.getInProgressPart(), timestamp)) {
-            InProgressFileWriter<IN, String> inProgressPart = deltaInProgressPart.getInProgressPart();
+            && rollingPolicy.shouldRollOnProcessingTime(
+            deltaInProgressPart.getInProgressPart(), timestamp)) {
+            InProgressFileWriter<IN, String> inProgressPart =
+                deltaInProgressPart.getInProgressPart();
             if (LOG.isDebugEnabled()) {
                 LOG.debug(
-                        "Bucket {} closing in-progress part file for part file id={} due to processing time rolling policy "
-                                + "(in-progress file created @ {}, last updated @ {} and current time is {}).",
-                        bucketId,
-                        uniqueId,
-                        inProgressPart.getCreationTime(),
-                        inProgressPart.getLastUpdateTime(),
-                        timestamp);
+                    "Bucket {} closing in-progress part file for part file id={} due to " +
+                        "processing time rolling policy (in-progress file created @ {}," +
+                        " last updated @ {} and current time is {}).",
+                    bucketId,
+                    uniqueId,
+                    inProgressPart.getCreationTime(),
+                    inProgressPart.getLastUpdateTime(),
+                    timestamp);
             }
 
             closePartFile();
@@ -340,13 +354,13 @@ class DeltaWriterBucket<IN> {
     private Path assembleNewPartPath() {
         long currentPartCounter = partCounter++;
         return new Path(
-                bucketPath,
-                outputFileConfig.getPartPrefix()
-                        + '-'
-                        + uniqueId
-                        + '-'
-                        + currentPartCounter
-                        + outputFileConfig.getPartSuffix());
+            bucketPath,
+            outputFileConfig.getPartPrefix()
+                + '-'
+                + uniqueId
+                + '-'
+                + currentPartCounter
+                + outputFileConfig.getPartSuffix());
     }
 
     void disposePartFile() {
@@ -359,22 +373,23 @@ class DeltaWriterBucket<IN> {
 
     public static class DeltaWriterBucketFactory {
         static <IN> DeltaWriterBucket<IN> getNewBucket(
-                final String bucketId,
-                final Path bucketPath,
-                final DeltaBulkBucketWriter<IN, String> bucketWriter,
-                final CheckpointRollingPolicy<IN, String> rollingPolicy,
-                final OutputFileConfig outputFileConfig) throws IOException {
-            return new DeltaWriterBucket<IN>(
-                    bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
+            final String bucketId,
+            final Path bucketPath,
+            final DeltaBulkBucketWriter<IN, String> bucketWriter,
+            final CheckpointRollingPolicy<IN, String> rollingPolicy,
+            final OutputFileConfig outputFileConfig) throws IOException {
+            return new DeltaWriterBucket<>(
+                bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
         }
 
         static <IN> DeltaWriterBucket<IN> restoreBucket(
-                final DeltaBulkBucketWriter<IN, String> bucketWriter,
-                final CheckpointRollingPolicy<IN, String> rollingPolicy,
-                final DeltaWriterBucketState bucketState,
-                final OutputFileConfig outputFileConfig)
-                throws IOException {
-            return new DeltaWriterBucket<IN>(bucketWriter, rollingPolicy, bucketState, outputFileConfig);
+            final DeltaBulkBucketWriter<IN, String> bucketWriter,
+            final CheckpointRollingPolicy<IN, String> rollingPolicy,
+            final DeltaWriterBucketState bucketState,
+            final OutputFileConfig outputFileConfig)
+            throws IOException {
+            return new DeltaWriterBucket<>(
+                bucketWriter, rollingPolicy, bucketState, outputFileConfig);
         }
     }
 

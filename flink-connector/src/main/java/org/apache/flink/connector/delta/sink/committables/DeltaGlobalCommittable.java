@@ -18,15 +18,15 @@
 
 package org.apache.flink.connector.delta.sink.committables;
 
-import org.apache.flink.annotation.Internal;
-
 import java.util.List;
 
+import org.apache.flink.annotation.Internal;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
 /**
- * Simple wrapper class required to comply with {@link org.apache.flink.api.connector.sink.GlobalCommitter}
+ * Simple wrapper class required to comply with
+ * {@link org.apache.flink.api.connector.sink.GlobalCommitter}
  * interfaces' structure. It's only purpose is to wrap {@link DeltaCommittable} collection during
  * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter#combine} method
  * that will be further flattened and processed inside

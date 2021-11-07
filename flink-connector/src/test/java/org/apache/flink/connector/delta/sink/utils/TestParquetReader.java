@@ -1,7 +1,10 @@
 package org.apache.flink.connector.delta.sink.utils;
 
-import io.delta.standalone.DeltaLog;
-import io.delta.standalone.actions.AddFile;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.stream.IntStream;
+
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.vector.ParquetColumnarRowSplitReader;
 import org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil;
@@ -9,10 +12,8 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.stream.IntStream;
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.actions.AddFile;
 
 public class TestParquetReader {
 
@@ -20,18 +21,21 @@ public class TestParquetReader {
      * This test method resolves all parquet files in the current snapshot of DeltaLake table, next
      * it reads those files and try to parse every record back as {@link org.apache.flink.types.Row}
      * object. If the parsing doesn't succeed then an exception will be thrown, otherwise the record
-     * counter will be incremented and the validation will skip to the next row till the end of the file.
+     * counter will be incremented and the validation will skip to the next row till the end of the
+     * file.
      *
-     * @param deltaLog {@link DeltaLog} instance representing table for which the validation should be run
+     * @param deltaLog {@link DeltaLog} instance representing table for which the validation should
+     *                 be run
      * @return number of read and successfully validated records in the table
-     * @throws IOException
+     * @throws IOException Thrown when the data cannot be read or writer cannot be instantiated
      */
     public static int readAndValidateAllTableRecords(DeltaLog deltaLog) throws IOException {
         List<AddFile> deltaTableFiles = deltaLog.snapshot().getAllFiles();
         int cumulatedRecords = 0;
         for (AddFile addedFile : deltaTableFiles) {
             Path parquetFilePath = new Path(deltaLog.getPath().toString(), addedFile.getPath());
-            cumulatedRecords += TestParquetReader.readAndParseRecords(parquetFilePath, DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE);
+            cumulatedRecords += TestParquetReader.readAndParseRecords(
+                    parquetFilePath, DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE);
         }
         return cumulatedRecords;
     }

@@ -18,10 +18,15 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
-import io.delta.standalone.DeltaLog;
-import io.delta.standalone.Snapshot;
-import io.delta.standalone.actions.AddFile;
-import io.delta.standalone.data.CloseableIterator;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
@@ -35,18 +40,13 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Snapshot;
+import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.data.CloseableIterator;
 
 /**
  * Tests for {@link DeltaGlobalCommitter}.
@@ -60,10 +60,10 @@ public class DeltaGlobalCommitterTestParametrized {
     @Parameterized.Parameters
     public static Collection<Object[]> params() {
         return Arrays.asList(
-                new Object[]{false, 0, TestDeltaLakeTable.getEmptyTestPartitionSpec(), false},
-                new Object[]{false, 0, TestDeltaLakeTable.getTestPartitionSpec(), false},
-                new Object[]{false, 1, TestDeltaLakeTable.getEmptyTestPartitionSpec(), true},
-                new Object[]{false, 1, TestDeltaLakeTable.getTestPartitionSpec(), true}
+            new Object[]{false, 0, TestDeltaLakeTable.getEmptyTestPartitionSpec(), false},
+            new Object[]{false, 0, TestDeltaLakeTable.getTestPartitionSpec(), false},
+            new Object[]{false, 1, TestDeltaLakeTable.getEmptyTestPartitionSpec(), true},
+            new Object[]{false, 1, TestDeltaLakeTable.getTestPartitionSpec(), true}
         );
     }
 
@@ -87,7 +87,8 @@ public class DeltaGlobalCommitterTestParametrized {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
         if (initializeTableBeforeCommit) {
             if (partitionSpec.isEmpty()) {
-                TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(tablePath.getPath());
+                TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(
+                    tablePath.getPath());
             } else {
                 TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
             }
@@ -104,20 +105,25 @@ public class DeltaGlobalCommitterTestParametrized {
     public void testCommitToDeltaTableInAppendMode() throws Exception {
         //GIVEN
         List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, TestDeltaLakeTable.TEST_ROW_TYPE, canTryUpdateSchema);
-        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
-        List<DeltaGlobalCommittable> globalCommittables = Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            TestDeltaLakeTable.TEST_ROW_TYPE, canTryUpdateSchema);
+        List<DeltaCommittable> deltaCommittables =
+            TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // WHEN
         globalCommitter.commit(globalCommittables);
 
         // THEN
         validateCurrentSnapshotState(
-                deltaLog,
-                expectedTableVersionAfterCommit,
-                deltaCommittables.size(),
-                partitionColumns,
-                initializeTableBeforeCommit
+            deltaLog,
+            expectedTableVersionAfterCommit,
+            deltaCommittables.size(),
+            partitionColumns,
+            initializeTableBeforeCommit
         );
         validateCurrentTableFiles(deltaLog.update(), partitionSpec);
     }
@@ -137,8 +143,9 @@ public class DeltaGlobalCommitterTestParametrized {
         assertEquals(snapshot.getMetadata().getPartitionColumns(), partitionColumns);
     }
 
-    private void validateCurrentTableFiles(Snapshot snapshot,
-                                           LinkedHashMap<String, String> partitionSpec) throws URISyntaxException, IOException {
+    private void validateCurrentTableFiles(
+        Snapshot snapshot,
+        LinkedHashMap<String, String> partitionSpec) throws URISyntaxException, IOException {
         CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
         while (filesIterator.hasNext()) {
             AddFile addFile = filesIterator.next();

@@ -18,12 +18,12 @@
 
 package org.apache.flink.connector.delta.sink.committables;
 
+import java.io.IOException;
+import java.util.LinkedHashMap;
+
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.util.LinkedHashMap;
 
 /**
  * Tests the serialization and deserialization for {@link DeltaCommittable}.
@@ -34,36 +34,41 @@ public class DeltaCommittableSerializerTest {
     public void testCommittableWithPendingFileForNonPartitionedTable() throws IOException {
         // GIVEN
         LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
-        DeltaCommittable committable = TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec);
+        DeltaCommittable committable =
+            TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec);
 
         // WHEN
         DeltaCommittable deserialized = serializeAndDeserialize(committable);
 
         // THEN
-        TestDeltaCommittable.validateDeltaCommittablesEquality(committable, deserialized, partitionSpec);
+        TestDeltaCommittable.validateDeltaCommittablesEquality(
+            committable, deserialized, partitionSpec);
     }
 
     @Test
     public void testCommittableWithPendingFileForPartitionedTable() throws IOException {
         // GIVEN
-        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<String, String>() {{
-            put("a", "b");
-            put("c", "d");
-        }};
-        DeltaCommittable committable = TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec);
+        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
+        partitionSpec.put("a", "b");
+        partitionSpec.put("c", "d");
+
+        DeltaCommittable committable =
+            TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec);
 
         // WHEN
         DeltaCommittable deserialized = serializeAndDeserialize(committable);
 
         // THEN
-        TestDeltaCommittable.validateDeltaCommittablesEquality(committable, deserialized, partitionSpec);
+        TestDeltaCommittable.validateDeltaCommittablesEquality(
+            committable, deserialized, partitionSpec);
     }
 
     private DeltaCommittable serializeAndDeserialize(DeltaCommittable committable)
-            throws IOException {
+        throws IOException {
         DeltaCommittableSerializer serializer =
-                new DeltaCommittableSerializer(
-                        new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(FileSinkTestUtils.TestPendingFileRecoverable::new));
+            new DeltaCommittableSerializer(
+                new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(
+                    FileSinkTestUtils.TestPendingFileRecoverable::new));
         byte[] data = serializer.serialize(committable);
         return serializer.deserialize(serializer.getVersion(), data);
     }

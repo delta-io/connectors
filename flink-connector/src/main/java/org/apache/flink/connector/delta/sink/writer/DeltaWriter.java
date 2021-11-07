@@ -18,9 +18,18 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Nullable;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
+import org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.writer.FileWriter;
 import org.apache.flink.core.fs.Path;
@@ -30,19 +39,9 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
-
 
 /**
  * A {@link SinkWriter} implementation for {@link org.apache.flink.connector.delta.sink.DeltaSink}.
@@ -50,17 +49,17 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>It writes data to and manages the different active {@link DeltaWriterBucket buckets} in the
  * {@link org.apache.flink.connector.delta.sink.DeltaSink}.
  * <p>
- * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very similar.
- * The main differences are use of custom implementations for some member classes and also managing
- * {@link io.delta.standalone.DeltaLog} transactional ids:
+ * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
+ * similar. The main differences are use of custom implementations for some member classes and also
+ * managing {@link io.delta.standalone.DeltaLog} transactional ids:
  * {@link DeltaWriter#appId} and {@link DeltaWriter#nextCheckpointId}
  *
  * @param <IN> The type of input elements.
  */
 @Internal
 public class DeltaWriter<IN>
-        implements SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState>,
-        Sink.ProcessingTimeService.ProcessingTimeCallback {
+    implements SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState>,
+    Sink.ProcessingTimeService.ProcessingTimeCallback {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeltaWriter.class);
 
@@ -99,27 +98,27 @@ public class DeltaWriter<IN>
      *
      * @param basePath         the base path for the table
      * @param bucketAssigner   The {@link BucketAssigner} provided by the user. It is advised to use
-     *                         {@link org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner}
-     *                         however users are allowed to use any custom implementation of bucketAssigner.
-     *                         The only requirement for correctness is to follow DeltaLake's style of table
-     *                         partitioning.
+     *                         {@link DeltaTablePartitionAssigner} however users are allowed to use
+     *                         any custom implementation of bucketAssigner. The only requirement for
+     *                         correctness is to follow DeltaLake's style of table partitioning.
      * @param bucketWriter     The {@link DeltaBulkBucketWriter} to be used when writing data.
      * @param rollingPolicy    The {@link CheckpointRollingPolicy} as specified by the user.
-     * @param appId            Unique identifier of the current Flink app. This identifier needs to constant across all
-     *                         app's restarts to guarantee idempotent writes/commits to the DeltaLake's table.
-     * @param nextCheckpointId Identifier of the next checkpoint interval to be committed. During DeltaLog's
-     *                         commit phase it will be used as transaction's version.
+     * @param appId            Unique identifier of the current Flink app. This identifier needs to
+     *                         constant across all app's restarts to guarantee idempotent
+     *                         writes/commits to the DeltaLake's table.
+     * @param nextCheckpointId Identifier of the next checkpoint interval to be committed. During
+     *                         DeltaLog's commit phase it will be used as transaction's version.
      */
     public DeltaWriter(
-            final Path basePath,
-            final BucketAssigner<IN, String> bucketAssigner,
-            final DeltaBulkBucketWriter<IN, String> bucketWriter,
-            final CheckpointRollingPolicy<IN, String> rollingPolicy,
-            final OutputFileConfig outputFileConfig,
-            final Sink.ProcessingTimeService processingTimeService,
-            final long bucketCheckInterval,
-            final String appId,
-            final long nextCheckpointId) {
+        final Path basePath,
+        final BucketAssigner<IN, String> bucketAssigner,
+        final DeltaBulkBucketWriter<IN, String> bucketWriter,
+        final CheckpointRollingPolicy<IN, String> rollingPolicy,
+        final OutputFileConfig outputFileConfig,
+        final Sink.ProcessingTimeService processingTimeService,
+        final long bucketCheckInterval,
+        final String appId,
+        final long nextCheckpointId) {
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketWriter = checkNotNull(bucketWriter);
@@ -132,8 +131,8 @@ public class DeltaWriter<IN>
 
         this.processingTimeService = checkNotNull(processingTimeService);
         checkArgument(
-                bucketCheckInterval > 0,
-                "Bucket checking interval for processing time should be positive.");
+            bucketCheckInterval > 0,
+            "Bucket checking interval for processing time should be positive.");
         this.bucketCheckInterval = bucketCheckInterval;
         this.appId = appId;
         this.nextCheckpointId = nextCheckpointId;
@@ -160,9 +159,9 @@ public class DeltaWriter<IN>
     @Override
     public void write(IN element, Context context) throws IOException {
         bucketerContext.update(
-                context.timestamp(),
-                context.currentWatermark(),
-                processingTimeService.getCurrentProcessingTime());
+            context.timestamp(),
+            context.currentWatermark(),
+            processingTimeService.getCurrentProcessingTime());
 
         final String bucketId = bucketAssigner.getBucketId(element, bucketerContext);
         final DeltaWriterBucket<IN> bucket = getOrCreateBucketForBucketId(bucketId);
@@ -183,7 +182,7 @@ public class DeltaWriter<IN>
         // buckets. Checking the activeness right before pre-committing avoid re-creating
         // the bucket every time if the bucket use OnCheckpointingRollingPolicy.
         Iterator<Map.Entry<String, DeltaWriterBucket<IN>>> activeBucketIt =
-                activeBuckets.entrySet().iterator();
+            activeBuckets.entrySet().iterator();
         while (activeBucketIt.hasNext()) {
             Map.Entry<String, DeltaWriterBucket<IN>> entry = activeBucketIt.next();
             if (!entry.getValue().isActive()) {
@@ -237,7 +236,8 @@ public class DeltaWriter<IN>
             }
 
             DeltaWriterBucket<IN> restoredBucket =
-                    DeltaWriterBucket.DeltaWriterBucketFactory.restoreBucket(bucketWriter, rollingPolicy, state, outputFileConfig);
+                DeltaWriterBucket.DeltaWriterBucketFactory.restoreBucket(
+                    bucketWriter, rollingPolicy, state, outputFileConfig);
 
             updateActiveBucketId(bucketId, restoredBucket);
         }
@@ -252,7 +252,7 @@ public class DeltaWriter<IN>
      */
     private void updateActiveBucketId(String bucketId,
                                       DeltaWriterBucket<IN> restoredBucket)
-            throws IOException {
+        throws IOException {
         final DeltaWriterBucket<IN> bucket = activeBuckets.get(bucketId);
         if (bucket != null) {
             bucket.merge(restoredBucket);
@@ -271,7 +271,8 @@ public class DeltaWriter<IN>
         if (bucket == null) {
             final Path bucketPath = assembleBucketPath(bucketId);
             bucket =
-                    DeltaWriterBucket.DeltaWriterBucketFactory.getNewBucket(bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
+                DeltaWriterBucket.DeltaWriterBucketFactory.getNewBucket(
+                    bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
             activeBuckets.put(bucketId, bucket);
         }
         return bucket;
@@ -315,12 +316,12 @@ public class DeltaWriter<IN>
     }
 
     /**
-     * @implNote This method behaves in the same way as
-     * {@link org.apache.flink.connector.file.sink.writer.FileWriter}#registerNextBucketInspectionTimer.
+     * @implNote This method behaves in the same way as in
+     * {@link org.apache.flink.connector.file.sink.writer.FileWriter}
      */
     private void registerNextBucketInspectionTimer() {
         final long nextInspectionTime =
-                processingTimeService.getCurrentProcessingTime() + bucketCheckInterval;
+            processingTimeService.getCurrentProcessingTime() + bucketCheckInterval;
         processingTimeService.registerProcessingTimer(nextInspectionTime, this);
     }
 

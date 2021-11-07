@@ -1,19 +1,20 @@
 package org.apache.flink.connector.delta.sink;
 
-import io.delta.standalone.types.StructField;
-import io.delta.standalone.types.StructType;
+import java.util.Arrays;
+
 import org.apache.flink.table.types.logical.*;
 import org.junit.Test;
 
-import java.util.Arrays;
+import io.delta.standalone.types.StructField;
+import io.delta.standalone.types.StructType;
 
 public class TestSchemaConverter {
-
 
     @Test
     public void testConvertFlinkSchemaToIcebergSchema() {
         // GIVEN
-        RowType flinkRowType = new RowType(Arrays.asList(
+        RowType flinkRowType = new RowType(
+            Arrays.asList(
                 new RowType.RowField("f1", new FloatType()),
                 new RowType.RowField("f2", new IntType()),
                 new RowType.RowField("f3", new VarCharType()),
@@ -37,27 +38,30 @@ public class TestSchemaConverter {
                 new RowType.RowField("f22", new DecimalType(38, 2)),
                 new RowType.RowField("f23", new DecimalType(10, 1)),
                 new RowType.RowField("nested_field", new RowType(Arrays.asList(
-                        new RowType.RowField("f01", new VarCharType()),
-                        new RowType.RowField("f02", new IntType())
+                    new RowType.RowField("f01", new VarCharType()),
+                    new RowType.RowField("f02", new IntType())
                 )))
-        ));
+            ));
 
         // WHEN
         StructType deltaStructType = new SchemaConverter().toDeltaFormat(flinkRowType);
 
         // THEN
-        StructType expectedDeltaStructType = new StructType(new StructField[]{
+        StructType expectedDeltaStructType = new StructType(
+            new StructField[]{
                 new StructField("f1", new io.delta.standalone.types.FloatType()),
                 new StructField("f2", new io.delta.standalone.types.IntegerType()),
                 new StructField("f3", new io.delta.standalone.types.StringType()),
                 new StructField("f4", new io.delta.standalone.types.DoubleType()),
                 new StructField("f5", new io.delta.standalone.types.MapType(
-                        new io.delta.standalone.types.StringType(),
-                        new io.delta.standalone.types.IntegerType(),
-                        true
+                    new io.delta.standalone.types.StringType(),
+                    new io.delta.standalone.types.IntegerType(),
+                    true
                 )),
-                new StructField("f6", new io.delta.standalone.types.ArrayType(new io.delta.standalone.types.ByteType(), true)),
-                new StructField("f7", new io.delta.standalone.types.ArrayType(new io.delta.standalone.types.StringType(), true)),
+                new StructField("f6", new io.delta.standalone.types.ArrayType(
+                    new io.delta.standalone.types.ByteType(), true)),
+                new StructField("f7", new io.delta.standalone.types.ArrayType(
+                    new io.delta.standalone.types.StringType(), true)),
                 new StructField("f8", new io.delta.standalone.types.StringType()),
                 new StructField("f9", new io.delta.standalone.types.BooleanType()),
                 new StructField("f10", new io.delta.standalone.types.ByteType()),
@@ -74,11 +78,11 @@ public class TestSchemaConverter {
                 new StructField("f22", new io.delta.standalone.types.DecimalType(38, 2)),
                 new StructField("f23", new io.delta.standalone.types.DecimalType(10, 1)),
                 new StructField("nested_field", new StructType(new StructField[]{
-                        new StructField("f01", new io.delta.standalone.types.StringType()),
-                        new StructField("f02", new io.delta.standalone.types.IntegerType()),
+                    new StructField("f01", new io.delta.standalone.types.StringType()),
+                    new StructField("f02", new io.delta.standalone.types.IntegerType()),
                 }))
 
-        });
+            });
 
         assert expectedDeltaStructType.equals(deltaStructType);
     }

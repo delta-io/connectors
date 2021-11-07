@@ -1,12 +1,12 @@
 package org.apache.flink.connector.delta.sink;
 
+import java.io.Serializable;
+import java.util.LinkedHashMap;
+
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
 import org.apache.flink.table.utils.PartitionPathUtils;
-
-import java.io.Serializable;
-import java.util.LinkedHashMap;
 
 /**
  * Custom implementation of {@link BucketAssigner} class required to provide behaviour on how
@@ -32,7 +32,8 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
 
     @Override
     public String getBucketId(T element, BucketAssigner.Context context) {
-        LinkedHashMap<String, String> partitionValues = this.partitionComputer.generatePartitionValues(element, context);
+        LinkedHashMap<String, String> partitionValues =
+            this.partitionComputer.generatePartitionValues(element, context);
         return PartitionPathUtils.generatePartitionPath(partitionValues);
     }
 
@@ -50,21 +51,23 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
 
         /**
          * Compute partition values from record.
-         *
+         * <p>
          * E.g.
-         * If the table has two partitioning columns 'date' and 'country' then this method should return
-         * linked hashmap like:
+         * If the table has two partitioning columns 'date' and 'country' then this method should
+         * return linked hashmap like:
          * LinkedHashMap(
-         *  "date" -> "2020-01-01",
-         *  "country" -> "x"
+         * "date" -> "2020-01-01",
+         * "country" -> "x"
          * )
-         *
-         * for event that should be written to example path of "/<some_path>/table_1/date=2020-01-01/country=x".
+         * <p>
+         * for event that should be written to example path of:
+         * "/<some_path>/table_1/date=2020-01-01/country=x".
          *
          * @param element input record.
          * @return partition values.
          */
-        LinkedHashMap<String, String> generatePartitionValues(T element, BucketAssigner.Context context);
+        LinkedHashMap<String, String> generatePartitionValues(
+            T element, BucketAssigner.Context context);
     }
 
 }
