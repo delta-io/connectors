@@ -36,16 +36,7 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -145,7 +136,7 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
      *   <li>we try to commit the prepared transaction
      *   <li>if the commit fails then we fail the application as well. If it succeeds then we proceed with the next checkpointId (if any).
      * </ol>
-     * <p>
+     * </p>
      *
      * @param globalCommittables list of combined committables objects.
      * @return always empty collection as we do not want any retry behaviour
@@ -206,6 +197,15 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
     private void handleMetadataUpdate(long currentTableVersion,
                                       OptimisticTransaction transaction,
                                       List<String> partitionColumns) {
+        if ((currentTableVersion != -1) && (!partitionColumns.equals(transaction.metadata().getPartitionColumns()))) {
+            String printableTablePartitionColumns =
+                    transaction.metadata().getPartitionColumns() == null ? "null" :
+                            Arrays.toString(Objects.requireNonNull(transaction.metadata().getPartitionColumns()).toArray());
+            throw new RuntimeException("DataStream's partition columns are different from current table's partitions columns. \n" +
+                    "provided: " + Arrays.toString(partitionColumns.toArray()) + "\n" +
+                    "is different from: " + printableTablePartitionColumns);
+        }
+
         Metadata metadataAction = prepareMetadata(partitionColumns);
         boolean schemasAreMatching = metadataAction.getSchema().toJson().equals(transaction.metadata().getSchema().toJson());
         if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
@@ -309,7 +309,6 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         return true;
     }
 
-
     private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
         Map<String, String> partitionValues = deltaPendingFile.getPartitionSpec();
         long modificationTime = deltaPendingFile.getLastUpdateTime();
@@ -330,10 +329,10 @@ public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, D
         }
 
         Map<String, String> operationMetrics = new HashMap<>();
-        operationMetrics.put("numRemovedFiles", "0"); // will be supported when for different operation modes
-        operationMetrics.put("numAddedFiles", String.valueOf(numAddedFiles));
-        operationMetrics.put("numOutputRows", String.valueOf(cumulatedRecordCount));
-        operationMetrics.put("numOutputBytes", String.valueOf(cumulatedSize));
+        operationMetrics.put(Operation.Metrics.numRemovedFiles, "0"); // will be supported when for different operation modes
+        operationMetrics.put(Operation.Metrics.numAddedFiles, String.valueOf(numAddedFiles));
+        operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(cumulatedRecordCount));
+        operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(cumulatedSize));
 
         return operationMetrics;
     }
