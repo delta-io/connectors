@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.delta.sink;
 
-
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittableSerializer;
@@ -26,9 +25,7 @@ import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittableSerializer;
 import org.apache.flink.connector.delta.sink.committer.DeltaCommitter;
 import org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter;
-import org.apache.flink.connector.delta.sink.writer.DefaultDeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
-import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketState;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketStateSerializer;
 import org.apache.flink.core.fs.FileSystem;
@@ -40,6 +37,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.types.logical.RowType;
@@ -50,23 +48,59 @@ import java.io.Serializable;
 import java.util.UUID;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
+/**
+ * A builder class for {@link DeltaSink}.
+ * <p>
+ * Most of the logic for this class was sourced from
+ * {@link org.apache.flink.connector.file.sink.FileSink.BulkFormatBuilder} as the behaviour is very similar.
+ * The main difference is that this {@link DeltaSinkBuilder} was extended with DeltaLake's specific parts
+ * that are explicitly marked in the implementation below.
+ *
+ * @param <IN> The type of input elements.
+ */
+public class DeltaSinkBuilder<IN> implements Serializable {
 
-public class DeltaSinkBuilder<IN>
-        implements Serializable {
-
-    private static final long serialVersionUID = 7493169281036370228L;
+    private static final long serialVersionUID = 7493169281026370228L;
 
     protected static final long DEFAULT_BUCKET_CHECK_INTERVAL = 60L * 1000L;
 
+    // ------------------------ DeltaLake-specific fields ---------------------
+
+    /**
+     * Delta table's root path
+     */
     private final Path tableBasePath;
+
+    /**
+     * Flink's logical type to indicate the structure of the events in the stream
+     */
+    private final RowType rowType;
+
+    /**
+     * Unique identifier of the current Flink's app. Value from this builder will be read
+     * only during the fresh start of the application. For restarts or failure recovery
+     * it will be resolved from the snaphosted state.
+     */
+    private final String appId;
+
+    /**
+     * Indicator whether we should try to update table's schema with stream's schema in case
+     * those will not match. The update is not guaranteed as they will be still some checks
+     * performed whether the updates to the schema are compatible.
+     */
+    private boolean canTryUpdateSchema;
+
+    /**
+     * Serializable wrapper for {@link Configuration} object
+     */
+    private final SerializableConfiguration serializableConfiguration;
+
+    // ------------------------ FileSink-specific fields ---------------------
 
     private long bucketCheckInterval;
 
     private final ParquetWriterFactory<IN> writerFactory;
-
-    private final DeltaWriterBucketFactory<IN> bucketFactory;
 
     private BucketAssigner<IN, String> bucketAssigner;
 
@@ -74,13 +108,7 @@ public class DeltaSinkBuilder<IN>
 
     private OutputFileConfig outputFileConfig;
 
-    private final SerializableConfiguration serializableConfiguration;
-
-    private final RowType rowType;
-
-    private final String appId;
-
-    private boolean canOverwriteSchema;
+    // -----------------------------------------------------------------------
 
     private static String generateNewAppId() {
         return UUID.randomUUID().toString();
@@ -99,7 +127,6 @@ public class DeltaSinkBuilder<IN>
                 writerFactory,
                 assigner,
                 OnCheckpointRollingPolicy.build(),
-                new DefaultDeltaWriterBucketFactory<>(),
                 OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
                 rowType,
                 generateNewAppId(),
@@ -114,23 +141,78 @@ public class DeltaSinkBuilder<IN>
             ParquetWriterFactory<IN> writerFactory,
             BucketAssigner<IN, String> assigner,
             CheckpointRollingPolicy<IN, String> policy,
-            DeltaWriterBucketFactory<IN> bucketFactory,
             OutputFileConfig outputFileConfig,
             RowType rowType,
             String appId,
-            boolean canOverwriteSchema) {
+            boolean canTryUpdateSchema) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
         this.bucketCheckInterval = bucketCheckInterval;
         this.writerFactory = writerFactory;
         this.bucketAssigner = checkNotNull(assigner);
         this.rollingPolicy = checkNotNull(policy);
-        this.bucketFactory = checkNotNull(bucketFactory);
         this.outputFileConfig = checkNotNull(outputFileConfig);
         this.rowType = rowType;
         this.appId = appId;
-        this.canOverwriteSchema = canOverwriteSchema;
+        this.canTryUpdateSchema = canTryUpdateSchema;
     }
+
+    public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
+        return new DeltaSinkBuilder<>(
+                tableBasePath,
+                serializableConfiguration.conf(),
+                bucketCheckInterval,
+                writerFactory,
+                bucketAssigner,
+                rollingPolicy,
+                outputFileConfig,
+                rowType,
+                appId,
+                canTryUpdateSchema);
+    }
+
+    public DeltaSinkBuilder<IN> withAppId(final String appId) {
+        return new DeltaSinkBuilder<>(
+                tableBasePath,
+                serializableConfiguration.conf(),
+                bucketCheckInterval,
+                writerFactory,
+                bucketAssigner,
+                rollingPolicy,
+                outputFileConfig,
+                rowType,
+                appId,
+                canTryUpdateSchema);
+    }
+
+    public DeltaSinkBuilder<IN> withCanTryUpdateSchema(final boolean canTryUpdateSchema) {
+        this.canTryUpdateSchema = canTryUpdateSchema;
+        return this;
+    }
+
+    DeltaCommitter createCommitter() throws IOException {
+        return new DeltaCommitter(createBucketWriter());
+    }
+
+    DeltaGlobalCommitter createGlobalCommitter() {
+        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
+    }
+
+    Path getTableBasePath() {
+        return tableBasePath;
+    }
+
+    String getAppId() {
+        return appId;
+    }
+
+    SerializableConfiguration getSerializableConfiguration() {
+        return serializableConfiguration;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // FileSink-specific methods
+    ///////////////////////////////////////////////////////////////////////////
 
     public DeltaSinkBuilder<IN> withBucketCheckInterval(final long interval) {
         this.bucketCheckInterval = interval;
@@ -154,10 +236,6 @@ public class DeltaSinkBuilder<IN>
 
     public DeltaSinkBuilder<IN> withNewBucketAssigner(
             BucketAssigner<IN, String> assigner) {
-        checkState(
-                bucketFactory.getClass() == DefaultDeltaWriterBucketFactory.class,
-                "newBuilderWithBucketAssigner() cannot be called "
-                        + "after specifying a customized bucket factory");
         return new DeltaSinkBuilder<>(
                 tableBasePath,
                 serializableConfiguration.conf(),
@@ -165,46 +243,10 @@ public class DeltaSinkBuilder<IN>
                 writerFactory,
                 checkNotNull(assigner),
                 rollingPolicy,
-                bucketFactory,
                 outputFileConfig,
                 rowType,
                 appId,
-                canOverwriteSchema);
-    }
-
-    public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
-        return new DeltaSinkBuilder<>(
-                tableBasePath,
-                serializableConfiguration.conf(),
-                bucketCheckInterval,
-                writerFactory,
-                bucketAssigner,
-                rollingPolicy,
-                bucketFactory,
-                outputFileConfig,
-                rowType,
-                appId,
-                canOverwriteSchema);
-    }
-
-    public DeltaSinkBuilder<IN> withAppId(final String appId) {
-        return new DeltaSinkBuilder<>(
-                tableBasePath,
-                serializableConfiguration.conf(),
-                bucketCheckInterval,
-                writerFactory,
-                bucketAssigner,
-                rollingPolicy,
-                bucketFactory,
-                outputFileConfig,
-                rowType,
-                appId,
-                canOverwriteSchema);
-    }
-
-    public DeltaSinkBuilder<IN> withCanOverwriteSchema(final boolean canOverwriteSchema) {
-        this.canOverwriteSchema = canOverwriteSchema;
-        return this;
+                canTryUpdateSchema);
     }
 
     /**
@@ -220,7 +262,6 @@ public class DeltaSinkBuilder<IN>
         return new DeltaWriter<IN>(
                 tableBasePath,
                 bucketAssigner,
-                bucketFactory,
                 createBucketWriter(),
                 rollingPolicy,
                 outputFileConfig,
@@ -228,14 +269,6 @@ public class DeltaSinkBuilder<IN>
                 bucketCheckInterval,
                 appId,
                 nextCheckpointId);
-    }
-
-    DeltaCommitter createCommitter() throws IOException {
-        return new DeltaCommitter(createBucketWriter());
-    }
-
-    DeltaGlobalCommitter createGlobalCommitter() throws IOException {
-        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath, rowType, canOverwriteSchema);
     }
 
     SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
@@ -262,25 +295,30 @@ public class DeltaSinkBuilder<IN>
                 FileSystem.get(tableBasePath.toUri()).createRecoverableWriter(), writerFactory);
     }
 
-    RowType getRowType() {
-        return rowType;
+    /**
+     * Default builder for {@link DeltaSink}.
+     */
+    public static final class DefaultDeltaFormatBuilder<IN> extends DeltaSinkBuilder<IN> {
+
+        private static final long serialVersionUID = 2818087325120827526L;
+
+        DefaultDeltaFormatBuilder(
+                Path basePath,
+                final Configuration conf,
+                ParquetWriterFactory<IN> writerFactory,
+                RowType rowType) {
+            super(basePath, conf, writerFactory, new BasePathBucketAssigner<>(), rowType);
+        }
+
+        DefaultDeltaFormatBuilder(
+                Path basePath,
+                final Configuration conf,
+                ParquetWriterFactory<IN> writerFactory,
+                BucketAssigner<IN, String> assigner,
+                RowType rowType) {
+            super(basePath, conf, writerFactory, assigner, rowType);
+        }
+
     }
 
-    Path getTableBasePath() {
-        return tableBasePath;
-    }
-
-    SerializableConfiguration getSerializableConfiguration() {
-        return serializableConfiguration;
-    }
-
-    String getAppId() {
-        return appId;
-    }
-
-    public boolean isCanOverwriteSchema() {
-        return canOverwriteSchema;
-    }
 }
-
-

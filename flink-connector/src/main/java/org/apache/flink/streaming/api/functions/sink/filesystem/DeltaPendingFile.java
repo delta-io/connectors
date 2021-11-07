@@ -18,9 +18,19 @@
 
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
-
 import java.util.LinkedHashMap;
 
+/**
+ * Wrapper class for {@link InProgressFileWriter.PendingFileRecoverable} object.
+ * This class carries the internal committable information to be used during the checkpoint/commit phase.
+ *
+ * As similar to {@link org.apache.flink.connector.file.sink.FileSink} we need to carry
+ * {@link InProgressFileWriter.PendingFileRecoverable} information to perform "local" commit
+ * on file that the sink has written data to. However, as opposite to mentioned FileSink,
+ * in DeltaSink we need to perform also "global" commit to the {@link io.delta.standalone.DeltaLog}
+ * and for that additional file metadata must be provided. Hence, this class provides the required
+ * information for both types of commits by wrapping pending file and attaching file's metadata.
+ */
 public class DeltaPendingFile {
 
     private final LinkedHashMap<String, String> partitionSpec;
@@ -34,7 +44,6 @@ public class DeltaPendingFile {
     private final long fileSize;
 
     private final long lastUpdateTime;
-
 
     public DeltaPendingFile(LinkedHashMap<String, String> partitionSpec,
                             String fileName,

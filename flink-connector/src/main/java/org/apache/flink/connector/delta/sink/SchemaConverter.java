@@ -23,8 +23,19 @@ import io.delta.standalone.types.*;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
+/**
+ * This is a utility class to convert from Flink's specific {@link RowType} into
+ * DeltaLake's specific {@link StructType} which is used for schema-matching comparisons
+ * during {@link io.delta.standalone.DeltaLog} commits.
+ */
 public class SchemaConverter {
 
+    /**
+     * Main method for converting from {@link RowType} into {@link StructType}
+     *
+     * @param rowType Flink's logical type of stream's events
+     * @return DeltaLake's specific type of stream's events
+     */
     public StructType toDeltaFormat(RowType rowType) {
         StructField[] fields = rowType.getFields()
                 .stream()
@@ -37,6 +48,12 @@ public class SchemaConverter {
         return new StructType(fields);
     }
 
+    /**
+     * Method containing the actual mapping between Flink's and DeltaLake's types.
+     *
+     * @param flinkType Flink's logical type
+     * @return DeltaLake's data type
+     */
     public DataType toDeltaDataType(LogicalType flinkType) {
         switch (flinkType.getTypeRoot()) {
             case ARRAY:

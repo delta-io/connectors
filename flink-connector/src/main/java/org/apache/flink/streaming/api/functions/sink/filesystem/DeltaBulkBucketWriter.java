@@ -26,6 +26,16 @@ import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 
+/**
+ * This class is provided as a part of workaround for getting actual file size.
+ *
+ * Compared to its original version {@link BulkPartWriter} it changes only the return types
+ * for methods {@link this#resumeFrom} and {@link this#openNew} to a custom implementation
+ * of {@link BulkPartWriter} that is {@link DeltaBulkPartWriter}.
+ *
+ * @param <IN>       The type of input elements.
+ * @param <BucketID> The type of bucket identifier
+ */
 public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, BucketID> {
 
     private final BulkWriter.Factory<IN> writerFactory;
@@ -36,6 +46,10 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
         super(recoverableWriter, writerFactory);
         this.writerFactory = writerFactory;
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // FileSink-specific
+    ///////////////////////////////////////////////////////////////////////////
 
     @Override
     public DeltaBulkPartWriter<IN, BucketID> resumeFrom(

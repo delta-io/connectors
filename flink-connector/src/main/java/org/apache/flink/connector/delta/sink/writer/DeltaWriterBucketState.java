@@ -21,14 +21,29 @@ package org.apache.flink.connector.delta.sink.writer;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
 
+/**
+ * State of a {@link DeltaWriterBucket} that will become part of each application's
+ * snapshot created during pre-commit phase of a checkpoint process or manually on demand
+ * by the user.
+ * @see <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/fault_tolerance/#state-snapshots</a>
+ *
+ * <p>
+ * This class is partially inspired by {@link org.apache.flink.connector.file.sink.writer.FileWriterBucketState}
+ * but with some modifications like:
+ * <ol>
+ *   <li>removed snapshotting in-progress file's state because
+ *       {@link org.apache.flink.connector.delta.sink.DeltaSink} is supposed to always roll part files
+ *       on checkpoint so there is no need to recover any in-progress files' states
+ *   <li>extends the state by adding application's unique identifier to guarantee the idempotent file writes
+ *       and commits to the {@link io.delta.standalone.DeltaLog}
+ * </ol>
+ *
+ */
 @Internal
 public class DeltaWriterBucketState {
 
     private final String bucketId;
 
-    /**
-     * The directory where all the part files of the bucket are stored.
-     */
     private final Path bucketPath;
 
     private final String appId;
@@ -58,7 +73,9 @@ public class DeltaWriterBucketState {
                 .append("BucketState for bucketId=")
                 .append(bucketId)
                 .append(" and bucketPath=")
-                .append(bucketPath);
+                .append(bucketPath)
+                .append(" and appId=")
+                .append(appId);
 
         return strBuilder.toString();
     }

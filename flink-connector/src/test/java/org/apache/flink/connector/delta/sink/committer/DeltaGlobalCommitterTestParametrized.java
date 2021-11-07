@@ -67,7 +67,7 @@ public class DeltaGlobalCommitterTestParametrized {
     }
 
     @Parameterized.Parameter(0)
-    public boolean canUpdateSchema;
+    public boolean canTryUpdateSchema;
 
     @Parameterized.Parameter(1)
     public int expectedTableVersionAfterCommit;
@@ -103,7 +103,7 @@ public class DeltaGlobalCommitterTestParametrized {
     public void testCommitToDeltaTableInAppendMode() throws Exception {
         //GIVEN
         List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, TestDeltaLakeTable.TEST_ROW_TYPE, canUpdateSchema);
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, TestDeltaLakeTable.TEST_ROW_TYPE, canTryUpdateSchema);
         List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
         List<DeltaGlobalCommittable> globalCommittables = Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 

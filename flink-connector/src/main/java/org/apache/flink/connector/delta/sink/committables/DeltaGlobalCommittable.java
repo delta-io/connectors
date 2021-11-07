@@ -19,13 +19,19 @@
 package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
+/**
+ * Simple wrapper class required to comply with {@link org.apache.flink.api.connector.sink.GlobalCommitter}
+ * interfaces' structure. It's only purpose is to wrap {@link DeltaCommittable} collection during
+ * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter#combine} method
+ * that will be further flattened and processed inside
+ * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter#commit} method.
+ */
 @Internal
 public class DeltaGlobalCommittable {
 

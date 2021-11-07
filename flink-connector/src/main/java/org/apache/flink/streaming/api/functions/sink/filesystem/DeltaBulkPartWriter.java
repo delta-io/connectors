@@ -24,6 +24,24 @@ import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 
+/**
+ * This class is provided as a workaround for getting actual size of in-progress file
+ * right before transitioning it to a pending state ("closing").
+ * <p>
+ * The changed behaviour compared to the original {@link BulkPartWriter} includes
+ * adding {@link DeltaBulkPartWriter#closeWriter} method which is called first during
+ * "close" operation for in-progress file. After calling it we can safely get the
+ * actual file size and then call {@link DeltaBulkPartWriter#closeForCommit()} method.
+ * <p>
+ * This workaround is needed because for Parquet format the writer's buffer needs
+ * to be explicitly flushed before getting the file size (and there is also no easy why to track
+ * the bytes send to the writer). If such a flush will not be performed then
+ * {@link PartFileInfo#getSize} will show file size without considering data buffered in writer's
+ * memory (which in most cases are all the events consumed within given checkpoint interval).
+ *
+ * @param <IN>       The type of input elements.
+ * @param <BucketID> The type of bucket identifier
+ */
 public class DeltaBulkPartWriter<IN, BucketID> extends OutputStreamBasedPartFileWriter<IN, BucketID> {
 
     private final BulkWriter<IN> writer;
@@ -38,6 +56,16 @@ public class DeltaBulkPartWriter<IN, BucketID> extends OutputStreamBasedPartFile
         super(bucketId, currentPartStream, creationTime);
         this.writer = Preconditions.checkNotNull(writer);
     }
+
+    public void closeWriter() throws IOException {
+        writer.flush();
+        writer.finish();
+        closed = true;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // FileSink-specific
+    ///////////////////////////////////////////////////////////////////////////
 
     @Override
     public void write(IN element, long currentTime) throws IOException {
@@ -58,12 +86,6 @@ public class DeltaBulkPartWriter<IN, BucketID> extends OutputStreamBasedPartFile
         }
 
         return super.closeForCommit();
-    }
-
-    public void closeWriter() throws IOException {
-        writer.flush();
-        writer.finish();
-        closed = true;
     }
 
 }

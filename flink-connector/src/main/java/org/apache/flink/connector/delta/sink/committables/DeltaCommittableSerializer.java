@@ -25,6 +25,7 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFileSerdeUtil;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 
 import java.io.IOException;
@@ -92,4 +93,5 @@ public class DeltaCommittableSerializer
                     String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
+
 }

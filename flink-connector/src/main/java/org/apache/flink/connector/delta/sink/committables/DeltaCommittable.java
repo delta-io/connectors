@@ -26,6 +26,21 @@ import java.io.Serializable;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
+/**
+ * Committable object that carries the information about files written to the file system
+ * during particular checkpoint interval.
+ * <p>
+ * As {@link org.apache.flink.connector.delta.sink.DeltaSink} implements both
+ * {@link org.apache.flink.api.connector.sink.Committer} and
+ * {@link org.apache.flink.api.connector.sink.GlobalCommitter} and
+ * then its committable must provide all metadata for committing data on both levels.
+ * <p>
+ * In order to commit data during {@link org.apache.flink.api.connector.sink.Committer#commit}
+ * information carried inside {@link DeltaPendingFile} are used. Next during
+ * {@link org.apache.flink.api.connector.sink.GlobalCommitter#commit} we are using both:
+ * metadata carried inside {@link DeltaPendingFile} and also transactional identifier constructed by
+ * application's unique id and checkpoint interval's id.
+ */
 @Internal
 public class DeltaCommittable implements Serializable {
 

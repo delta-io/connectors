@@ -160,13 +160,11 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
     }
 
     private DeltaSink<RowData> createDeltaSink() {
-        ParquetWriterFactory<RowData> factory = ParquetRowDataBuilder.createWriterFactory(
-                TestDeltaLakeTable.TEST_ROW_TYPE,
-                HadoopConfTest.getHadoopConf(),
-                true);
-
         return DeltaSink
-                .forDeltaFormat(new Path(deltaTablePath), HadoopConfTest.getHadoopConf(), factory, TestDeltaLakeTable.TEST_ROW_TYPE)
+                .forDeltaFormat(
+                        new Path(deltaTablePath),
+                        HadoopConfTest.getHadoopConf(),
+                        TestDeltaLakeTable.TEST_ROW_TYPE)
                 .build();
     }
 

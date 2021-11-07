@@ -32,7 +32,6 @@ import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-
 @Internal
 public class DeltaGlobalCommittableSerializer
         implements SimpleVersionedSerializer<DeltaGlobalCommittable> {
@@ -41,7 +40,6 @@ public class DeltaGlobalCommittableSerializer
 
     private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
             pendingFileSerializer;
-
 
     public DeltaGlobalCommittableSerializer(
             SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
