@@ -19,6 +19,7 @@ package io.delta.standalone.actions;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -60,6 +61,25 @@ public final class AddFile implements FileAction {
         this.dataChange = dataChange;
         this.stats = stats;
         this.tags = tags;
+    }
+
+    /**
+     * @return the corresponding {@link RemoveFile} for this file
+     */
+    @Nonnull
+    public RemoveFile getRemoveFile() {
+        return new RemoveFile(path, Optional.of(System.currentTimeMillis()), dataChange, true,
+            partitionValues, size, tags);
+    }
+
+    /**
+     * @return the corresponding {@link RemoveFile} for this file, instantiated with the given
+     *         {@code deletionTimestamp}
+     */
+    @Nonnull
+    public RemoveFile getRemoveFile(long deletionTimestamp) {
+        return new RemoveFile(path, Optional.of(deletionTimestamp), dataChange, true,
+            partitionValues, size, tags);
     }
 
     /**
