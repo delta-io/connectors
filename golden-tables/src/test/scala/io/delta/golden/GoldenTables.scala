@@ -495,6 +495,19 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       .save(tablePath)
   }
 
+  generateGoldenTable("time-travel-after-vacuum") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    (0 to 29).foreach { i =>
+      log.startTransaction().commitManually(AddFile(i.toString, Map.empty, 1, 1, dataChange = true))
+    }
+
+    (0 to 19).foreach { i =>
+      new File(FileNames.deltaFile(log.logPath, i).toUri).delete()
+    }
+    new File(FileNames.checkpointFileSingular(log.logPath, 10).toUri).delete()
+    new File(new Path(log.logPath, ".00000000000000000010.checkpoint.parquet.crc").toUri).delete()
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // io.delta.standalone.internal.DeltaDataReaderSuite
   ///////////////////////////////////////////////////////////////////////////

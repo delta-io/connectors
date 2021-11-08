@@ -223,4 +223,36 @@ class DeltaTimeTravelSuite extends FunSuite {
           f => orig_partition_data_files.exists(o => f.getPath.contains(o.getName))))
     }
   }
+
+  test("time travel after vacuum") {
+    // versions [0, 29] were committed and then versions [0, 19] were deleted
+    withGoldenTable("time-travel-after-vacuum") { tablePath =>
+      def testHelper(i: Int): Snapshot = {
+        val log = DeltaLog.forTable(new Configuration(), tablePath)
+        log.getSnapshotForVersionAsOf(i)
+      }
+
+      intercept[IllegalArgumentException] {
+        testHelper(15)
+      }
+      intercept[IllegalArgumentException] {
+        testHelper(19)
+      }
+
+      testHelper(20)
+      testHelper(21)
+      testHelper(23)
+      testHelper(29)
+
+//      val snapshot20 = log.getSnapshotForVersionAsOf(20)
+//
+//      val snapshot21 = log.getSnapshotForVersionAsOf(21)
+//
+//      val snapshot23 = log.getSnapshotForVersionAsOf(23)
+//
+//      val snapshot29 = log.getSnapshotForVersionAsOf(29)
+//
+//      val snapshotLatest = log.update()
+    }
+  }
 }
