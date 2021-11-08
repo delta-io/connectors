@@ -8,7 +8,7 @@ We are building connectors to bring [Delta Lake](https://delta.io) to popular bi
 # Introduction
 
 This is the repository for Delta Lake Connectors. It includes
-- a native library for reading and writing Delta Lake metadata
+- a native library for reading and writing Delta Lake metadata.
 - connectors to popular big-data engines (e.g., [Apache Hive](https://hive.apache.org/), [Presto](https://prestodb.io/)) and to common reporting tools like [Microsoft Power BI](https://powerbi.microsoft.com/).
 
 Please refer to the main [Delta Lake](https://github.com/delta-io/delta) repository if you want to learn more about the Delta Lake project.
@@ -21,7 +21,7 @@ The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-L
 Delta Standalone, formerly known as the Delta Standalone Reader (DSR), is a JVM library to read **and write** Delta Lake tables. Unlike https://github.com/delta-io/delta, this project doesn't use Spark to read or write tables and it has only a few transitive dependencies. It can be used by any application that cannot use a Spark cluster.
 - To compile the project, run `build/sbt standalone/compile`
 - To test the project, run `build/sbt standalone/test`
-- To generate the shaded JAR, run `build/sbt standaloneCosmetic/publishM2`
+- To publish the JAR, run `build/sbt standaloneCosmetic/publishM2`
 
 ### How to use it
 You can add the Delta Standalone library as a dependency using your favorite build tool.
@@ -32,7 +32,7 @@ Scala 2.12:
 <dependency>
   <groupId>io.delta</groupId>
   <artifactId>delta-standalone_2.12</artifactId>
-  <version>0.3.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -41,13 +41,13 @@ Scala 2.11:
 <dependency>
   <groupId>io.delta</groupId>
   <artifactId>delta-standalone_2.11</artifactId>
-  <version>0.3.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
 #### SBT
 ```
-libraryDependencies += "io.delta" %% "delta-standalone" % "0.3.0"
+libraryDependencies += "io.delta" %% "delta-standalone" % "0.2.0"
 ```
 
 [TODO UPDATE] See [Delta Standalone Reader](https://github.com/delta-io/connectors/wiki/Delta-Standalone-Reader) for more details.
