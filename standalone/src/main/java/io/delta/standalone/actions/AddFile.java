@@ -68,8 +68,7 @@ public final class AddFile implements FileAction {
      */
     @Nonnull
     public RemoveFile getRemoveFile() {
-        return new RemoveFile(path, Optional.of(System.currentTimeMillis()), dataChange, true,
-            partitionValues, size, tags);
+        return getRemoveFile(System.currentTimeMillis());
     }
 
     /**
