@@ -44,9 +44,15 @@ public final class Metadata implements Action {
     private final Optional<Long> createdTime;
     private final StructType schema;
 
-    public Metadata(String id, String name, String description, Format format,
-                    List<String> partitionColumns, Map<String, String> configuration,
-                    Optional<Long> createdTime, StructType schema) {
+    public Metadata(
+            String id,
+            String name,
+            String description,
+            Format format,
+            List<String> partitionColumns,
+            Map<String, String> configuration,
+            Optional<Long> createdTime,
+            StructType schema) {
         this.id = id;
         this.name = name;
         this.description = description;

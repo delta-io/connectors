@@ -47,14 +47,21 @@ public class CommitInfo implements Action {
     private final Optional<String> engineInfo;
 
     // For binary compatibility with version 0.2.0
-    public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
-                      Optional<String> userName, String operation,
-                      Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
-                      Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
-                      Optional<Long> readVersion, Optional<String> isolationLevel,
-                      Optional<Boolean> isBlindAppend,
-                      Optional<Map<String, String>> operationMetrics,
-                      Optional<String> userMetadata) {
+    public CommitInfo(
+            Optional<Long> version,
+            Timestamp timestamp,
+            Optional<String> userId,
+            Optional<String> userName,
+            String operation,
+            Map<String, String> operationParameters,
+            Optional<JobInfo> jobInfo,
+            Optional<NotebookInfo> notebookInfo,
+            Optional<String> clusterId,
+            Optional<Long> readVersion,
+            Optional<String> isolationLevel,
+            Optional<Boolean> isBlindAppend,
+            Optional<Map<String, String>> operationMetrics,
+            Optional<String> userMetadata) {
         this.version = version;
         this.timestamp = timestamp;
         this.userId = userId;
@@ -72,14 +79,22 @@ public class CommitInfo implements Action {
         this.engineInfo = Optional.empty();
     }
 
-    public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
-                      Optional<String> userName, String operation,
-                      Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
-                      Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
-                      Optional<Long> readVersion, Optional<String> isolationLevel,
-                      Optional<Boolean> isBlindAppend,
-                      Optional<Map<String, String>> operationMetrics,
-                      Optional<String> userMetadata, Optional<String> engineInfo) {
+    public CommitInfo(
+            Optional<Long> version,
+            Timestamp timestamp,
+            Optional<String> userId,
+            Optional<String> userName,
+            String operation,
+            Map<String, String> operationParameters,
+            Optional<JobInfo> jobInfo,
+            Optional<NotebookInfo> notebookInfo,
+            Optional<String> clusterId,
+            Optional<Long> readVersion,
+            Optional<String> isolationLevel,
+            Optional<Boolean> isBlindAppend,
+            Optional<Map<String, String>> operationMetrics,
+            Optional<String> userMetadata,
+            Optional<String> engineInfo) {
         this.version = version;
         this.timestamp = timestamp;
         this.userId = userId;
