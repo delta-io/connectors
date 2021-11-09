@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.vector.ParquetColumnarRowSplitReader;
 import org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil;
@@ -35,22 +36,22 @@ public class TestParquetReader {
         for (AddFile addedFile : deltaTableFiles) {
             Path parquetFilePath = new Path(deltaLog.getPath().toString(), addedFile.getPath());
             cumulatedRecords += TestParquetReader.readAndParseRecords(
-                    parquetFilePath, DeltaSinkTestUtils.TestDeltaLakeTable.TEST_ROW_TYPE);
+                parquetFilePath, TestRowData.TEST_ROW_TYPE);
         }
         return cumulatedRecords;
     }
 
-    static int readAndParseRecords(Path parquetFilepath,
+    public static int readAndParseRecords(Path parquetFilepath,
                                    RowType rowType) throws IOException {
 
         ParquetColumnarRowSplitReader reader = getTestParquetReader(
-                parquetFilepath,
-                rowType
+            parquetFilepath,
+            rowType
         );
 
         int recordsRead = 0;
         while (!reader.reachedEnd()) {
-            DeltaSinkTestUtils.TestDeltaLakeTable.CONVERTER.toExternal(reader.nextRecord());
+            TestRowData.CONVERTER.toExternal(reader.nextRecord());
             recordsRead++;
         }
         return recordsRead;
@@ -59,19 +60,19 @@ public class TestParquetReader {
     static ParquetColumnarRowSplitReader getTestParquetReader(Path path,
                                                               RowType rowType) throws IOException {
         return ParquetSplitReaderUtil.genPartColumnarRowReader(
-                true,
-                true,
-                DeltaSinkTestUtils.HadoopConfTest.getHadoopConf(),
-                rowType.getFieldNames().toArray(new String[0]),
-                rowType.getChildren().stream()
-                        .map(TypeConversions::fromLogicalToDataType)
-                        .toArray(DataType[]::new),
-                new HashMap<>(),
-                IntStream.range(0, rowType.getFieldCount()).toArray(),
-                50,
-                path,
-                0,
-                Long.MAX_VALUE);
+            true,
+            true,
+            DeltaSinkTestUtils.HadoopConfTest.getHadoopConf(),
+            rowType.getFieldNames().toArray(new String[0]),
+            rowType.getChildren().stream()
+                .map(TypeConversions::fromLogicalToDataType)
+                .toArray(DataType[]::new),
+            new HashMap<>(),
+            IntStream.range(0, rowType.getFieldCount()).toArray(),
+            50,
+            path,
+            0,
+            Long.MAX_VALUE);
     }
 
 }

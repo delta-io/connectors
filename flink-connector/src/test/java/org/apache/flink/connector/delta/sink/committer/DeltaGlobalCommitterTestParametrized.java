@@ -32,8 +32,8 @@ import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.core.fs.Path;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -96,11 +96,6 @@ public class DeltaGlobalCommitterTestParametrized {
         deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
     }
 
-    @After
-    public void teardown() {
-
-    }
-
     @Test
     public void testCommitToDeltaTableInAppendMode() throws Exception {
         //GIVEN
@@ -108,7 +103,8 @@ public class DeltaGlobalCommitterTestParametrized {
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             HadoopConfTest.getHadoopConf(),
             tablePath,
-            TestDeltaLakeTable.TEST_ROW_TYPE, canTryUpdateSchema);
+            TestRowData.TEST_ROW_TYPE,
+            canTryUpdateSchema);
         List<DeltaCommittable> deltaCommittables =
             TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
         List<DeltaGlobalCommittable> globalCommittables =

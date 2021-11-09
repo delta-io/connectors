@@ -41,6 +41,7 @@ import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
@@ -175,7 +176,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 HadoopConfTest.getHadoopConf(),
-                TestDeltaLakeTable.TEST_ROW_TYPE)
+                TestRowData.TEST_ROW_TYPE)
             .build();
     }
 
@@ -292,7 +293,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private void sendRecordsUntil(int targetNumber, SourceContext<RowData> ctx) {
             while (!isCanceled && nextValue < targetNumber) {
                 synchronized (ctx.getCheckpointLock()) {
-                    RowData row = TestDeltaLakeTable.CONVERTER.toInternal(
+                    RowData row = TestRowData.CONVERTER.toInternal(
                         Row.of(
                             String.valueOf(nextValue),
                             String.valueOf((nextValue + nextValue)),
@@ -314,7 +315,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         }
 
         @Override
-        public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        public void notifyCheckpointComplete(long checkpointId) {
             if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();

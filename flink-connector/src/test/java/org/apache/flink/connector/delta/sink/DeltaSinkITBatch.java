@@ -19,7 +19,6 @@
 package org.apache.flink.connector.delta.sink;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -32,17 +31,17 @@ import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestParquetWriterFactory;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
-import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.types.Row;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -115,7 +114,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
-        env.fromCollection(getTestRows())
+        env.fromCollection(TestRowData.getTestRowData(NUM_RECORDS))
             .setParallelism(1)
             .sinkTo(createDeltaSink())
             .setParallelism(NUM_SINKS);
@@ -125,16 +124,14 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
     }
 
     private DeltaSink<RowData> createDeltaSink() {
-        ParquetWriterFactory<RowData> factory =
-            ParquetRowDataBuilder.createWriterFactory(
-                TestDeltaLakeTable.TEST_ROW_TYPE, getHadoopConf(), true);
+        ParquetWriterFactory<RowData> factory = TestParquetWriterFactory.createTestWriterFactory();
 
         return DeltaSink
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 getHadoopConf(),
                 factory,
-                TestDeltaLakeTable.TEST_ROW_TYPE)
+                TestRowData.TEST_ROW_TYPE)
             .build();
     }
 
@@ -163,23 +160,6 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         config.set(ExecutionOptions.RUNTIME_MODE, RuntimeExecutionMode.BATCH);
         env.configure(config, getClass().getClassLoader());
         return env;
-    }
-
-
-    protected List<RowData> getTestRows() {
-        List<RowData> rows = new ArrayList<>(NUM_RECORDS);
-        for (int i = 0; i < NUM_RECORDS; i++) {
-            Integer v = i;
-            rows.add(
-                TestDeltaLakeTable.CONVERTER.toInternal(
-                    Row.of(
-                        String.valueOf(v),
-                        String.valueOf((v + v)),
-                        v)
-                )
-            );
-        }
-        return rows;
     }
 
 }

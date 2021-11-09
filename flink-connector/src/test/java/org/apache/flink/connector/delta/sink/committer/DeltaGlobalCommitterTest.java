@@ -48,11 +48,6 @@ public class DeltaGlobalCommitterTest {
         deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
     }
 
-    @After
-    public void teardown() {
-
-    }
-
     /**
      * Test cases to cover:
      * test commit twice same data (after second trial DeltaLog should have the same version)

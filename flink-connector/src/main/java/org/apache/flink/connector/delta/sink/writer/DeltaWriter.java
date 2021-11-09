@@ -27,6 +27,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner;
@@ -119,6 +120,7 @@ public class DeltaWriter<IN>
         final long bucketCheckInterval,
         final String appId,
         final long nextCheckpointId) {
+
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketWriter = checkNotNull(bucketWriter);
@@ -140,6 +142,10 @@ public class DeltaWriter<IN>
 
     private void incrementNextCheckpointId() {
         nextCheckpointId += 1;
+    }
+
+    long getNextCheckpointId() {
+        return nextCheckpointId;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -368,6 +374,13 @@ public class DeltaWriter<IN>
         public Long timestamp() {
             return elementTimestamp;
         }
+    }
+
+    // --------------------------- Testing Methods -----------------------------
+
+    @VisibleForTesting
+    Map<String, DeltaWriterBucket<IN>> getActiveBuckets() {
+        return activeBuckets;
     }
 
 }
