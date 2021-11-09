@@ -26,7 +26,7 @@ import org.apache.flink.core.fs.Path;
  * snapshot created during pre-commit phase of a checkpoint process or manually on demand
  * by the user.
  * see fault_tolerance/#state-snapshots section on
- * <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/</a>
+ * <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/"</a>
  *
  * <p>
  * This class is partially inspired by
