@@ -64,6 +64,12 @@ public class DeltaWriter<IN>
 
     private static final Logger LOG = LoggerFactory.getLogger(DeltaWriter.class);
 
+    /**
+     * Value used as a bucket id for noop bucket states. It will be used to snapshot and indicate
+     * the writer's states that had not active buckets.
+     */
+    public static final String NOOP_WRITER_STATE = "<noop-writer-state>";
+
     // ------------------------ DeltaSink-specific fields ---------------------
 
     private final String appId;
@@ -140,6 +146,38 @@ public class DeltaWriter<IN>
         this.nextCheckpointId = nextCheckpointId;
     }
 
+    /**
+     * @implNote This method behaves in the similar way as
+     * {@link org.apache.flink.connector.file.sink.writer.FileWriter#snapshotState}
+     * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
+     * implementations.
+     *
+     * Additionally, it implements snapshotting writer's states even in case when there are no
+     * active buckets (which may be not such a rare case e.g. when checkpoint interval will be very
+     * short and the writer will not receive any data during this interval then it will mark the
+     * buckets as inactive). This behaviour is needed for delta-specific case when we want to retain
+     * the same application id within all app restarts / recreation writers' states from snapshot.
+     */
+    @Override
+    public List<DeltaWriterBucketState> snapshotState() {
+        checkState(bucketWriter != null, "sink has not been initialized");
+
+        List<DeltaWriterBucketState> states = new ArrayList<>();
+        for (DeltaWriterBucket<IN> bucket : activeBuckets.values()) {
+            states.add(bucket.snapshotState(appId));
+        }
+
+        if (states.isEmpty()){
+            // we still need to snapshot app id even though there are no active buckets in the
+            // writer.
+            states.add(
+                new DeltaWriterBucketState(NOOP_WRITER_STATE, basePath, appId)
+            );
+        }
+
+        return states;
+    }
+
     private void incrementNextCheckpointId() {
         nextCheckpointId += 1;
     }
@@ -203,25 +241,7 @@ public class DeltaWriter<IN>
     }
 
     /**
-     * @implNote This method behaves in the same way as
-     * {@link org.apache.flink.connector.file.sink.writer.FileWriter#snapshotState}
-     * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
-     * implementations.
-     */
-    @Override
-    public List<DeltaWriterBucketState> snapshotState() {
-        checkState(bucketWriter != null, "sink has not been initialized");
-
-        List<DeltaWriterBucketState> state = new ArrayList<>();
-        for (DeltaWriterBucket<IN> bucket : activeBuckets.values()) {
-            state.add(bucket.snapshotState(appId));
-        }
-
-        return state;
-    }
-
-    /**
-     * Initializes the state after recovery from a failure.
+     * Initializes the state from snapshoted {@link DeltaWriterBucketState}.
      *
      * @param bucketStates the state holding recovered state about active buckets.
      * @throws IOException if anything goes wrong during retrieving the state or
@@ -230,12 +250,19 @@ public class DeltaWriter<IN>
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#initializeState}
      * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
      * implementations.
+     * Additionally, it skips restoring the bucket in case of bucket id equal to the value of
+     * {@link this#NOOP_WRITER_STATE}.
+     *
      */
     public void initializeState(List<DeltaWriterBucketState> bucketStates) throws IOException {
         checkNotNull(bucketStates, "The retrieved state was null.");
 
         for (DeltaWriterBucketState state : bucketStates) {
             String bucketId = state.getBucketId();
+            if (bucketId.equals(NOOP_WRITER_STATE)){
+                // nothing to restore
+                continue;
+            }
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Restoring: {}", state);
