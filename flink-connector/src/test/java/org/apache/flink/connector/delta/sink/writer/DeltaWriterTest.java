@@ -33,6 +33,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.delta.sink.utils.WriterTestUtils;
+import org.apache.flink.connector.file.sink.writer.FileWriterTest;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
@@ -144,11 +145,17 @@ public class DeltaWriterTest {
         assertEquals(0, writer.getActiveBuckets().size());
     }
 
+    /**
+     * Just following {@link FileWriterTest#testContextPassingNormalExecution()} here.
+     */
     @Test
     public void testContextPassingNormalExecution() throws Exception {
         testCorrectTimestampPassingInContext(1L, 2L, 3L);
     }
 
+    /**
+     * Just following {@link FileWriterTest#testContextPassingNullTimestamp()} here.
+     */
     @Test
     public void testContextPassingNullTimestamp() throws Exception {
         testCorrectTimestampPassingInContext(null, 4L, 5L);
@@ -176,7 +183,9 @@ public class DeltaWriterTest {
         // no error - test passed
     }
 
-    // ------------------------------- Utility Methods --------------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Utility Methods
+    ///////////////////////////////////////////////////////////////////////////
 
     private static DeltaWriter<RowData> createNewWriter(Path basePath) throws IOException {
         return new DeltaWriter<>(

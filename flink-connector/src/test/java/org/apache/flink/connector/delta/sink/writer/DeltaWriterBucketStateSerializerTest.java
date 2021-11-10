@@ -41,7 +41,6 @@ public class DeltaWriterBucketStateSerializerTest {
         assertBucketStateEquals(bucketState, deserialized);
     }
 
-
     private void assertBucketStateEquals(
         DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
         assertEquals(bucketState.getBucketId(), deserialized.getBucketId());

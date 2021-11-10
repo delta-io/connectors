@@ -28,20 +28,16 @@ import java.util.stream.LongStream;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestParquetWriterFactory;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
-import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
-import org.apache.flink.table.data.RowData;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
@@ -53,7 +49,7 @@ import io.delta.standalone.actions.CommitInfo;
 
 public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
-    String deltaTablePath;
+    private String deltaTablePath;
 
     @Before
     public void setup() {
@@ -73,8 +69,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        org.apache.hadoop.conf.Configuration conf = getHadoopConf();
-        DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
         assertEquals(initialDeltaFiles.size(), 2);
@@ -82,7 +77,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = getMiniCluster()) {
+        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
@@ -108,50 +103,21 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
             assertTrue(Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0);
         }
 
-        assertEquals(finalDeltaFiles.size() - initialDeltaFiles.size(),totalAddedFiles);
+        assertEquals(finalDeltaFiles.size() - initialDeltaFiles.size(), totalAddedFiles);
         assertEquals(NUM_RECORDS, totalRowsAdded);
     }
 
+    @Override
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
         env.fromCollection(TestRowData.getTestRowData(NUM_RECORDS))
             .setParallelism(1)
-            .sinkTo(createDeltaSink())
+            .sinkTo(ITCaseUtils.createDeltaSink(path))
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
         return streamGraph.getJobGraph();
-    }
-
-    private DeltaSink<RowData> createDeltaSink() {
-        ParquetWriterFactory<RowData> factory = TestParquetWriterFactory.createTestWriterFactory();
-
-        return DeltaSink
-            .forDeltaFormat(
-                new Path(deltaTablePath),
-                getHadoopConf(),
-                factory,
-                TestRowData.TEST_ROW_TYPE)
-            .build();
-    }
-
-    private MiniCluster getMiniCluster() {
-        final Configuration config = new Configuration();
-        config.setString(RestOptions.BIND_PORT, "18081-19000");
-        final MiniClusterConfiguration cfg =
-            new MiniClusterConfiguration.Builder()
-                .setNumTaskManagers(1)
-                .setNumSlotsPerTaskManager(4)
-                .setConfiguration(config)
-                .build();
-        return new MiniCluster(cfg);
-    }
-
-    private org.apache.hadoop.conf.Configuration getHadoopConf() {
-        org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-        conf.set("parquet.compression", "SNAPPY");
-        return conf;
     }
 
     private StreamExecutionEnvironment getTestStreamEnv() {

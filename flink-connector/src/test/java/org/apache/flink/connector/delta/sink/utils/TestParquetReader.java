@@ -34,6 +34,9 @@ import org.apache.flink.table.types.utils.TypeConversions;
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
 
+/**
+ * Provides utility methods for reading back test records written to Parquet files.
+ */
 public class TestParquetReader {
 
     /**
@@ -59,8 +62,17 @@ public class TestParquetReader {
         return cumulatedRecords;
     }
 
+    /**
+     * Reads and counts all records in given Parquet file. Additionally, it tries to parse back every record to the
+     * format provided as {@link RowType}.
+     *
+     * @param parquetFilepath path to the file
+     * @param rowType Flink's logical type that will be used for parsing back data read from Parquet file
+     * @return count of written records
+     * @throws IOException Thrown if an error occurs while reading the file
+     */
     public static int readAndParseRecords(Path parquetFilepath,
-                                   RowType rowType) throws IOException {
+                                          RowType rowType) throws IOException {
         ParquetColumnarRowSplitReader reader = getTestParquetReader(
             parquetFilepath,
             rowType

@@ -38,16 +38,14 @@ import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
 import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
-import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -87,7 +85,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
     }
 
     private String latchId;
-    String deltaTablePath;
+    private String deltaTablePath;
 
     @Before
     public void setup() {
@@ -124,7 +122,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = getMiniCluster()) {
+        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
@@ -163,32 +161,11 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
         env.addSource(new DeltaStreamingExecutionTestSource(latchId, NUM_RECORDS, triggerFailover))
             .setParallelism(NUM_SOURCES)
-            .sinkTo(createDeltaSink())
+            .sinkTo(ITCaseUtils.createDeltaSink(deltaTablePath))
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
         return streamGraph.getJobGraph();
-    }
-
-    private DeltaSink<RowData> createDeltaSink() {
-        return DeltaSink
-            .forDeltaFormat(
-                new Path(deltaTablePath),
-                HadoopConfTest.getHadoopConf(),
-                TestRowData.TEST_ROW_TYPE)
-            .build();
-    }
-
-    private MiniCluster getMiniCluster() {
-        final Configuration config = new Configuration();
-        config.setString(RestOptions.BIND_PORT, "18081-19000");
-        final MiniClusterConfiguration cfg =
-            new MiniClusterConfiguration.Builder()
-                .setNumTaskManagers(1)
-                .setNumSlotsPerTaskManager(4)
-                .setConfiguration(config)
-                .build();
-        return new MiniCluster(cfg);
     }
 
     private StreamExecutionEnvironment getTestStreamEnv() {
@@ -208,7 +185,9 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         return env;
     }
 
-    // ------------------------ Streaming mode user functions ----------------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Streaming mode user functions
+    ///////////////////////////////////////////////////////////////////////////
 
     private static class DeltaStreamingExecutionTestSource
         extends RichParallelSourceFunction<RowData>

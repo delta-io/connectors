@@ -367,7 +367,9 @@ class DeltaWriterBucket<IN> {
         }
     }
 
-    // --------------------------- Static Factory -----------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Static Factory
+    ///////////////////////////////////////////////////////////////////////////
 
     public static class DeltaWriterBucketFactory {
         static <IN> DeltaWriterBucket<IN> getNewBucket(

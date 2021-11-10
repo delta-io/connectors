@@ -75,7 +75,9 @@ public class DeltaCommitterTest {
         assertEquals(0, toRetry.size());
     }
 
-    // ------------------------------- Mock Classes --------------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Mock Classes
+    ///////////////////////////////////////////////////////////////////////////
 
     private static class RecordingPendingFile implements BucketWriter.PendingFile {
         private boolean committed;

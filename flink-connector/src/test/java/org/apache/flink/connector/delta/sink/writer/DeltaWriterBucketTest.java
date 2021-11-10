@@ -167,8 +167,9 @@ public class DeltaWriterBucketTest {
         getWrittenRecordsCount(deltaCommittables, bucketPath);
     }
 
-
-    // ------------------------------- Utility Methods --------------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Utility Methods
+    ///////////////////////////////////////////////////////////////////////////
 
     private static DeltaWriterBucket<RowData> getBucketWriter(
         Path bucketPath,
@@ -223,7 +224,6 @@ public class DeltaWriterBucketTest {
         }
         return writtenRecordsCount;
     }
-
 
     private static class TestForcedRollFilePolicy extends CheckpointRollingPolicy<RowData, String> {
 

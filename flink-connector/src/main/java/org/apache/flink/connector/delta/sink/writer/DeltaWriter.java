@@ -70,15 +70,21 @@ public class DeltaWriter<IN>
      */
     public static final String NOOP_WRITER_STATE = "<noop-writer-state>";
 
-    // ------------------------ DeltaSink-specific fields ---------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // DeltaSink-specific fields
+    ///////////////////////////////////////////////////////////////////////////
 
     private final String appId;
 
     private long nextCheckpointId;
 
-    // ------------------------ FileSink-specific fields ---------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // FileSink-specific fields
+    ///////////////////////////////////////////////////////////////////////////
 
-    // ------------------------ configuration fields --------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // configuration fields
+    ///////////////////////////////////////////////////////////////////////////
 
     private final DeltaBulkBucketWriter<IN, String> bucketWriter;
 
@@ -92,7 +98,9 @@ public class DeltaWriter<IN>
 
     private final long bucketCheckInterval;
 
-    // --------------------------- runtime fields -----------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // runtime fields
+    ///////////////////////////////////////////////////////////////////////////
 
     private final Map<String, DeltaWriterBucket<IN>> activeBuckets;
 
@@ -403,7 +411,9 @@ public class DeltaWriter<IN>
         }
     }
 
-    // --------------------------- Testing Methods -----------------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // Testing Methods
+    ///////////////////////////////////////////////////////////////////////////
 
     @VisibleForTesting
     Map<String, DeltaWriterBucket<IN>> getActiveBuckets() {

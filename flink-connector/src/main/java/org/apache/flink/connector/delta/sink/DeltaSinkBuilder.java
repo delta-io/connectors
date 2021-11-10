@@ -64,7 +64,13 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     protected static final long DEFAULT_BUCKET_CHECK_INTERVAL = 60L * 1000L;
 
-    // ------------------------ DeltaLake-specific fields ---------------------
+    private static String generateNewAppId() {
+        return UUID.randomUUID().toString();
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // DeltaLake-specific fields
+    ///////////////////////////////////////////////////////////////////////////
 
     /**
      * Delta table's root path
@@ -95,7 +101,9 @@ public class DeltaSinkBuilder<IN> implements Serializable {
      */
     private final SerializableConfiguration serializableConfiguration;
 
-    // ------------------------ FileSink-specific fields ---------------------
+    ///////////////////////////////////////////////////////////////////////////
+    // FileSink-specific fields
+    ///////////////////////////////////////////////////////////////////////////
 
     private long bucketCheckInterval;
 
@@ -106,12 +114,6 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     private CheckpointRollingPolicy<IN, String> rollingPolicy;
 
     private OutputFileConfig outputFileConfig;
-
-    // -----------------------------------------------------------------------
-
-    private static String generateNewAppId() {
-        return UUID.randomUUID().toString();
-    }
 
     protected DeltaSinkBuilder(
             Path basePath,
