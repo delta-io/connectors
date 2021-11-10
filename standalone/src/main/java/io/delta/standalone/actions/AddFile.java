@@ -90,8 +90,8 @@ public final class AddFile implements FileAction {
      *         {@code dataChange} flag
      */
     @Nonnull
-    public RemoveFile remove(boolean _dataChange) {
-        return remove(System.currentTimeMillis(), _dataChange);
+    public RemoveFile remove(boolean dataChange) {
+        return remove(System.currentTimeMillis(), dataChange);
     }
 
     /**
@@ -99,8 +99,8 @@ public final class AddFile implements FileAction {
      *         {@code deletionTimestamp} value and {@code dataChange} flag
      */
     @Nonnull
-    public RemoveFile remove(long deletionTimestamp, boolean _dataChange) {
-        return new RemoveFile(path, Optional.of(deletionTimestamp), _dataChange, true,
+    public RemoveFile remove(long deletionTimestamp, boolean dataChange) {
+        return new RemoveFile(path, Optional.of(deletionTimestamp), dataChange, true,
             partitionValues, size, tags);
     }
 
