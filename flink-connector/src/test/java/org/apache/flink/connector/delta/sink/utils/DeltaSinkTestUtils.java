@@ -26,6 +26,7 @@ import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class DeltaSinkTestUtils {
 
@@ -203,10 +204,10 @@ public class DeltaSinkTestUtils {
                     .filter(file -> file.getName().endsWith(".snappy.parquet"))
                     .collect(Collectors.toList());
 
-            assert files.size() > 0;
+            assertTrue(files.size() > 0);
 
             for (File file : files) {
-                assert file.length() > 100; // simple check if files contain any data
+                assertTrue(file.length() > 100); // simple check if files contain any data
             }
         }
     }

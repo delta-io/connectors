@@ -64,6 +64,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import static org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
@@ -119,7 +121,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
         int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
-        assert initialDeltaFiles.size() == 2;
+        assertEquals(initialDeltaFiles.size(), 2);
 
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
@@ -134,7 +136,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
-        assert finalDeltaFiles.size() > initialDeltaFiles.size();
+        assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());
         Iterator<Long> it = LongStream.range(
             initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();
         long totalRowsAdded = 0;
@@ -144,18 +146,18 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             CommitInfo currentCommitInfo = deltaLog.getCommitInfoAt(currentVersion);
             Optional<Map<String, String>> operationMetrics =
                 currentCommitInfo.getOperationMetrics();
-            assert operationMetrics.isPresent();
+            assertTrue(operationMetrics.isPresent());
             totalRowsAdded += Long.parseLong(operationMetrics.get().get("numOutputRows"));
             totalAddedFiles += Long.parseLong(operationMetrics.get().get("numAddedFiles"));
 
-            assert Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0;
+            assertTrue(Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0);
 
         }
         int finalTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
 
-        assert totalAddedFiles == finalDeltaFiles.size() - initialDeltaFiles.size();
-        assert totalRowsAdded == (NUM_RECORDS * NUM_SOURCES);
-        assert totalRowsAdded == finalTableRecordsCount - initialTableRecordsCount;
+        assertEquals(totalAddedFiles, finalDeltaFiles.size() - initialDeltaFiles.size());
+        assertEquals(totalRowsAdded, (NUM_RECORDS * NUM_SOURCES));
+        assertEquals(totalRowsAdded, finalTableRecordsCount - initialTableRecordsCount);
     }
 
     @Override

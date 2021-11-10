@@ -41,6 +41,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import io.delta.standalone.DeltaLog;
@@ -147,7 +148,7 @@ public class DeltaGlobalCommitterTestParametrized {
             AddFile addFile = filesIterator.next();
             assertEquals(addFile.getPartitionValues(), partitionSpec);
             assertTrue(addFile.getSize() > 0);
-            assert (!addFile.getPath().isEmpty());
+            assertFalse(addFile.getPath().isEmpty());
         }
     }
 

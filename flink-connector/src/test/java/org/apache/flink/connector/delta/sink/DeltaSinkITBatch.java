@@ -44,11 +44,12 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
 import org.junit.Before;
 import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.CommitInfo;
-
 
 public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
@@ -76,7 +77,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
-        assert initialDeltaFiles.size() == 2;
+        assertEquals(initialDeltaFiles.size(), 2);
 
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
@@ -90,7 +91,7 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
-        assert finalDeltaFiles.size() > initialDeltaFiles.size();
+        assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());
         Iterator<Long> it = LongStream.range(
             initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();
         long totalRowsAdded = 0;
@@ -100,15 +101,15 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
             CommitInfo currentCommitInfo = deltaLog.getCommitInfoAt(currentVersion);
             Optional<Map<String, String>> operationMetrics =
                 currentCommitInfo.getOperationMetrics();
-            assert operationMetrics.isPresent();
+            assertTrue(operationMetrics.isPresent());
             totalRowsAdded += Long.parseLong(operationMetrics.get().get("numOutputRows"));
             totalAddedFiles += Long.parseLong(operationMetrics.get().get("numAddedFiles"));
 
-            assert Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0;
+            assertTrue(Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0);
         }
 
-        assert totalAddedFiles == finalDeltaFiles.size() - initialDeltaFiles.size();
-        assert totalRowsAdded == NUM_RECORDS;
+        assertEquals(totalAddedFiles, finalDeltaFiles.size() - initialDeltaFiles.size());
+        assertEquals(totalRowsAdded, NUM_RECORDS);
     }
 
     protected JobGraph createJobGraph(String path) {

@@ -85,8 +85,8 @@ public class DeltaSink<IN>
 
     private final DeltaSinkBuilder<IN> sinkBuilder;
 
-    DeltaSink(DeltaSinkBuilder<IN> bucketsBuilder) {
-        this.sinkBuilder = checkNotNull(bucketsBuilder);
+    DeltaSink(DeltaSinkBuilder<IN> sinkBuilder) {
+        this.sinkBuilder = checkNotNull(sinkBuilder);
     }
 
     /**

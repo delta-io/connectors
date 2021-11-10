@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.apache.flink.table.types.logical.*;
 import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
 import io.delta.standalone.types.StructField;
 import io.delta.standalone.types.StructType;
@@ -84,7 +85,7 @@ public class TestSchemaConverter {
 
             });
 
-        assert expectedDeltaStructType.equals(deltaStructType);
+        assertEquals(expectedDeltaStructType, deltaStructType);
     }
 
     @Test
@@ -96,6 +97,4 @@ public class TestSchemaConverter {
     public void testStructType() {
         // TODO add extensive tests for StructType
     }
-
-
 }

@@ -22,7 +22,6 @@ import java.io.IOException;
 
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 import org.apache.flink.core.fs.Path;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
