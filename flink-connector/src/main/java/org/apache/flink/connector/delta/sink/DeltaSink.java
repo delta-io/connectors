@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.delta.sink;
 
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +43,6 @@ import org.apache.hadoop.conf.Configuration;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import io.delta.standalone.DeltaLog;
-
 
 /**
  * A unified sink that emits its input elements to {@link FileSystem} files within buckets using
@@ -260,5 +258,4 @@ public class DeltaSink<IN>
             rowType
         );
     }
-
 }

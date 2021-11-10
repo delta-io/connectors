@@ -56,5 +56,4 @@ public class DeltaWriterBucketStateSerializerTest {
         byte[] data = serializer.serialize(bucketState);
         return serializer.deserialize(serializer.getVersion(), data);
     }
-
 }

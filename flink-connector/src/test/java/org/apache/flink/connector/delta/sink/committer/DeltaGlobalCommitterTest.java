@@ -62,8 +62,5 @@ public class DeltaGlobalCommitterTest {
      */
 
     @Test
-    public void test() throws Exception {
-
-    }
-
+    public void test() throws Exception {}
 }

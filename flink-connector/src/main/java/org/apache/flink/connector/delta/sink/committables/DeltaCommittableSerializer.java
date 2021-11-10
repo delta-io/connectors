@@ -31,11 +31,16 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-
+/**
+ * Versioned serializer for {@link DeltaCommittable}.
+ */
 @Internal
 public class DeltaCommittableSerializer
         implements SimpleVersionedSerializer<DeltaCommittable> {
 
+    /**
+     * Magic number value for sanity check whether the provided bytes where not corrupted
+     */
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
     private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
@@ -94,5 +99,4 @@ public class DeltaCommittableSerializer
                     String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
-
 }

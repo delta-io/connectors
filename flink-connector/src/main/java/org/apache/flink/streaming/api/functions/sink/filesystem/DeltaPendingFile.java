@@ -83,5 +83,4 @@ public class DeltaPendingFile {
     public LinkedHashMap<String, String> getPartitionSpec() {
         return new LinkedHashMap<>(partitionSpec);
     }
-
 }

@@ -80,5 +80,4 @@ public class DeltaBulkBucketWriter<IN, BucketID> extends BulkBucketWriter<IN, Bu
         final BulkWriter<IN> writer = writerFactory.create(stream);
         return new DeltaBulkPartWriter<>(bucketId, stream, writer, creationTime);
     }
-
 }

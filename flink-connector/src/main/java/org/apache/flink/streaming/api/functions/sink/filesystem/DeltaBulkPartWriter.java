@@ -88,5 +88,4 @@ public class DeltaBulkPartWriter<IN, BucketID>
 
         return super.closeForCommit();
     }
-
 }

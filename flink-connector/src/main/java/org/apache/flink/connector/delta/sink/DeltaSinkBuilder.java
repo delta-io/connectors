@@ -321,7 +321,5 @@ public class DeltaSinkBuilder<IN> implements Serializable {
                 RowType rowType) {
             super(basePath, conf, writerFactory, assigner, rowType);
         }
-
     }
-
 }

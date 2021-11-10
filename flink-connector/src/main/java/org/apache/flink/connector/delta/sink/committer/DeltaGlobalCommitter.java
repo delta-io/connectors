@@ -395,7 +395,6 @@ public class DeltaGlobalCommitter
             true,
             null,
             null);
-
     }
 
     private Map<String, String> prepareOperationMetrics(
@@ -422,13 +421,8 @@ public class DeltaGlobalCommitter
     }
 
     @Override
-    public void endOfInput() {
-
-    }
+    public void endOfInput() {}
 
     @Override
-    public void close() {
-
-    }
-
+    public void close() {}
 }

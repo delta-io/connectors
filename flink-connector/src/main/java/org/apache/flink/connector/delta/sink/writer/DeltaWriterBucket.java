@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-
 /**
  * Internal implementation for writing the actual events to the underlying files in the correct
  * buckets / partitions.
@@ -235,7 +234,6 @@ class DeltaWriterBucket<IN> {
             partFilePath.getName(),
             bucketId);
 
-
         return new DeltaInProgressPart<>(partFilePath.getName(), fileWriter);
     }
 
@@ -392,5 +390,4 @@ class DeltaWriterBucket<IN> {
                 bucketWriter, rollingPolicy, bucketState, outputFileConfig);
         }
     }
-
 }

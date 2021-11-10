@@ -151,5 +151,4 @@ public class DeltaGlobalCommitterTestParametrized {
             assertFalse(addFile.getPath().isEmpty());
         }
     }
-
 }

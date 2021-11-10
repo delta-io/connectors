@@ -108,8 +108,8 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
             assertTrue(Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0);
         }
 
-        assertEquals(totalAddedFiles, finalDeltaFiles.size() - initialDeltaFiles.size());
-        assertEquals(totalRowsAdded, NUM_RECORDS);
+        assertEquals(finalDeltaFiles.size() - initialDeltaFiles.size(),totalAddedFiles);
+        assertEquals(NUM_RECORDS, totalRowsAdded);
     }
 
     protected JobGraph createJobGraph(String path) {
@@ -162,5 +162,4 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
         env.configure(config, getClass().getClassLoader());
         return env;
     }
-
 }

@@ -109,7 +109,5 @@ public class DeltaCommitterTest {
         public List<RecordingPendingFile> getRecoveredPendingFiles() {
             return recoveredPendingFiles;
         }
-
     }
-
 }

@@ -72,5 +72,4 @@ public class DeltaCommittableSerializerTest {
         byte[] data = serializer.serialize(committable);
         return serializer.deserialize(serializer.getVersion(), data);
     }
-
 }

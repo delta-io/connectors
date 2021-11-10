@@ -47,7 +47,6 @@ public class DeltaWriterBucketTest {
 
     @ClassRule
     public static final TemporaryFolder TEMP_FOLDER = new TemporaryFolder();
-
     private static final String BUCKET_ID = "testing-bucket";
     private static final String APP_ID = "1";
 
@@ -56,7 +55,6 @@ public class DeltaWriterBucketTest {
         // GIVEN
         File outDir = TEMP_FOLDER.newFolder();
         Path bucketPath = new Path(outDir.toURI());
-
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(bucketPath);
 
         // WHEN
@@ -172,7 +170,6 @@ public class DeltaWriterBucketTest {
 
     // ------------------------------- Utility Methods --------------------------------
 
-
     private static DeltaWriterBucket<RowData> getBucketWriter(
         Path bucketPath,
         CheckpointRollingPolicy<RowData, String> rollingPolicy) throws IOException {
@@ -192,7 +189,6 @@ public class DeltaWriterBucketTest {
     private static List<DeltaCommittable> onCheckpointActions(DeltaWriterBucket<RowData> bucket,
                                                               Path bucketPath,
                                                               boolean doCommit) throws IOException {
-
         List<DeltaCommittable> deltaCommittables = bucket.prepareCommit(false, APP_ID, 1);
         DeltaWriterBucketState bucketState = bucket.snapshotState(APP_ID);
 
@@ -247,5 +243,4 @@ public class DeltaWriterBucketTest {
             return false;
         }
     }
-
 }

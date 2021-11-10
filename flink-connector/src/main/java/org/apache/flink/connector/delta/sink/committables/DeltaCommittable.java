@@ -24,7 +24,6 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-
 /**
  * Committable object that carries the information about files written to the file system
  * during particular checkpoint interval.

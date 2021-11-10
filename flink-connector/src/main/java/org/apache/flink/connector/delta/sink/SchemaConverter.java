@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.delta.sink;
 
-
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -112,5 +111,4 @@ public class SchemaConverter {
                         "Cannot convert unknown type to Flink: " + flinkType);
         }
     }
-
 }

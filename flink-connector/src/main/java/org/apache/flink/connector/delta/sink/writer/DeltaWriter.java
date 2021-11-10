@@ -409,5 +409,4 @@ public class DeltaWriter<IN>
     Map<String, DeltaWriterBucket<IN>> getActiveBuckets() {
         return activeBuckets;
     }
-
 }

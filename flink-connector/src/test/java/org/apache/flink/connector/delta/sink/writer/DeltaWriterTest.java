@@ -286,5 +286,4 @@ public class DeltaWriterTest {
             }
         }
     }
-
 }

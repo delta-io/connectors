@@ -70,7 +70,6 @@ public class DeltaGlobalCommittableSerializerTest {
                 partitionSpec
             );
         }
-
     }
 
     @Test
@@ -84,9 +83,7 @@ public class DeltaGlobalCommittableSerializerTest {
         // THEN
         assertTrue(globalCommittable.getDeltaCommittables().isEmpty());
         assertTrue(deserialized.getDeltaCommittables().isEmpty());
-
     }
-
 
     private DeltaGlobalCommittable serializeAndDeserialize(DeltaGlobalCommittable globalCommittable)
         throws IOException {
@@ -98,6 +95,4 @@ public class DeltaGlobalCommittableSerializerTest {
         byte[] data = serializer.serialize(globalCommittable);
         return serializer.deserialize(serializer.getVersion(), data);
     }
-
-
 }

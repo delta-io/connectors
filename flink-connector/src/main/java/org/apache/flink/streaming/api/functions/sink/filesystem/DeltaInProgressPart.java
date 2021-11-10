@@ -52,5 +52,4 @@ public class DeltaInProgressPart<IN> {
     public DeltaBulkPartWriter<IN, String> getInProgressPart() {
         return inProgressPart;
     }
-
 }

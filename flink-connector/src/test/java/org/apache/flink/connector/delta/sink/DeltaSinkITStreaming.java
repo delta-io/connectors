@@ -71,7 +71,6 @@ import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.CommitInfo;
 
-
 @RunWith(Parameterized.class)
 public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
@@ -89,7 +88,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     private String latchId;
     String deltaTablePath;
-
 
     @Before
     public void setup() {
@@ -131,7 +129,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             miniCluster.executeJobBlocking(jobGraph);
         }
 
-
         // THEN
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
 
@@ -155,9 +152,9 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         }
         int finalTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
 
-        assertEquals(totalAddedFiles, finalDeltaFiles.size() - initialDeltaFiles.size());
-        assertEquals(totalRowsAdded, (NUM_RECORDS * NUM_SOURCES));
-        assertEquals(totalRowsAdded, finalTableRecordsCount - initialTableRecordsCount);
+        assertEquals(finalDeltaFiles.size() - initialDeltaFiles.size(), totalAddedFiles);
+        assertEquals((NUM_RECORDS * NUM_SOURCES), totalRowsAdded);
+        assertEquals(finalTableRecordsCount - initialTableRecordsCount, totalRowsAdded);
     }
 
     @Override
@@ -210,7 +207,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
         return env;
     }
-
 
     // ------------------------ Streaming mode user functions ----------------------------------
 
@@ -310,7 +306,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         @Override
         public void snapshotState(FunctionSnapshotContext context) throws Exception {
             nextValueState.update(Collections.singletonList(nextValue));
-
             if (isWaitingCheckpointComplete) {
                 snapshottedAfterAllRecordsOutput = true;
             }
@@ -322,7 +317,6 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }
-
             hasCompletedCheckpoint = true;
         }
 
@@ -331,5 +325,4 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
             isCanceled = true;
         }
     }
-
 }

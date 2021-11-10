@@ -31,10 +31,16 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
+/**
+ * Versioned serializer for {@link DeltaGlobalCommittable}.
+ */
 @Internal
 public class DeltaGlobalCommittableSerializer
     implements SimpleVersionedSerializer<DeltaGlobalCommittable> {
 
+    /**
+     * Magic number value for sanity check whether the provided bytes where not corrupted
+     */
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
     private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
@@ -78,7 +84,6 @@ public class DeltaGlobalCommittableSerializer
             new DeltaCommittableSerializer(pendingFileSerializer)
                 .serializeV1(deltaCommittable, dataOutputView);
         }
-
     }
 
     private DeltaGlobalCommittable deserializeV1(DataInputView dataInputView) throws IOException {
@@ -100,5 +105,4 @@ public class DeltaGlobalCommittableSerializer
                 String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
-
 }

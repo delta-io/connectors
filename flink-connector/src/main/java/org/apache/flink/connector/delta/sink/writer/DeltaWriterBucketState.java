@@ -84,5 +84,4 @@ public class DeltaWriterBucketState {
     public String getAppId() {
         return appId;
     }
-
 }

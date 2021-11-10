@@ -21,6 +21,7 @@ package org.apache.flink.connector.delta.sink.writer;
 import java.io.IOException;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -30,10 +31,16 @@ import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
 
+/**
+ * Versioned serializer for {@link DeltaWriterBucketState}.
+ */
 @Internal
 public class DeltaWriterBucketStateSerializer
     implements SimpleVersionedSerializer<DeltaWriterBucketState> {
 
+    /**
+     * Magic number value for sanity check whether the provided bytes where not corrupted
+     */
     private static final int MAGIC_NUMBER = 0x1e764b79;
 
     @Override
@@ -100,5 +107,4 @@ public class DeltaWriterBucketStateSerializer
                 String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
-
 }
