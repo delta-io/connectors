@@ -3,6 +3,7 @@ package io.delta.standalone.example;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -88,30 +89,35 @@ public class ConvertToDelta {
 
         // ---------------------- Internal File System Configuration ----------------------
 
+        // look for target table
+        URL targetURL = ConvertToDelta.class.getClassLoader().getResource(targetTable);
+        if (targetURL != null) {
+            // target directory exists, empty it
+            FileUtils.cleanDirectory(Paths.get(targetURL.toURI()).toFile());
+        } else {
+            // target directory does not exist, create it (relative to package location)
+            Path rootPath = Paths.get(ConvertToDelta.class.getResource("/").toURI());
+            FileUtils.forceMkdir(new File(rootPath.toFile(), targetTable));
+        }
+
         final Path sourceTablePath = Paths.get(ConvertToDelta.class.getClassLoader().getResource(sourceTable).toURI());
         final org.apache.hadoop.fs.Path targetTablePath = new org.apache.hadoop.fs.Path(
                 Paths.get(ConvertToDelta.class.getClassLoader().getResource(targetTable).toURI()).toUri()
         );
 
-        // TODO: if targetTable folder doesn't exist, create it
-        // if it doesn't exist, getResource is null
-
-        // org.apache.commons.io.FileUtils;
-        // File f = new File("/var/www/html/testFolder1");
-        // FileUtils.cleanDirectory(f); //clean out directory (this is optional -- but good know)
-        // FileUtils.forceDelete(f); //delete directory
-        // FileUtils.forceMkdir(f); //create directory
-
         // -------------------------- Convert Table to Delta ---------------------------
         convertToDelta(sourceTablePath, targetTablePath, sourceSchema);
 
-        // ---------------------- Verify Commit ----------------------
+        // ---------------------------- Verify Commit ----------------------------------
+
         DeltaLog log = DeltaLog.forTable(new Configuration(), targetTablePath);
         Snapshot currentSnapshot = log.snapshot();
         StructType schema = currentSnapshot.getMetadata().getSchema();
 
         System.out.println("current version: " + currentSnapshot.getVersion());
+
         System.out.println("number data files: " + currentSnapshot.getAllFiles().size());
+
         System.out.println("data files:");
         currentSnapshot.getAllFiles().forEach(file -> System.out.println(file.getPath()));
 
@@ -137,6 +143,6 @@ public class ConvertToDelta {
             iter.close();
         }
 
-        System.exit(0); // TODO: where is the rogue thread?
+        System.exit(0); // close inactive threads from Scala.collection.Parallelizable
     }
 }
