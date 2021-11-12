@@ -41,15 +41,18 @@ public class ConvertToDelta {
             StructType sourceSchema) throws IOException {
 
         // ---------------------- Generate Commit Files ----------------------
+
+        // find parquet files
         List<File> files;
         try (Stream<Path> walk = Files.walk(sourceTablePath)) {
             files = walk
                     .filter(Files::isRegularFile)
-                    .filter(p -> Pattern.matches(".*\\.parquet", p.toString())) // TODO: is this the best way to only get parquet files?
+                    .filter(p -> Pattern.matches(".*\\.parquet", p.toString()))
                     .map(x -> new File(x.toUri()))
                     .collect(Collectors.toList());
         }
 
+        // generate AddFiles
         List<AddFile> addFiles = files.stream().map(file -> {
             return new AddFile(
                     file.toURI().toString(),     // path
@@ -64,7 +67,8 @@ public class ConvertToDelta {
 
         Metadata metadata = Metadata.builder().schema(sourceSchema).build();
 
-        // ---------------------- Commit ----------------------
+        // ---------------------- Commit To Delta Log ----------------------
+
         DeltaLog log = DeltaLog.forTable(new Configuration(), targetTablePath);
         OptimisticTransaction txn = log.startTransaction();
         txn.updateMetadata(metadata);
@@ -110,6 +114,7 @@ public class ConvertToDelta {
 
         // ---------------------------- Verify Commit ----------------------------------
 
+        // read from Delta Log
         DeltaLog log = DeltaLog.forTable(new Configuration(), targetTablePath);
         Snapshot currentSnapshot = log.snapshot();
         StructType schema = currentSnapshot.getMetadata().getSchema();
