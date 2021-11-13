@@ -2,6 +2,13 @@ import pyspark
 import uuid
 import random
 
+"""
+To generate example data:
+1. Change `table_path` to desired location
+2. If you don't have pyspark installed: `pip3 install pyspark`
+3. Run the script: `python3 generateParquet.py`
+"""
+
 table_path = "/Users/allison.portis/connectors/examples/standalone-example-convert-to-delta/src/main/resources/external/sales"
 spark = pyspark.sql.SparkSession.builder.appName("test").getOrCreate()
 

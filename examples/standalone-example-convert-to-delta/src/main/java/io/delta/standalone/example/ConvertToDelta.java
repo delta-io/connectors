@@ -27,8 +27,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.commons.io.FileUtils;
 
 /**
- * WIP
- *
  * To run
  * - cd connectors/examples/standalone-example-convert-to-delta
  * - mvn exec:java -Dexec.mainClass="io.delta.standalone.example.java.ConvertToDelta"
