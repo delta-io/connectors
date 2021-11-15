@@ -1,5 +1,5 @@
 /*
- * Copyright (2020) The Delta Lake Project Authors.
+ * Copyright (2020-present) The Delta Lake Project Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.delta.standalone.actions;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import io.delta.standalone.types.StructType;
 
@@ -30,18 +38,24 @@ import io.delta.standalone.types.StructType;
  * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
 public final class Metadata implements Action {
-    private final String id;
-    private final String name;
-    private final String description;
-    private final Format format;
-    private final List<String> partitionColumns;
-    private final Map<String, String> configuration;
-    private final Optional<Long> createdTime;
-    private final StructType schema;
+    @Nonnull private final String id;
+    @Nullable private final String name;
+    @Nullable private final String description;
+    @Nonnull private final Format format;
+    @Nonnull private final List<String> partitionColumns;
+    @Nonnull private final Map<String, String> configuration;
+    @Nonnull private final Optional<Long> createdTime;
+    @Nullable private final StructType schema;
 
-    public Metadata(String id, String name, String description, Format format,
-                    List<String> partitionColumns, Map<String, String> configuration,
-                    Optional<Long> createdTime, StructType schema) {
+    public Metadata(
+            @Nonnull String id,
+            @Nullable String name,
+            @Nullable String description,
+            @Nonnull Format format,
+            @Nonnull List<String> partitionColumns,
+            @Nonnull Map<String, String> configuration,
+            @Nonnull Optional<Long> createdTime,
+            @Nullable StructType schema) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -55,6 +69,7 @@ public final class Metadata implements Action {
     /**
      * @return the unique identifier for this table
      */
+    @Nonnull
     public String getId() {
         return id;
     }
@@ -62,6 +77,7 @@ public final class Metadata implements Action {
     /**
      * @return the user-provided identifier for this table
      */
+    @Nullable
     public String getName() {
         return name;
     }
@@ -69,6 +85,7 @@ public final class Metadata implements Action {
     /**
      * @return the user-provided description for this table
      */
+    @Nullable
     public String getDescription() {
         return description;
     }
@@ -76,6 +93,7 @@ public final class Metadata implements Action {
     /**
      * @return the {@link Format} for this table
      */
+    @Nonnull
     public Format getFormat() {
         return format;
     }
@@ -84,6 +102,7 @@ public final class Metadata implements Action {
      * @return an unmodifiable {@code java.util.List} containing the names of
      *         columns by which the data should be partitioned
      */
+    @Nonnull
     public List<String> getPartitionColumns() {
         return Collections.unmodifiableList(partitionColumns);
     }
@@ -92,6 +111,7 @@ public final class Metadata implements Action {
      * @return an unmodifiable {@code java.util.Map} containing configuration
      *         options for this metadata
      */
+    @Nonnull
     public Map<String, String> getConfiguration() {
         return Collections.unmodifiableMap(configuration);
     }
@@ -100,6 +120,7 @@ public final class Metadata implements Action {
      * @return the time when this metadata action was created, in milliseconds
      *         since the Unix epoch
      */
+    @Nonnull
     public Optional<Long> getCreatedTime() {
         return createdTime;
     }
@@ -107,6 +128,7 @@ public final class Metadata implements Action {
     /**
      * @return the schema of the table as a {@link StructType}
      */
+    @Nullable
     public StructType getSchema() {
         return schema;
     }
@@ -128,8 +150,8 @@ public final class Metadata implements Action {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, description, format, partitionColumns,
-                configuration, createdTime, schema);
+        return Objects.hash(id, name, description, format, partitionColumns, configuration,
+                createdTime, schema);
     }
 
     /**
@@ -143,41 +165,41 @@ public final class Metadata implements Action {
      * Builder class for Metadata. Enables construction of Metadata object with default values.
      */
     public static class Builder {
-        private String id = java.util.UUID.randomUUID().toString();
-        private String name;
-        private String description;
-        private Format format = new Format("parquet", Collections.emptyMap());
-        private List<String> partitionColumns = Collections.emptyList();
-        private Map<String, String> configuration = Collections.emptyMap();
-        private Optional<Long> createdTime = Optional.of(System.currentTimeMillis());
-        private StructType schema;
+        @Nonnull private String id = java.util.UUID.randomUUID().toString();
+        @Nullable private String name;
+        @Nullable private String description;
+        @Nonnull private Format format = new Format("parquet", Collections.emptyMap());
+        @Nonnull private List<String> partitionColumns = Collections.emptyList();
+        @Nonnull private Map<String, String> configuration = Collections.emptyMap();
+        @Nonnull private Optional<Long> createdTime = Optional.of(System.currentTimeMillis());
+        @Nullable private StructType schema;
 
-        public Builder id(String id) {
+        public Builder id(@Nonnull String id) {
             this.id = id;
             return this;
         }
 
-        public Builder name(String name) {
+        public Builder name(@Nullable String name) {
             this.name = name;
             return this;
         }
 
-        public Builder description(String description) {
+        public Builder description(@Nullable String description) {
             this.description = description;
             return this;
         }
 
-        public Builder format(Format format) {
+        public Builder format(@Nonnull Format format) {
             this.format = format;
             return this;
         }
 
-        public Builder partitionColumns(List<String> partitionColumns) {
+        public Builder partitionColumns(@Nonnull List<String> partitionColumns) {
             this.partitionColumns = partitionColumns;
             return this;
         }
 
-        public Builder configuration(Map<String, String> configuration) {
+        public Builder configuration(@Nonnull Map<String, String> configuration) {
             this.configuration = configuration;
             return this;
         }
@@ -187,7 +209,7 @@ public final class Metadata implements Action {
             return this;
         }
 
-        public Builder schema(StructType schema) {
+        public Builder schema(@Nullable StructType schema) {
             this.schema = schema;
             return this;
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (2020) The Delta Lake Project Authors.
+ * Copyright (2020-present) The Delta Lake Project Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,17 +27,16 @@ import scala.language.implicitConversions
 import io.delta.tables.DeltaTable
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
-
+import org.apache.spark.SparkConf
 import org.apache.spark.network.util.JavaUtils
-import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
 import org.apache.spark.sql.delta.actions.{Action, AddCDCFile, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
-import org.apache.spark.SparkConf
 
 /**
  * This is a special class to generate golden tables for other projects. Run the following commands
@@ -51,7 +50,7 @@ import org.apache.spark.SparkConf
  * GENERATE_GOLDEN_TABLES=1 build/sbt 'goldenTables/test-only *GoldenTables -- -z tbl_name'
  * ```
  *
- * After generating golden tables, ensure to package or test project standalone, otherwise the
+ * After generating golden tables, be sure to package or test project standalone, otherwise the
  * test resources won't be available when running tests with IntelliJ.
  */
 class GoldenTables extends QueryTest with SharedSparkSession {
@@ -736,6 +735,13 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     data.foreach { row =>
       Seq(row).toDF().write.format("delta").mode("append").partitionBy("_2").save(tablePath)
     }
+  }
+
+  /** TEST: DeltaDataReaderSuite > #124: decimal decode bug */
+  generateGoldenTable("124-decimal-decode-bug") { tablePath =>
+    val data = Seq(Row(new JBigDecimal(1000000)))
+    val schema = new StructType().add("large_decimal", DecimalType(10, 0))
+    writeDataWithSchema(tablePath, data, schema)
   }
 
   /** TEST: DeltaDataReaderSuite > #125: iterator bug */
