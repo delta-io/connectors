@@ -225,34 +225,26 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("time travel after vacuum") {
-    // versions [0, 29] were committed and then versions [0, 19] were deleted
-    withGoldenTable("time-travel-after-vacuum") { tablePath =>
-      def testHelper(i: Int): Snapshot = {
-        val log = DeltaLog.forTable(new Configuration(), tablePath)
-        log.getSnapshotForVersionAsOf(i)
+    // versions [0, 29].json were committed and then [0, 20].json, 10.parquet were deleted
+    // leaving only 20.parquet and [21, 29].json
+    withLogForGoldenTable("time-travel-after-vacuum") { log =>
+      intercept[RuntimeException] {
+        log.getSnapshotForTimestampAsOf(7)
+      }
+      intercept[RuntimeException] {
+        log.getSnapshotForTimestampAsOf(14)
+      }
+      intercept[RuntimeException] {
+        log.getSnapshotForTimestampAsOf(19)
       }
 
-      intercept[IllegalArgumentException] {
-        testHelper(15)
-      }
-      intercept[IllegalArgumentException] {
-        testHelper(19)
-      }
+      // this tests an edge case where to travel to version N where N.parquet exists, N.json does
+      // not exist, and N is the earliest delta version in the table
+      log.getSnapshotForVersionAsOf(20)
 
-      testHelper(20)
-      testHelper(21)
-      testHelper(23)
-      testHelper(29)
-
-//      val snapshot20 = log.getSnapshotForVersionAsOf(20)
-//
-//      val snapshot21 = log.getSnapshotForVersionAsOf(21)
-//
-//      val snapshot23 = log.getSnapshotForVersionAsOf(23)
-//
-//      val snapshot29 = log.getSnapshotForVersionAsOf(29)
-//
-//      val snapshotLatest = log.update()
+      log.getSnapshotForVersionAsOf(23)
+      log.getSnapshotForVersionAsOf(29)
+      log.update()
     }
   }
 }

@@ -120,8 +120,9 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     // Find the latest checkpoint in the listing that is not older than the versionToLoad
     val lastCheckpoint = versionToLoad.map(CheckpointInstance(_, None))
       .getOrElse(CheckpointInstance.MaxValue)
-    val checkpointFiles = checkpoints.map(f => CheckpointInstance(f.getPath))
+    val checkpointFiles = checkpoints.map(f => CheckpointInstance(f.getPath, f.getModificationTime))
     val newCheckpoint = getLatestCompleteCheckpointFromList(checkpointFiles, lastCheckpoint)
+
     if (newCheckpoint.isDefined) {
       // If there is a new checkpoint, start new lineage there.
       val newCheckpointVersion = newCheckpoint.get.version
@@ -149,9 +150,15 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
           newCheckpointPaths.mkString(" -", "\n -", "") + "\n" +
           "among\n" + checkpoints.map(_.getPath).mkString(" -", "\n -", ""))
 
-      // In the case where `deltasAfterCheckpoint` is empty, `deltas` should still not be empty,
-      // they may just be before the checkpoint version unless we have a bug in log cleanup
-      val lastCommitTimestamp = deltas.last.getModificationTime
+      // If the version N we are trying to load only has N.parquet and not N.json, then it is
+      // possible for deltas to be empty
+      val lastCommitTimestamp = if (deltas.nonEmpty) {
+        deltas.last.getModificationTime
+      } else {
+        newCheckpoint.get.modificationTime.getOrElse(
+          throw new IllegalStateException("CheckpointInstance modification time was not recorded")
+        )
+      }
 
       LogSegment(
         logPath,
@@ -180,10 +187,10 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
           s"Did not get the last delta file version: $version to compute Snapshot")
       }
 
-      val latestCommit = deltas.last
+      val latestCommit = deltas.last // deltas is not empty, so can call .last
       LogSegment(
         logPath,
-        deltaVersion(latestCommit.getPath), // deltas is not empty, so can call .last
+        deltaVersion(latestCommit.getPath),
         deltas,
         Nil,
         None,

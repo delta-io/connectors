@@ -501,7 +501,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       log.startTransaction().commitManually(AddFile(i.toString, Map.empty, 1, 1, dataChange = true))
     }
 
-    (0 to 19).foreach { i =>
+    (0 to 20).foreach { i =>
       new File(FileNames.deltaFile(log.logPath, i).toUri).delete()
     }
     new File(FileNames.checkpointFileSingular(log.logPath, 10).toUri).delete()

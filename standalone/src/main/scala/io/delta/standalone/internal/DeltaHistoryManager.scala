@@ -118,7 +118,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
         // Note that we also check this condition at the end of the function - we check it
         // here too to to try and avoid more file listing when it's unnecessary.
-        if (lastCompleteCheckpoint.exists(_ >= smallestDeltaVersion)) {
+        if (lastCompleteCheckpoint.exists(_ >= smallestDeltaVersion - 1)) {
           return lastCompleteCheckpoint.get
         }
       } else if (FileNames.isCheckpointFile(nextFilePath)) {

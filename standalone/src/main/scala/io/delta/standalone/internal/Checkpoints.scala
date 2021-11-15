@@ -44,7 +44,8 @@ private case class CheckpointMetaData(
  */
 private[internal] case class CheckpointInstance(
     version: Long,
-    numParts: Option[Int]) extends Ordered[CheckpointInstance] {
+    numParts: Option[Int],
+    modificationTime: Option[Long] = None) extends Ordered[CheckpointInstance] {
 
   /**
    * Due to lexicographic sorting, a version with more parts will appear after a version with
@@ -82,6 +83,10 @@ private[internal] case class CheckpointInstance(
 private[internal] object CheckpointInstance {
   def apply(path: Path): CheckpointInstance = {
     CheckpointInstance(checkpointVersion(path), numCheckpointParts(path))
+  }
+
+  def apply(path: Path, modificationTime: Long): CheckpointInstance = {
+    CheckpointInstance(checkpointVersion(path), numCheckpointParts(path), Some(modificationTime))
   }
 
   def apply(metadata: CheckpointMetaData): CheckpointInstance = {
@@ -169,8 +174,8 @@ private[internal] trait Checkpoints {
       instances: Array[CheckpointInstance],
       notLaterThan: CheckpointInstance): Option[CheckpointInstance] = {
     val complete = instances.filter(_.isNotLaterThan(notLaterThan)).groupBy(identity).filter {
-      case (CheckpointInstance(_, None), inst) => inst.length == 1
-      case (CheckpointInstance(_, Some(parts)), inst) => inst.length == parts
+      case (CheckpointInstance(_, None, _), inst) => inst.length == 1
+      case (CheckpointInstance(_, Some(parts), _), inst) => inst.length == parts
     }
     complete.keys.toArray.sorted.lastOption
   }
