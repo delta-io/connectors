@@ -212,6 +212,17 @@ private[standalone] object DeltaLogImpl {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
   }
 
+  def tableExists(hadoopConf: Configuration, dataPath: String): Boolean = {
+    tableExists(hadoopConf, new Path(dataPath))
+  }
+
+  def tableExists(hadoopConf: Configuration, dataPath: Path): Boolean = {
+    val fs = dataPath.getFileSystem(hadoopConf)
+    val path = fs.makeQualified(dataPath)
+    val deltaLogPath = new Path(path, "_delta_log")
+    fs.exists(deltaLogPath)
+  }
+
   private def apply(
       hadoopConf: Configuration,
       rawPath: Path,

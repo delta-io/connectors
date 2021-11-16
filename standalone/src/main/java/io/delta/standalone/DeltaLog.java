@@ -128,4 +128,22 @@ public interface DeltaLog {
     static DeltaLog forTable(Configuration hadoopConf, Path path) {
         return DeltaLogImpl.forTable(hadoopConf, path);
     }
+
+    /**
+     * @param hadoopConf  Hadoop {@code Configuration} to use when accessing the Delta table
+     * @param path  the path to the Delta table
+     * @return whether a Delta table exists at the given path
+     */
+    static boolean tableExists(Configuration hadoopConf, String path) {
+        return DeltaLogImpl.tableExists(hadoopConf, path);
+    }
+
+    /**
+     * @param hadoopConf  Hadoop {@code Configuration} to use when accessing the Delta table
+     * @param path  the path to the Delta table
+     * @return whether a Delta table exists at the given path
+     */
+    static boolean tableExists(Configuration hadoopConf, Path path) {
+        return DeltaLogImpl.tableExists(hadoopConf, path);
+    }
 }
