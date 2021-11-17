@@ -28,13 +28,7 @@ jobs:
         if: matrix.scala != '2.11.12'
       - name: Run SBT tests
         shell: bash -l {0}
-        run: |
-          build/sbt "++ ${{ matrix.scala }} testScalastyle"
-          build/sbt "++ ${{ matrix.scala }} standalone/test"
-          build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
-          build/sbt "++ ${{ matrix.scala }} compatibility/test"
-          build/sbt "++ ${{ matrix.scala }} hiveMR/test"
-          build/sbt "++ ${{ matrix.scala }} hiveTez/test"
-          build/sbt "++ ${{ matrix.scala }} hive2MR/test"
-          build/sbt "++ ${{ matrix.scala }} hive2Tez/test"
-          build/sbt "++ ${{ matrix.scala }} flinkConnector/test"
+        run: >
+          build/sbt "++ ${{ matrix.scala }}" testScalastyle standalone/test
+          testStandaloneCosmetic/test compatibility/test hiveMR/test hiveTez/test hive2MR/test
+          hive2Tez/test flinkConnector/test
