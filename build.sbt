@@ -225,7 +225,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hiveTest % "test->test"
   )
 )
 
-lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") settings (
+lazy val hiveTez = (project in file("hive-tez")) dependsOn(hiveTest % "test->test") settings (
   name := "hive-tez",
   commonSettings,
   skipReleaseSettings,
