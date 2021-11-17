@@ -226,10 +226,10 @@ class DeltaTimeTravelSuite extends FunSuite {
     }
   }
 
-  test("time travel after vacuum") {
+  test("time travel after log cleanup") {
     // versions [0, 29].json were committed and then [0, 20].json, 10.parquet were deleted
     // leaving only 20.parquet and [21, 29].json
-    withLogForGoldenTable("time-travel-after-vacuum") { log =>
+    withLogForGoldenTable("time-travel-after-log-cleanup") { log =>
       intercept[RuntimeException] {
         log.getSnapshotForTimestampAsOf(7)
       }
@@ -240,9 +240,14 @@ class DeltaTimeTravelSuite extends FunSuite {
         log.getSnapshotForTimestampAsOf(19)
       }
 
-      // this tests an edge case where to travel to version N where N.parquet exists, N.json does
+      // this tests an edge case where we travel to version N where N.parquet exists, N.json does
       // not exist, and N is the earliest delta version in the table
-      log.getSnapshotForVersionAsOf(20)
+      //
+      // in the future, log cleanup logic should be changed so that we always keep N.json during
+      // this edge case
+      intercept[NoSuchElementException] {
+        log.getSnapshotForVersionAsOf(20)
+      }
 
       log.getSnapshotForVersionAsOf(23)
       log.getSnapshotForVersionAsOf(29)

@@ -494,7 +494,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       .save(tablePath)
   }
 
-  generateGoldenTable("time-travel-after-vacuum") { tablePath =>
+  generateGoldenTable("time-travel-after-log-cleanup") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     (0 to 29).foreach { i =>
       log.startTransaction().commitManually(AddFile(i.toString, Map.empty, 1, 1, dataChange = true))
