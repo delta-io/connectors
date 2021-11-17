@@ -28,7 +28,7 @@ jobs:
         if: matrix.scala != '2.11.12'
       - name: Run testScalastyle
         shell: bash
-        run: build/sbt "++ ${{ matrix.scala }}" testScalaStyle
+        run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
       - name: Run standalone and testStandaloneCosmetic tests
         shell: bash
         run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
