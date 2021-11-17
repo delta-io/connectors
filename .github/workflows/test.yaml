@@ -24,11 +24,21 @@ jobs:
           key: delta-sbt-cache-hive23-scala${{ matrix.scala }}
       - name: Run sqlDeltaImport tests
         shell: bash
-        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test compatibility/test
+        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
-      - name: Run SBT tests
+      - name: Run testScalastyle
         shell: bash
-        run: >
-          build/sbt "++ ${{ matrix.scala }}" testScalastyle standalone/test
-          testStandaloneCosmetic/test hiveMR/test hiveTez/test hive2MR/test
-          hive2Tez/test flinkConnector/test
+        run: build/sbt "++ ${{ matrix.scala }}" testScalaStyle
+      - name: Run standalone and testStandaloneCosmetic tests
+        shell: bash
+        run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
+      - name: Run compatibility tests
+        shell: bash
+        run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
+        if: matrix.scala != '2.11.12'
+      - name: Run hive tests
+        shell: bash
+        run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test hiveTez/test hive2MR/test hive2Tez/test
+      - name: Run flink tests
+        shell: bash
+        run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
