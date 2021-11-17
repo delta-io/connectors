@@ -19,13 +19,26 @@
 package org.apache.flink.connector.delta.sink.committer;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 
+import org.apache.flink.connector.delta.sink.SchemaConverter;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.RowType;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import static org.junit.Assert.assertEquals;
 
 import io.delta.standalone.DeltaLog;
 
@@ -39,28 +52,206 @@ public class DeltaGlobalCommitterTest {
     public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
     private Path tablePath;
-    private DeltaLog deltaLog;
 
     @Before
     public void setup() throws IOException {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
-        deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+
+    }
+
+    @Test
+    public void testCommitTwice() throws Exception {
+        //GIVEN
+        int numAddedFiles = 3;
+        TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+        assertEquals(deltaLog.snapshot().getVersion(), 0);
+        int initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
+
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            numAddedFiles, TestDeltaLakeTable.getTestPartitionSpec());
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            TestRowData.TEST_ROW_TYPE,
+            false);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+        deltaLog.update();
+        assertEquals(deltaLog.snapshot().getVersion(), 1);
+        globalCommitter.commit(globalCommittables);
+
+        // THEN
+        // after trying to commit same committables nothing should change in DeltaLog
+        deltaLog.update();
+        assertEquals(1, deltaLog.snapshot().getVersion());
+        assertEquals(
+            initialTableFilesCount + numAddedFiles,
+            deltaLog.snapshot().getAllFiles().size());
+    }
+
+    @Test
+    public void testCanTryUpdateSchemaSetToTrue() throws Exception {
+        //GIVEN
+        TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            3, TestDeltaLakeTable.getTestPartitionSpec());
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        List<RowType.RowField> fields = new ArrayList<>(TestRowData.TEST_ROW_TYPE.getFields());
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        RowType updatedSchema = new RowType(fields);
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            updatedSchema,
+            true);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+
+        // THEN
+        // schema before deltaLog.update() is in old format, but after update it equals to the new
+        // format
+        assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
+            new SchemaConverter().toDeltaFormat(TestRowData.TEST_ROW_TYPE).toJson());
+        deltaLog.update();
+        assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
+            new SchemaConverter().toDeltaFormat(updatedSchema).toJson());
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testCanTryUpdateSchemaSetToFalse() throws Exception {
+        //GIVEN
+        TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            3, TestDeltaLakeTable.getTestPartitionSpec());
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        // new schema drops one of the previous columns
+        List<RowType.RowField> fields = new ArrayList<>(
+            TestRowData.TEST_ROW_TYPE
+                .getFields()
+                .subList(0, TestRowData.TEST_ROW_TYPE.getFields().size() - 2)
+        );
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        RowType updatedSchema = new RowType(fields);
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            updatedSchema,
+            false);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testCanTryUpdateIncompatibleSchema() throws Exception {
+        //GIVEN
+        TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            3, TestDeltaLakeTable.getTestPartitionSpec());
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        // new schema drops one of the previous columns
+        List<RowType.RowField> fields = new ArrayList<>(
+            TestRowData.TEST_ROW_TYPE
+                .getFields()
+                .subList(0, TestRowData.TEST_ROW_TYPE.getFields().size() - 2)
+        );
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        RowType updatedSchema = new RowType(fields);
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            updatedSchema,
+            true);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testWrongStreamPartitionValues() throws Exception {
+        //GIVEN
+        TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+
+        LinkedHashMap<String, String> nonMatchingPartitionSpec =
+            TestDeltaLakeTable.getTestPartitionSpec();
+        nonMatchingPartitionSpec.remove(nonMatchingPartitionSpec.keySet().toArray()[0]);
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            1, nonMatchingPartitionSpec);
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            TestRowData.TEST_ROW_TYPE,
+            false);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+    }
+
+    @Test
+    public void testCommittablesFromDifferentCheckpointInterval() throws Exception {
+        //GIVEN
+        int numAddedFiles1 = 3;
+        int numAddedFiles2 = 5;
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+        assertEquals(-1, deltaLog.snapshot().getVersion());
+
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(
+            numAddedFiles1, new LinkedHashMap<>(), 1);
+        deltaCommittables.addAll(TestDeltaCommittable.getListOfDeltaCommittables(
+            numAddedFiles2, new LinkedHashMap<>(), 2));
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            HadoopConfTest.getHadoopConf(),
+            tablePath,
+            TestRowData.TEST_ROW_TYPE,
+            false);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+
+        // THEN
+        // we should have committed both checkpoints intervals so current snapshot version should
+        // be 1 and should contain files from both intervals.
+        deltaLog.update();
+        assertEquals(1, deltaLog.snapshot().getVersion());
+        assertEquals(
+            numAddedFiles1 + numAddedFiles2,
+            deltaLog.snapshot().getAllFiles().size());
+
     }
 
     /**
      * Test cases to cover:
-     * test commit twice same data (after second trial DeltaLog should have the same version)
-     * test with non-matching datastream schema and canTryUpdateSchema set to false
-     * test with non-matching datastream schema and canTryUpdateSchema set to true
-     * test with different stream's partition values
-     * test with committables from different checkpoint intervals (both should pass)
-     * test with committables from different checkpoint intervals,
-     * one outdated (only one should pass)
+     * test with committables from different checkpoint intervals, one outdated (only one should pass)
      * test with committables from different checkpoint intervals with different schemas
-     * test with committables from the same checkpoint interval containg different
-     * partition columns (should fail)
+     * test with committables from the same checkpoint interval containg different partition columns (should fail)
      */
 
     @Test
-    public void test() throws Exception {}
+    public void test() throws Exception {
+    }
 }

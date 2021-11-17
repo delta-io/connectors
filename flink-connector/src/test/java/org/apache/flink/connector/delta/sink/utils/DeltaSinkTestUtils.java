@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
@@ -76,6 +77,12 @@ public class DeltaSinkTestUtils {
             }
             return rows;
         }
+
+        public static RowData getTestRowDataEvent(String name,
+                                                  String surname,
+                                                  Integer age) {
+            return CONVERTER.toInternal(Row.of(name, surname, age));
+        }
     }
 
     public static class TestDeltaLakeTable {
@@ -86,9 +93,9 @@ public class DeltaSinkTestUtils {
 
         public static LinkedHashMap<String, String> getTestPartitionSpec() {
             return new LinkedHashMap<String, String>() {{
-                    put("a", "b");
-                    put("c", "d");
-                }};
+                put("a", "b");
+                put("c", "d");
+            }};
         }
 
         public static final String TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR =
@@ -211,7 +218,8 @@ public class DeltaSinkTestUtils {
     }
 
     public static class TestFileSystem {
-        public static void validateIfPathContainsParquetFilesWithData(String deltaTablePath) {
+        public static int validateIfPathContainsParquetFilesWithData(String deltaTablePath)
+            throws IOException {
             List<File> files =
                 Stream.of(Objects.requireNonNull(new File(deltaTablePath).listFiles()))
                     .filter(file -> !file.isDirectory())
@@ -221,9 +229,15 @@ public class DeltaSinkTestUtils {
 
             assertTrue(files.size() > 0);
 
+            int totalRecordsCount = 0;
             for (File file : files) {
-                assertTrue(file.length() > 100); // simple check if files contain any data
+                // simple check if files contain any data besides footer
+                assertTrue(file.length() > 100);
+                totalRecordsCount += TestParquetReader.readAndParseRecords(
+                    new Path(file.toURI()),
+                    TestRowData.TEST_ROW_TYPE);
             }
+            return totalRecordsCount;
         }
     }
 

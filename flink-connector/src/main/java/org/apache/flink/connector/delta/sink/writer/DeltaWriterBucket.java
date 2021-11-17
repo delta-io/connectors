@@ -191,11 +191,12 @@ class DeltaWriterBucket<IN> {
      *              restarts
      * @return snapshot of the current bucket writer's state
      */
-    DeltaWriterBucketState snapshotState(String appId) {
+    DeltaWriterBucketState snapshotState(String appId, long checkpointId) {
         return new DeltaWriterBucketState(
             bucketId,
             bucketPath,
-            appId
+            appId,
+            checkpointId
         );
     }
 
@@ -207,7 +208,7 @@ class DeltaWriterBucket<IN> {
      * @return new in progress part instance representing part file that the writer will start
      * write data to
      * @throws IOException Thrown if the writer cannot be opened, or if the output stream throws an
-     * exception.
+     *                     exception.
      * @implNote This method behaves in the similar way as
      * org.apache.flink.connector.file.sink.writer.FileWriterBucket#rollPartFile
      * except that it uses custom implementation to represent the in-progress part file.

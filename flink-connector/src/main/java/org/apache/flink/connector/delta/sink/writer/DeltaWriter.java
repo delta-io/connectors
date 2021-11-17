@@ -47,7 +47,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 /**
  * A {@link SinkWriter} implementation for {@link org.apache.flink.connector.delta.sink.DeltaSink}.
  *
- * <p>It writes data to and manages the different active {@link DeltaWriterBucket buckets} in the
+ * <p>
+ * It writes data to and manages the different active {@link DeltaWriterBucket buckets} in the
  * {@link org.apache.flink.connector.delta.sink.DeltaSink}.
  * <p>
  * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
@@ -82,9 +83,9 @@ public class DeltaWriter<IN>
     // FileSink-specific fields
     ///////////////////////////////////////////////////////////////////////////
 
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////
     // configuration fields
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////
 
     private final DeltaBulkBucketWriter<IN, String> bucketWriter;
 
@@ -98,9 +99,9 @@ public class DeltaWriter<IN>
 
     private final long bucketCheckInterval;
 
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////
     // runtime fields
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////
 
     private final Map<String, DeltaWriterBucket<IN>> activeBuckets;
 
@@ -158,8 +159,10 @@ public class DeltaWriter<IN>
      * @implNote This method behaves in the similar way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#snapshotState}
      * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
-     * implementations.
-     *
+     * implementations. Custom implementation are needed in order to extend the committables'
+     * information with metadata of written files and also to customize the state that is being
+     * snapshotted during checkpoint phase.
+     * <p>
      * Additionally, it implements snapshotting writer's states even in case when there are no
      * active buckets (which may be not such a rare case e.g. when checkpoint interval will be very
      * short and the writer will not receive any data during this interval then it will mark the
@@ -172,17 +175,16 @@ public class DeltaWriter<IN>
 
         List<DeltaWriterBucketState> states = new ArrayList<>();
         for (DeltaWriterBucket<IN> bucket : activeBuckets.values()) {
-            states.add(bucket.snapshotState(appId));
+            states.add(bucket.snapshotState(appId, nextCheckpointId));
         }
 
-        if (states.isEmpty()){
+        if (states.isEmpty()) {
             // we still need to snapshot app id even though there are no active buckets in the
             // writer.
             states.add(
-                new DeltaWriterBucketState(NOOP_WRITER_STATE, basePath, appId)
+                new DeltaWriterBucketState(NOOP_WRITER_STATE, basePath, appId, nextCheckpointId)
             );
         }
-
         return states;
     }
 
@@ -260,14 +262,13 @@ public class DeltaWriter<IN>
      * implementations.
      * Additionally, it skips restoring the bucket in case of bucket id equal to the value of
      * {@link this#NOOP_WRITER_STATE}.
-     *
      */
     public void initializeState(List<DeltaWriterBucketState> bucketStates) throws IOException {
         checkNotNull(bucketStates, "The retrieved state was null.");
 
         for (DeltaWriterBucketState state : bucketStates) {
             String bucketId = state.getBucketId();
-            if (bucketId.equals(NOOP_WRITER_STATE)){
+            if (bucketId.equals(NOOP_WRITER_STATE)) {
                 // nothing to restore
                 continue;
             }

@@ -18,12 +18,15 @@
 
 package org.apache.flink.connector.delta.sink;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.flink.table.types.logical.*;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
+import io.delta.standalone.types.DataType;
 import io.delta.standalone.types.StructField;
 import io.delta.standalone.types.StructType;
 
@@ -108,11 +111,78 @@ public class TestSchemaConverter {
 
     @Test
     public void testMapType() {
-        // TODO add extensive tests for MapType
-    }
 
-    @Test
-    public void testStructType() {
-        // TODO add extensive tests for StructType
+        class Types {
+            public final LogicalType flinkKeyType;
+            public final LogicalType flinkValueType;
+            public final io.delta.standalone.types.DataType deltaKeyType;
+            public final io.delta.standalone.types.DataType deltaValueType;
+
+            public Types(LogicalType flinkKeyType,
+                         LogicalType flinkValueType,
+                         io.delta.standalone.types.DataType deltaKeyType,
+                         io.delta.standalone.types.DataType deltaValueType) {
+                this.flinkKeyType = flinkKeyType;
+                this.flinkValueType = flinkValueType;
+                this.deltaKeyType = deltaKeyType;
+                this.deltaValueType = deltaValueType;
+            }
+        }
+
+        List<Types> typesVariations = new ArrayList<>(Arrays.asList(
+            new Types(
+                new VarCharType(),
+                new IntType(),
+                new io.delta.standalone.types.StringType(),
+                new io.delta.standalone.types.IntegerType()),
+
+            new Types(
+                new IntType(),
+                new ArrayType(new TinyIntType()),
+                new io.delta.standalone.types.IntegerType(),
+                new io.delta.standalone.types.ArrayType(
+                    new io.delta.standalone.types.ByteType(), true)),
+
+            new Types(
+                new BigIntType(),
+                new RowType(Arrays.asList(
+                    new RowType.RowField("f01", new VarCharType()),
+                    new RowType.RowField("f02", new IntType())
+                )),
+                new io.delta.standalone.types.LongType(),
+                new StructType(new StructField[]{
+                    new StructField("f01", new io.delta.standalone.types.StringType()),
+                    new StructField("f02", new io.delta.standalone.types.IntegerType()),
+                })),
+
+            new Types(
+                new SmallIntType(),
+                new BinaryType(),
+                new io.delta.standalone.types.ShortType(),
+                new io.delta.standalone.types.BinaryType()),
+
+            new Types(
+                new BinaryType(),
+                new SmallIntType(),
+                new io.delta.standalone.types.BinaryType(),
+                new io.delta.standalone.types.ShortType())
+        ));
+
+        for (Types types : typesVariations) {
+            // GIVEN
+            MapType mapType = new MapType(types.flinkKeyType, types.flinkValueType);
+
+            // WHEN
+            DataType deltaStructType = new SchemaConverter().toDeltaDataType(mapType);
+
+            // THEN
+            DataType expectedDeltaDataType = new io.delta.standalone.types.MapType(
+                types.deltaKeyType,
+                types.deltaValueType,
+                true
+            );
+
+            assertEquals(expectedDeltaDataType, deltaStructType);
+        }
     }
 }

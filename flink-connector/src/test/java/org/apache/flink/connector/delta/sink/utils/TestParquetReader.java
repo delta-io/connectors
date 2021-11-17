@@ -56,6 +56,8 @@ public class TestParquetReader {
         int cumulatedRecords = 0;
         for (AddFile addedFile : deltaTableFiles) {
             Path parquetFilePath = new Path(deltaLog.getPath().toString(), addedFile.getPath());
+            int fileRecordsCOunt = TestParquetReader.readAndParseRecords(
+                parquetFilePath, TestRowData.TEST_ROW_TYPE);
             cumulatedRecords += TestParquetReader.readAndParseRecords(
                 parquetFilePath, TestRowData.TEST_ROW_TYPE);
         }
@@ -63,11 +65,12 @@ public class TestParquetReader {
     }
 
     /**
-     * Reads and counts all records in given Parquet file. Additionally, it tries to parse back every record to the
-     * format provided as {@link RowType}.
+     * Reads and counts all records in given Parquet file. Additionally, it tries to parse back
+     * every record to the format provided as {@link RowType}.
      *
      * @param parquetFilepath path to the file
-     * @param rowType Flink's logical type that will be used for parsing back data read from Parquet file
+     * @param rowType         Flink's logical type that will be used for parsing back data read
+     *                        from Parquet file
      * @return count of written records
      * @throws IOException Thrown if an error occurs while reading the file
      */

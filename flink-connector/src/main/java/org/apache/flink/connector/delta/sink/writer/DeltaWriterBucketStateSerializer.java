@@ -21,7 +21,6 @@ package org.apache.flink.connector.delta.sink.writer;
 import java.io.IOException;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -73,6 +72,7 @@ public class DeltaWriterBucketStateSerializer
             SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
         dataOutputView.writeUTF(state.getBucketPath().toString());
         dataOutputView.writeUTF(state.getAppId());
+        dataOutputView.writeLong(state.getCheckpointId());
     }
 
     private DeltaWriterBucketState deserializeV1(DataInputView in) throws IOException {
@@ -92,11 +92,13 @@ public class DeltaWriterBucketStateSerializer
 
         String bucketPathStr = dataInputView.readUTF();
         String appId = dataInputView.readUTF();
+        long checkpointId = dataInputView.readLong();
 
         return new DeltaWriterBucketState(
             bucketId,
             new Path(bucketPathStr),
-            appId
+            appId,
+            checkpointId
         );
     }
 

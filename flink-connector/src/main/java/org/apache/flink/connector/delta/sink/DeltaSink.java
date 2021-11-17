@@ -97,13 +97,12 @@ public class DeltaSink<IN>
      * {@link DeltaWriter} to 1 and app id is taken from the {@link DeltaSinkBuilder#getAppId}
      * what guarantees us that each writer will get the same value.
      * In other case, if we are provided by the Flink framework with some previous writers' states
-     * then we use those to restore previous appId which is further used to query last committed
-     * version (checkpointId) directly from the {@link DeltaLog}.
+     * then we use those to restore values of appId and nextCheckpointId.
      *
      * @param context {@link SinkWriter} init context object
      * @param states  restored states of the writers. Will be empty collection for fresh start.
      * @return new {@link SinkWriter} object
-     * @throws IOException Thrown, if the recoverable writer cannot be instantiated.
+     * @throws IOException When the recoverable writer cannot be instantiated.
      */
     @Override
     public SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState> createWriter(
@@ -111,7 +110,7 @@ public class DeltaSink<IN>
         List<DeltaWriterBucketState> states
     ) throws IOException {
         String appId = restoreOrCreateAppId(states);
-        long nextCheckpointId = restoreOrGetNextCheckpointId(appId);
+        long nextCheckpointId = restoreOrGetNextCheckpointId(states);
         DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
         return writer;
@@ -142,19 +141,21 @@ public class DeltaSink<IN>
      * being "manually" managed in writer's internal logic, added to the committables information
      * and incremented on every precommit action (after generating the committables).
      *
-     * @param appId unique identifier for the current application
-     * @return last committed version for the provided appId
+     * @param states restored list of writer's buckets states that include previously generated
+     *               appId
+     * @return value of the nextCheckpointId to be passed to the new writer's instance
      */
-    private long restoreOrGetNextCheckpointId(String appId) {
-        DeltaLog deltaLog = DeltaLog.forTable(
-            this.sinkBuilder.getSerializableConfiguration().conf(),
-            this.sinkBuilder.getTableBasePath().getPath());
-        long lastCommittedCheckpointId = deltaLog.startTransaction().txnVersion(appId);
-        if (lastCommittedCheckpointId < 0) {
+    private long restoreOrGetNextCheckpointId(List<DeltaWriterBucketState> states) {
+
+        if (states.isEmpty()) {
             return 1;
-        } else {
-            return lastCommittedCheckpointId + 1;
         }
+        return states
+            .stream()
+            .map(DeltaWriterBucketState::getCheckpointId)
+            .mapToLong(v -> v)
+            .max()
+            .getAsLong();
     }
 
     @Override
@@ -229,6 +230,7 @@ public class DeltaSink<IN>
 
     /**
      * Convenience method for creating {@link DeltaSink}.
+     * <p>
      * Developer must ensure that writerFactory is configured to use SNAPPY compression codec.
      * <p>
      * For configuring additional options (e.g. bucket assigners in case of partitioning tables)

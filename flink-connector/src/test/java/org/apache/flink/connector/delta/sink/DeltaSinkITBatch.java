@@ -84,6 +84,9 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
         // THEN
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        int writtenRecordsCount =
+            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        assertEquals(NUM_RECORDS, writtenRecordsCount - initialDeltaFiles.size());
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());

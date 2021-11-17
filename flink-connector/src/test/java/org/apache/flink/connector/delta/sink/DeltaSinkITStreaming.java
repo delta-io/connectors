@@ -46,7 +46,7 @@ import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
-import org.apache.flink.runtime.state.CheckpointListener;
+import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -73,6 +73,7 @@ import io.delta.standalone.actions.CommitInfo;
 public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
+    protected static final int NUM_SINKS = 1;
 
     @Parameterized.Parameters(
         name = "triggerFailover = {0}"
@@ -112,8 +113,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        org.apache.hadoop.conf.Configuration conf = HadoopConfTest.getHadoopConf();
-        DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
         int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
@@ -129,6 +129,9 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
         // THEN
         TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        int writtenRecordsCount =
+            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialDeltaFiles.size());
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());
@@ -260,7 +263,8 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
                 // run until finished.
                 sendRecordsUntil(numberOfRecords, ctx);
 
-                // Wait the last checkpoint to commit all the pending records.
+                // Wait for the last checkpoint to commit all the pending records.
+                Thread.sleep(50);
                 isWaitingCheckpointComplete = true;
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.await();
@@ -291,8 +295,10 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         }
 
         @Override
-        public void notifyCheckpointComplete(long checkpointId) {
+        public void notifyCheckpointComplete(long checkpointId) throws InterruptedException {
             if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
+                // need to add some time buffer as in very rare cases the job is terminated before
+                // execution of the global commit
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }

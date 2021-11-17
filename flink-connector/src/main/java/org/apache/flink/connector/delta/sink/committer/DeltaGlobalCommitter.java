@@ -160,31 +160,31 @@ public class DeltaGlobalCommitter
     @Override
     public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         String appId = resolveAppId(globalCommittables);
-        if (appId != null) { // means there are committable objects present
+        if (appId != null) { // means there are committables to process
             Map<Long, List<AddFile>> addFileActionsPerCheckpoint =
                 prepareAddFileActionsPerCheckpoint(globalCommittables);
             DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
             List<Long> sortedCheckpointIds =
-                addFileActionsPerCheckpoint
-                    .keySet()
-                    .stream()
-                    .sorted()
-                    .collect(Collectors.toList());
+                getSortedListOfCheckpointIds(addFileActionsPerCheckpoint);
+
             for (long checkpointId : sortedCheckpointIds) {
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
+                    List<AddFile> addFilesForCurrentCheckpointId =
+                        addFileActionsPerCheckpoint.get(checkpointId);
                     List<String> partitionColumns = resolvePartitionColumnsForCurrentCheckpoint(
-                        checkpointId, addFileActionsPerCheckpoint);
+                        addFilesForCurrentCheckpointId);
                     handleMetadataUpdate(
                         deltaLog.snapshot().getVersion(), transaction, partitionColumns);
                     List<Action> actions = prepareActionsForTransaction(
-                        appId, checkpointId, addFileActionsPerCheckpoint.get(checkpointId));
+                        appId, checkpointId, addFilesForCurrentCheckpointId);
                     Operation operation = prepareDeltaLogOperation(
                         globalCommittables,
                         addFileActionsPerCheckpoint.get(checkpointId).size(),
-                        partitionColumns
+                        partitionColumns,
+                        checkpointId
                     );
 
                     transaction.commit(actions, operation, ENGINE_INFO);
@@ -194,15 +194,22 @@ public class DeltaGlobalCommitter
         return Collections.emptyList();
     }
 
-    private List<String> resolvePartitionColumnsForCurrentCheckpoint(
-        long checkpointId,
+    private List<Long> getSortedListOfCheckpointIds(
         Map<Long, List<AddFile>> addFileActionsPerCheckpoint) {
+        return addFileActionsPerCheckpoint
+            .keySet()
+            .stream()
+            .sorted()
+            .collect(Collectors.toList());
+    }
+
+    private List<String> resolvePartitionColumnsForCurrentCheckpoint(
+        List<AddFile> addFilesForCurrentCheckpointId) {
         // at this point we have already assured that all the AddFile actions per current checkpoint
         // have the same partition columns so in order to get partition columns for current
         // checkpoint we only need to reach the first one in the list
         Map<String, String> currentPartitionValues =
-            addFileActionsPerCheckpoint
-                .get(checkpointId)
+            addFilesForCurrentCheckpointId
                 .get(0)
                 .getPartitionValues();
         return new ArrayList<>(currentPartitionValues.keySet());
@@ -295,9 +302,10 @@ public class DeltaGlobalCommitter
 
     private Operation prepareDeltaLogOperation(List<DeltaGlobalCommittable> globalCommittables,
                                                int numAddedFiles,
-                                               List<String> partitionColumns) {
+                                               List<String> partitionColumns,
+                                               long currentCheckpointId) {
         Map<String, String> operationMetrics = prepareOperationMetrics(
-            globalCommittables, numAddedFiles);
+            globalCommittables, numAddedFiles, currentCheckpointId);
         Map<String, String> operationParameters = new HashMap<>();
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -399,11 +407,15 @@ public class DeltaGlobalCommitter
 
     private Map<String, String> prepareOperationMetrics(
         List<DeltaGlobalCommittable> globalCommittables,
-        int numAddedFiles) {
+        int numAddedFiles,
+        long currentCheckpointId) {
         long cumulatedRecordCount = 0;
         long cumulatedSize = 0;
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
+                if (deltaCommittable.getCheckpointId() != currentCheckpointId) {
+                    continue;
+                }
                 DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
                 cumulatedRecordCount += deltaPendingFile.getRecordCount();
                 cumulatedSize += deltaPendingFile.getFileSize();
@@ -411,7 +423,7 @@ public class DeltaGlobalCommitter
         }
 
         Map<String, String> operationMetrics = new HashMap<>();
-        // number of removed files will be supported when for different operation modes
+        // number of removed files will be supported for different operation modes
         operationMetrics.put(Operation.Metrics.numRemovedFiles, "0");
         operationMetrics.put(Operation.Metrics.numAddedFiles, String.valueOf(numAddedFiles));
         operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(cumulatedRecordCount));
@@ -421,8 +433,10 @@ public class DeltaGlobalCommitter
     }
 
     @Override
-    public void endOfInput() {}
+    public void endOfInput() {
+    }
 
     @Override
-    public void close() {}
+    public void close() {
+    }
 }

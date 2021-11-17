@@ -19,7 +19,6 @@
 package org.apache.flink.connector.delta.sink.committer;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -142,7 +141,7 @@ public class DeltaGlobalCommitterTestParametrized {
 
     private void validateCurrentTableFiles(
         Snapshot snapshot,
-        LinkedHashMap<String, String> partitionSpec) throws URISyntaxException, IOException {
+        LinkedHashMap<String, String> partitionSpec) {
         CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
         while (filesIterator.hasNext()) {
             AddFile addFile = filesIterator.next();

@@ -191,7 +191,7 @@ public class DeltaWriterBucketTest {
                                                               Path bucketPath,
                                                               boolean doCommit) throws IOException {
         List<DeltaCommittable> deltaCommittables = bucket.prepareCommit(false, APP_ID, 1);
-        DeltaWriterBucketState bucketState = bucket.snapshotState(APP_ID);
+        DeltaWriterBucketState bucketState = bucket.snapshotState(APP_ID, 1);
 
         assertEquals(BUCKET_ID, bucketState.getBucketId());
         assertEquals(bucketPath, bucketState.getBucketPath());
