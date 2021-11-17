@@ -23,11 +23,11 @@ jobs:
             ~/.cache/coursier
           key: delta-sbt-cache-hive23-scala${{ matrix.scala }}
       - name: Run sqlDeltaImport tests
-        shell: bash -l {0}
+        shell: bash
         run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test compatibility/test
         if: matrix.scala != '2.11.12'
       - name: Run SBT tests
-        shell: bash -l {0}
+        shell: bash
         run: >
           build/sbt "++ ${{ matrix.scala }}" testScalastyle standalone/test
           testStandaloneCosmetic/test hiveMR/test hiveTez/test hive2MR/test
