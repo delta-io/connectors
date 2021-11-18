@@ -24,14 +24,12 @@
             <version>0.2.1-SNAPSHOT</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-client -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>3.1.0</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.apache.parquet/parquet-hadoop -->
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-hadoop</artifactId>

@@ -1,17 +1,11 @@
 package io.delta.standalone.example;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Operation;
@@ -19,47 +13,58 @@ import io.delta.standalone.OptimisticTransaction;
 import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
-import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.data.CloseableIterator;
+import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 /**
- * To run
- * - cd connectors/examples/standalone-example-convert-to-delta
- * - mvn exec:java -Dexec.mainClass="io.delta.standalone.example.java.ConvertToDelta"
+ * Demonstrates how the Delta Standalone library can be used to perform the CONVERT TO DELTA
+ * command on a parquet table.
  *
- * Outputs to: target/classes/delta/sales
+ * To generate your own parquet files for the example, see resources/generateParquet.py
+ *
+ * To run this example:
+ * - cd connectors/examples/standalone-example-convert-to-delta
+ * - mvn exec:java -Dexec.mainClass="io.delta.standalone.example.ConvertToDelta"
+ *
+ * Find the converted table in: target/classes/external/sales
  */
 public class ConvertToDelta {
 
-    private static void convertToDelta(Path sourceTablePath, org.apache.hadoop.fs.Path targetTablePath,
-            StructType sourceSchema) throws IOException {
+    private static void convertToDelta(Path dataPath, StructType sourceSchema) throws IOException {
+
+        Configuration conf = new Configuration();
+        DeltaLog log = DeltaLog.forTable(conf, dataPath);
+
+        if (log.snapshot().getVersion() > -1) {
+            System.out.println("The table you are trying to convert is already a delta table");
+            return;
+        }
 
         // ---------------------- Generate Commit Files ----------------------
 
+        FileSystem fs = dataPath.getFileSystem(conf);
+
         // find parquet files
-        List<File> files;
-        try (Stream<Path> walk = Files.walk(sourceTablePath)) {
-            files = walk
-                    .filter(Files::isRegularFile)
-                    .filter(p -> Pattern.matches(".*\\.parquet", p.toString()))
-                    .map(x -> new File(x.toUri()))
-                    .collect(Collectors.toList());
-        }
+        List<FileStatus> files = Arrays.stream(fs.listStatus(dataPath))
+                .filter(f -> f.isFile() && f.getPath().getName().endsWith(".parquet"))
+                .collect(Collectors.toList());
 
         // generate AddFiles
         List<AddFile> addFiles = files.stream().map(file -> {
             return new AddFile(
-                    file.toURI().toString(),     // path
-                    Collections.emptyMap(),      // partitionValues
-                    file.length(),               // size
-                    System.currentTimeMillis(),  // modificationTime
-                    true,                        // dataChange
-                    null,                        // stats
-                    null                         // tags
+                    dataPath.toUri().relativize(file.getPath().toUri()).toString(), // path
+                    Collections.emptyMap(),                                         // partitionValues
+                    file.getLen(),                                                  // size
+                    file.getModificationTime(),                                     // modificationTime
+                    true,                                                           // dataChange
+                    null,                                                           // stats
+                    null                                                            // tags
             );
         }).collect(Collectors.toList());
 
@@ -67,7 +72,6 @@ public class ConvertToDelta {
 
         // ---------------------- Commit To Delta Log ----------------------
 
-        DeltaLog log = DeltaLog.forTable(new Configuration(), targetTablePath);
         OptimisticTransaction txn = log.startTransaction();
         txn.updateMetadata(metadata);
         txn.commit(addFiles, new Operation(Operation.Name.CONVERT), "local");
@@ -77,9 +81,7 @@ public class ConvertToDelta {
 
         // ---------------------- User Configuration (Input) ----------------------
 
-        final String sourceTable = "external/sales";
-
-        final String targetTable = "delta/sales";
+        final String sourcePath = "external/sales";
 
         final StructType sourceSchema = new StructType()
                 .add("year", new IntegerType())
@@ -91,29 +93,16 @@ public class ConvertToDelta {
 
         // ---------------------- Internal File System Configuration ----------------------
 
-        // look for target table
-        URL targetURL = ConvertToDelta.class.getClassLoader().getResource(targetTable);
-        if (targetURL != null) {
-            // target directory exists, empty it
-            FileUtils.cleanDirectory(Paths.get(targetURL.toURI()).toFile());
-        } else {
-            // target directory does not exist, create it (relative to package location)
-            Path rootPath = Paths.get(ConvertToDelta.class.getResource("/").toURI());
-            FileUtils.forceMkdir(new File(rootPath.toFile(), targetTable));
-        }
-
-        final Path sourceTablePath = Paths.get(ConvertToDelta.class.getClassLoader().getResource(sourceTable).toURI());
-        final org.apache.hadoop.fs.Path targetTablePath = new org.apache.hadoop.fs.Path(
-                Paths.get(ConvertToDelta.class.getClassLoader().getResource(targetTable).toURI()).toUri()
-        );
+        final Path dataPath = new Path(ConvertToDelta.class.getClassLoader().getResource(sourcePath).toURI());
 
         // -------------------------- Convert Table to Delta ---------------------------
-        convertToDelta(sourceTablePath, targetTablePath, sourceSchema);
+
+        convertToDelta(dataPath, sourceSchema);
 
         // ---------------------------- Verify Commit ----------------------------------
 
         // read from Delta Log
-        DeltaLog log = DeltaLog.forTable(new Configuration(), targetTablePath);
+        DeltaLog log = DeltaLog.forTable(new Configuration(), dataPath);
         Snapshot currentSnapshot = log.snapshot();
         StructType schema = currentSnapshot.getMetadata().getSchema();
 
@@ -122,7 +111,9 @@ public class ConvertToDelta {
         System.out.println("number data files: " + currentSnapshot.getAllFiles().size());
 
         System.out.println("data files:");
-        currentSnapshot.getAllFiles().forEach(file -> System.out.println(file.getPath()));
+        CloseableIterator<AddFile> dataFiles = currentSnapshot.scan().getFiles();
+        dataFiles.forEachRemaining(file -> System.out.println(file.getPath()));
+        dataFiles.close();
 
         System.out.println("schema: ");
         System.out.println(schema.getTreeString());
