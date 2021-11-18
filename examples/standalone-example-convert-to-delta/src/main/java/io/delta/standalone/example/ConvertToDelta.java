@@ -54,13 +54,12 @@ public class ConvertToDelta {
 
         // ---------------------- Generate Commit Files ----------------------
 
-        FileSystem fs = sourcePath.getFileSystem(conf);
-        if (fs.exists(new Path(sourcePath, "_delta_log/"))
-                && fs.listStatus(new Path(sourcePath, "_delta_log/")).length != 0) {
+        if (DeltaLog.forTable(conf, sourcePath).snapshot().getVersion() > -1) {
             // the parquet data files are already part of a delta table
             System.out.println("The table you are trying to convert is already a delta table");
             return;
         }
+        FileSystem fs = sourcePath.getFileSystem(conf);
 
         // find parquet files
         List<FileStatus> files = Arrays.stream(fs.listStatus(sourcePath))
