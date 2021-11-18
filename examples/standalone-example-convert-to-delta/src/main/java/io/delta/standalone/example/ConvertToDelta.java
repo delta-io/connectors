@@ -36,7 +36,7 @@ import org.apache.hadoop.fs.Path;
  * - cd connectors/examples/standalone-example-convert-to-delta
  * - mvn exec:java -Dexec.mainClass="io.delta.standalone.example.ConvertToDelta"
  *
- * Find the converted table in: target/classes/external/sales
+ * Find the converted table in: target/classes/$targetTable
  */
 public class ConvertToDelta {
 
