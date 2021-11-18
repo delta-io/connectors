@@ -1,7 +1,10 @@
 package io.delta.standalone.example;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +20,7 @@ import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,35 +40,44 @@ import org.apache.hadoop.fs.Path;
  */
 public class ConvertToDelta {
 
-    private static void convertToDelta(Path dataPath, StructType sourceSchema) throws IOException {
+    private static void convertToDelta(Path sourcePath, Path targetPath,
+            StructType sourceSchema) throws IOException {
 
         Configuration conf = new Configuration();
-        DeltaLog log = DeltaLog.forTable(conf, dataPath);
+        DeltaLog log = DeltaLog.forTable(conf, targetPath);
 
         if (log.snapshot().getVersion() > -1) {
+            // there is already a non-empty targetPath/_delta_log
             System.out.println("The table you are trying to convert is already a delta table");
             return;
         }
 
         // ---------------------- Generate Commit Files ----------------------
 
-        FileSystem fs = dataPath.getFileSystem(conf);
+        FileSystem fs = sourcePath.getFileSystem(conf);
+        if (fs.exists(new Path(sourcePath, "_delta_log/"))
+                && fs.listStatus(new Path(sourcePath, "_delta_log/")).length != 0) {
+            // the parquet data files are already part of a delta table
+            System.out.println("The table you are trying to convert is already a delta table");
+            return;
+        }
 
         // find parquet files
-        List<FileStatus> files = Arrays.stream(fs.listStatus(dataPath))
+        List<FileStatus> files = Arrays.stream(fs.listStatus(sourcePath))
                 .filter(f -> f.isFile() && f.getPath().getName().endsWith(".parquet"))
                 .collect(Collectors.toList());
 
         // generate AddFiles
         List<AddFile> addFiles = files.stream().map(file -> {
             return new AddFile(
-                    dataPath.toUri().relativize(file.getPath().toUri()).toString(), // path
-                    Collections.emptyMap(),                                         // partitionValues
-                    file.getLen(),                                                  // size
-                    file.getModificationTime(),                                     // modificationTime
-                    true,                                                           // dataChange
-                    null,                                                           // stats
-                    null                                                            // tags
+                    // if targetPath is not a prefix, relativize returns the path unchanged
+                    targetPath.toUri().relativize(file.getPath().toUri()).toString(),   // path
+                    Collections.emptyMap(),                                             // partitionValues
+                    file.getLen(),                                                      // size
+                    file.getModificationTime(),                                         // modificationTime
+                    true,                                                               // dataChange
+                    null,                                                               // stats
+                    null                                                                // tags
             );
         }).collect(Collectors.toList());
 
@@ -81,7 +94,9 @@ public class ConvertToDelta {
 
         // ---------------------- User Configuration (Input) ----------------------
 
-        final String sourcePath = "external/sales";
+        final String sourceTable = "external/sales";
+
+        final String targetTable = "external/sales";
 
         final StructType sourceSchema = new StructType()
                 .add("year", new IntegerType())
@@ -93,16 +108,25 @@ public class ConvertToDelta {
 
         // ---------------------- Internal File System Configuration ----------------------
 
-        final Path dataPath = new Path(ConvertToDelta.class.getClassLoader().getResource(sourcePath).toURI());
+        // look for target table
+        URL targetURL = ConvertToDelta.class.getClassLoader().getResource(targetTable);
+        if (targetURL == null) {
+            // target directory does not exist, create it (relative to package location)
+            java.nio.file.Path rootPath = Paths.get(ConvertToDelta.class.getResource("/").toURI());
+            FileUtils.forceMkdir(new File(rootPath.toFile(), targetTable));
+        }
+
+        final Path sourcePath = new Path(ConvertToDelta.class.getClassLoader().getResource(sourceTable).toURI());
+        final Path targetPath = new Path(ConvertToDelta.class.getClassLoader().getResource(targetTable).toURI());
 
         // -------------------------- Convert Table to Delta ---------------------------
 
-        convertToDelta(dataPath, sourceSchema);
+        convertToDelta(sourcePath, targetPath, sourceSchema);
 
         // ---------------------------- Verify Commit ----------------------------------
 
         // read from Delta Log
-        DeltaLog log = DeltaLog.forTable(new Configuration(), dataPath);
+        DeltaLog log = DeltaLog.forTable(new Configuration(), targetPath);
         Snapshot currentSnapshot = log.snapshot();
         StructType schema = currentSnapshot.getMetadata().getSchema();
 
