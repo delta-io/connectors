@@ -14,14 +14,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '8'
-      - name: Cache Scala, SBT
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2
-            ~/.cache/coursier
-          key: delta-sbt-cache-hive23-scala${{ matrix.scala }}
       - name: Run sqlDeltaImport tests
         run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
