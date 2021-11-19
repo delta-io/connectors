@@ -27,14 +27,15 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 /**
- * Demonstrates how the Delta Standalone library can be used to perform the CONVERT TO DELTA
- * command on a parquet table.
+ * Demonstrates how the Delta Standalone library can be used to convert a parquet table
+ * (i.e., a directory of parquet files) into a Delta table by writing the list of parquet files
+ * as a Delta log in the directory.
  *
  * To generate your own parquet files for the example, see resources/generateParquet.py
  *
  * To run this example:
  * - cd connectors/examples/standalone-example-convert-to-delta
- * - mvn exec:java -Dexec.mainClass="io.delta.standalone.example.ConvertToDelta"
+ * - mvn package exec:java -Dexec.cleanupDaemonThreads=false -Dexec.mainClass=io.delta.standalone.example.ConvertToDelta
  *
  * Find the converted table in: target/classes/$targetTable
  */
@@ -52,7 +53,7 @@ public class ConvertToDelta {
             return;
         }
 
-        // ---------------------- Generate Commit Files ----------------------
+        // ---------------------- Generate commit actions ------------------------
 
         if (DeltaLog.forTable(conf, sourcePath).snapshot().getVersion() > -1) {
             // the parquet data files are already part of a delta table
@@ -82,7 +83,7 @@ public class ConvertToDelta {
 
         Metadata metadata = Metadata.builder().schema(sourceSchema).build();
 
-        // ---------------------- Commit To Delta Log ----------------------
+        // ---------------------- Commit to Delta log --------------------------
 
         OptimisticTransaction txn = log.startTransaction();
         txn.updateMetadata(metadata);
@@ -91,7 +92,7 @@ public class ConvertToDelta {
 
     public static void main(String[] args) throws IOException, URISyntaxException {
 
-        // ---------------------- User Configuration (Input) ----------------------
+        // ---------------------- User configuration (input) ----------------------
 
         final String sourceTable = "external/sales";
 
@@ -105,7 +106,7 @@ public class ConvertToDelta {
                 .add("customer", new StringType())
                 .add("total_cost", new FloatType());
 
-        // ---------------------- Internal File System Configuration ----------------------
+        // ---------------------- Internal file system configuration ----------------------
 
         // look for target table
         URL targetURL = ConvertToDelta.class.getClassLoader().getResource(targetTable);
@@ -118,11 +119,11 @@ public class ConvertToDelta {
         final Path sourcePath = new Path(ConvertToDelta.class.getClassLoader().getResource(sourceTable).toURI());
         final Path targetPath = new Path(ConvertToDelta.class.getClassLoader().getResource(targetTable).toURI());
 
-        // -------------------------- Convert Table to Delta ---------------------------
+        // -------------------------- Convert table to Delta ---------------------------
 
         convertToDelta(sourcePath, targetPath, sourceSchema);
 
-        // ---------------------------- Verify Commit ----------------------------------
+        // ---------------------------- Verify conversion ----------------------------------
 
         // read from Delta Log
         DeltaLog log = DeltaLog.forTable(new Configuration(), targetPath);
@@ -159,7 +160,5 @@ public class ConvertToDelta {
         } finally {
             iter.close();
         }
-
-        System.exit(0); // close inactive threads from Scala.collection.Parallelizable
     }
 }
