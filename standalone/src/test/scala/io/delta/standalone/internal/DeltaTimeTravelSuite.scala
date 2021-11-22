@@ -226,9 +226,9 @@ class DeltaTimeTravelSuite extends FunSuite {
     }
   }
 
-//  test("grab") {
-//    withLogForGoldenTable("grab") { log =>
-//
-//    }
-//  }
+  test("canada") {
+    withLogForGoldenTable("canada") { log =>
+
+    }
+  }
 }
