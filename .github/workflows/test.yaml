@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     name: "Run tests "
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         scala: [2.12.8, 2.11.12]
@@ -14,6 +14,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '8'
+      - name: Cache Scala, SBT
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2
+            ~/.cache/coursier
+          key: build-cache-scala${{ matrix.scala }}
       - name: Run sqlDeltaImport tests
         run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
