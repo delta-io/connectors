@@ -26,3 +26,11 @@ jobs:
         if: matrix.scala != '2.11.12'
       - name: Run flink tests
         run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
+      - name: Run hive 3 mr tests
+        run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test
+      - name: Run hive 3 tez tests
+        run: build/sbt "++ ${{ matrix.scala }}" hiveTez/test
+      - name: Run hive 2 mr tests
+        run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test
+      - name: Run hive 2 tez tests
+        run: build/sbt "++ ${{ matrix.scala }}" hive2Tez/test
