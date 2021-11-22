@@ -447,4 +447,10 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
     ),
     concurrentStandaloneWrites = Seq(ss.conflict.removeA),
     actions = Seq(oo.conflict.addB))
+
+  test("grab") {
+    val tblPath = "/Users/scott.sandre/connectors/golden-tables/src/test/resources/golden/grab";
+    val ossLog = org.apache.spark.sql.delta.DeltaLog.forTable(spark, tblPath)
+    val ossSnapshot = ossLog.update()
+  }
 }

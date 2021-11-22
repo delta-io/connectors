@@ -225,4 +225,10 @@ class DeltaTimeTravelSuite extends FunSuite {
           f => orig_partition_data_files.exists(o => f.getPath.contains(o.getName))))
     }
   }
+
+//  test("grab") {
+//    withLogForGoldenTable("grab") { log =>
+//
+//    }
+//  }
 }
