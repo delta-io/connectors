@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     name: "Run tests "
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         scala: [2.12.8, 2.11.12]
@@ -21,24 +21,23 @@ jobs:
             ~/.sbt
             ~/.ivy2
             ~/.cache/coursier
-          key: build-cache-scala${{ matrix.scala }}
-      - name: Run sqlDeltaImport tests
-        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
-        if: matrix.scala != '2.11.12'
-      - name: Run testScalastyle
-        run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
-      - name: Run standalone and testStandaloneCosmetic tests
-        run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
-      - name: Run compatibility tests
-        run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
-        if: matrix.scala != '2.11.12'
-      - name: Run flink tests
-        run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
-      - name: Run hive 3 mr tests
-        run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test
-      - name: Run hive 3 tez tests
-        run: build/sbt "++ ${{ matrix.scala }}" hiveTez/test
-      - name: Run hive 2 mr tests
-        run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test
-      - name: Run hive 2 tez tests
-        run: build/sbt "++ ${{ matrix.scala }}" hive2Tez/test
+          key: build-cache
+      - name: Run tests
+        run: |
+          build/sbt "++ 2.12.8 testScalastyle"
+          build/sbt "++ 2.12.8 standalone/test"
+          build/sbt "++ 2.12.8 testStandaloneCosmetic/test"
+          build/sbt "++ 2.12.8 compatibility/test"
+          build/sbt "++ 2.12.8 sqlDeltaImport/test"
+          build/sbt "++ 2.12.8 hiveMR/test"
+          build/sbt "++ 2.12.8 hiveTez/test"
+          build/sbt "++ 2.12.8 hive2MR/test"
+          build/sbt "++ 2.12.8 hive2Tez/test"
+          build/sbt "++ 2.12.8 flinkConnector/test"
+          build/sbt "++ 2.11.12 standalone/test"
+          build/sbt "++ 2.11.12 testStandaloneCosmetic/test"
+          build/sbt "++ 2.11.12 hiveMR/test"
+          build/sbt "++ 2.11.12 hiveTez/test"
+          build/sbt "++ 2.11.12 hive2MR/test"
+          build/sbt "++ 2.11.12 hive2Tez/test"
+          build/sbt "++ 2.11.12 flinkConnector/test"
