@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  * is not stored in the checkpoint and has reduced compatibility guarantees.
  * Information stored in it is best effort (i.e. can be falsified by a writer).
  *
- * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
+ * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#commit-provenance-information">Delta Transaction Log Protocol: Commit Provenance Information</a>
  */
 public class CommitInfo implements Action {
     @Nonnull private final Optional<Long> version;
@@ -228,7 +228,7 @@ public class CommitInfo implements Action {
     }
 
     /**
-     * @return the engineInfo of the operation that performed this commit. It should be of the form
+     * @return the engineInfo of the engine that performed this commit. It should be of the form
      *         "{engineName}/{engineVersion} Delta-Standalone/{deltaStandaloneVersion}"
      */
     @Nonnull

@@ -30,19 +30,20 @@ import io.delta.standalone.expressions.Expression;
 public interface DeltaScan {
 
     /**
-     * Creates a {@link CloseableIterator} which can iterate over files belonging to this snapshot.
+     * Creates a {@link CloseableIterator} over files belonging to this snapshot.
      * <p>
-     * It provides no iteration ordering guarantee among files.
+     * There is no iteration ordering guarantee among files.
      * <p>
      * Files returned are guaranteed to satisfy the predicate, if any, returned by
      * {@link #getPushedPredicate()}.
      *
-     * @return a {@link CloseableIterator} to iterate over files.
+     * @return a {@link CloseableIterator} over the files in this snapshot that satisfy
+     *         {@link #getPushedPredicate()}
      */
     CloseableIterator<AddFile> getFiles();
 
     /**
-     * @return the input predicate used to filter files.
+     * @return the input predicate passed in by the user
      */
     Optional<Expression> getInputPredicate();
 

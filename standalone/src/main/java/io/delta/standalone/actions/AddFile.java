@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Note: since actions within a given Delta file are not guaranteed to be applied in order, it is
  * not valid for multiple file operations with the same path to exist in a single version.
  *
- * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
+ * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file">Delta Transaction Log Protocol: Add File and Remove File</a>
  */
 public final class AddFile implements FileAction {
     @Nonnull

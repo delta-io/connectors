@@ -55,7 +55,7 @@ public final class FieldMetadata {
     }
 
     /**
-     * @return list of the key-value pairs in {@code this}.
+     * @return list of the key-value pairs in this {@link FieldMetadata}
      */
     public Map<String, Object> getEntries() {
         return Collections.unmodifiableMap(metadata);
@@ -116,7 +116,7 @@ public final class FieldMetadata {
     }
 
     /**
-     * @return a new {@code FieldMetadata.Builder}
+     * @return a new {@link FieldMetadata.Builder}
      */
     public static Builder builder() {
         return new Builder();

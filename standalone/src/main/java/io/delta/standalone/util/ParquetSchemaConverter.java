@@ -24,7 +24,9 @@ import io.delta.standalone.internal.util.SparkToParquetSchemaConverter;
 /**
  * Converter class to convert {@link StructType} to Parquet {@link MessageType}.
  */
-public class ParquetSchemaConverter {
+public final class ParquetSchemaConverter {
+
+    private ParquetSchemaConverter(){};
 
     /**
      * Represents Parquet timestamp types.
@@ -42,8 +44,8 @@ public class ParquetSchemaConverter {
         TIMESTAMP_MILLIS
     }
 
-    private static final Boolean writeLegacyParquetFormatDefault = false;
-    private static final ParquetOutputTimestampType outputTimestampTypeDefault =
+    public static final Boolean writeLegacyParquetFormatDefault = false;
+    public static final ParquetOutputTimestampType outputTimestampTypeDefault =
             ParquetOutputTimestampType.INT96;
 
     /**

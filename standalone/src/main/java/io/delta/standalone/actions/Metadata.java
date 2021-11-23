@@ -35,7 +35,7 @@ import io.delta.standalone.types.StructType;
  * after any change. There can be at most one {@link Metadata} action in a
  * given version of the table.
  *
- * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
+ * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#change-metadata">Delta Transaction Log Protocol: Change Metadata</a>
  */
 public final class Metadata implements Action {
     @Nonnull private final String id;
