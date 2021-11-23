@@ -20,6 +20,11 @@ import ReleaseTransformations._
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 import scala.xml.transform._
 
+// Disable parallel execution to workaround https://github.com/etsy/sbt-checkstyle-plugin/issues/32
+concurrentRestrictions in Global := {
+  Tags.limitAll(1) :: Nil
+}
+
 parallelExecution in ThisBuild := false
 scalastyleConfig in ThisBuild := baseDirectory.value / "scalastyle-config.xml"
 crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
@@ -60,15 +65,15 @@ lazy val commonSettings = Seq(
   compileScalastyle := scalastyle.in(Compile).toTask("").value,
   (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value,
   testScalastyle := scalastyle.in(Test).toTask("").value,
-  (test in Test) := ((test in Test) dependsOn testScalastyle).value
+  (test in Test) := ((test in Test) dependsOn testScalastyle).value,
 
   // Can be run explicitly via: build/sbt $module/checkstyle
   // Will automatically be run during compilation (e.g. build/sbt compile)
   // and during tests (e.g. build/sbt test)
-//  checkstyleConfigLocation := CheckstyleConfigLocation.File("dev/checkstyle.xml"),
-//  checkstyleSeverityLevel := Some(CheckstyleSeverityLevel.Error),
-//  (checkstyle in Compile) := (checkstyle in Compile).triggeredBy(compile in Compile).value,
-//  (checkstyle in Test) := (checkstyle in Test).triggeredBy(compile in Test).value
+  checkstyleConfigLocation := CheckstyleConfigLocation.File("dev/checkstyle.xml"),
+  checkstyleSeverityLevel := Some(CheckstyleSeverityLevel.Error),
+  (checkstyle in Compile) := (checkstyle in Compile).triggeredBy(compile in Compile).value,
+  (checkstyle in Test) := (checkstyle in Test).triggeredBy(compile in Test).value
 )
 
 lazy val releaseSettings = Seq(
