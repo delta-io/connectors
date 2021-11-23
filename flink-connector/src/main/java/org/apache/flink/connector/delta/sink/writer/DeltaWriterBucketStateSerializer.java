@@ -76,9 +76,7 @@ public class DeltaWriterBucketStateSerializer
     }
 
     private DeltaWriterBucketState deserializeV1(DataInputView in) throws IOException {
-        return internalDeserialize(
-            in
-        );
+        return internalDeserialize(in);
     }
 
     private DeltaWriterBucketState internalDeserialize(

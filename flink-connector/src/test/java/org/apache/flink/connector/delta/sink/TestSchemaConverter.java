@@ -78,12 +78,16 @@ public class TestSchemaConverter {
                 new StructField("f5", new io.delta.standalone.types.MapType(
                     new io.delta.standalone.types.StringType(),
                     new io.delta.standalone.types.IntegerType(),
-                    true
+                    true // valueContainsNull
                 )),
                 new StructField("f6", new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.ByteType(), true)),
+                    new io.delta.standalone.types.ByteType(),
+                    true // containsNull
+                )),
                 new StructField("f7", new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.StringType(), true)),
+                    new io.delta.standalone.types.StringType(),
+                    true // containsNull
+                )),
                 new StructField("f8", new io.delta.standalone.types.StringType()),
                 new StructField("f9", new io.delta.standalone.types.BooleanType()),
                 new StructField("f10", new io.delta.standalone.types.ByteType()),
@@ -118,7 +122,7 @@ public class TestSchemaConverter {
             public final io.delta.standalone.types.DataType deltaKeyType;
             public final io.delta.standalone.types.DataType deltaValueType;
 
-            public Types(LogicalType flinkKeyType,
+            Types(LogicalType flinkKeyType,
                          LogicalType flinkValueType,
                          io.delta.standalone.types.DataType deltaKeyType,
                          io.delta.standalone.types.DataType deltaValueType) {
@@ -141,7 +145,9 @@ public class TestSchemaConverter {
                 new ArrayType(new TinyIntType()),
                 new io.delta.standalone.types.IntegerType(),
                 new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.ByteType(), true)),
+                    new io.delta.standalone.types.ByteType(),
+                    true // containsNull
+                )),
 
             new Types(
                 new BigIntType(),
@@ -179,7 +185,7 @@ public class TestSchemaConverter {
             DataType expectedDeltaDataType = new io.delta.standalone.types.MapType(
                 types.deltaKeyType,
                 types.deltaValueType,
-                true
+                true // valueContainsNull
             );
 
             assertEquals(expectedDeltaDataType, deltaStructType);

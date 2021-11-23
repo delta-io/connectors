@@ -33,20 +33,17 @@ import java.util.stream.LongStream;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
-import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
-import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -61,7 +58,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import static org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -69,8 +65,11 @@ import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.CommitInfo;
 
+/**
+ * Tests the functionality of the {@link DeltaSink} in STREAMING mode.
+ */
 @RunWith(Parameterized.class)
-public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
+public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSinkITCase {
 
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
     protected static final int NUM_SINKS = 1;
@@ -94,7 +93,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         LATCH_MAP.put(latchId, new CountDownLatch(NUM_SOURCES * 2));
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+            DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -113,7 +112,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
+        DeltaLog deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
         long initialVersion = deltaLog.snapshot().getVersion();
         int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
@@ -122,15 +121,15 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
+        try (MiniCluster miniCluster = DeltaSinkTestUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
 
         // THEN
-        TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
         int writtenRecordsCount =
-            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+            DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
         assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialDeltaFiles.size());
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
@@ -158,13 +157,17 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         assertEquals(finalTableRecordsCount - initialTableRecordsCount, totalRowsAdded);
     }
 
+    /**
+     * Creating the testing job graph in streaming mode. The graph created is [Source] -> [Delta
+     * Sink]. The source would trigger failover if required.
+     */
     @Override
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
         env.addSource(new DeltaStreamingExecutionTestSource(latchId, NUM_RECORDS, triggerFailover))
             .setParallelism(NUM_SOURCES)
-            .sinkTo(ITCaseUtils.createDeltaSink(deltaTablePath))
+            .sinkTo(DeltaSinkTestUtils.createDeltaSink(deltaTablePath))
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
@@ -274,7 +277,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private void sendRecordsUntil(int targetNumber, SourceContext<RowData> ctx) {
             while (!isCanceled && nextValue < targetNumber) {
                 synchronized (ctx.getCheckpointLock()) {
-                    RowData row = TestRowData.CONVERTER.toInternal(
+                    RowData row = DeltaSinkTestUtils.CONVERTER.toInternal(
                         Row.of(
                             String.valueOf(nextValue),
                             String.valueOf((nextValue + nextValue)),
@@ -295,7 +298,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         }
 
         @Override
-        public void notifyCheckpointComplete(long checkpointId) throws InterruptedException {
+        public void notifyCheckpointComplete(long checkpointId) {
             if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
                 // need to add some time buffer as in very rare cases the job is terminated before
                 // execution of the global commit

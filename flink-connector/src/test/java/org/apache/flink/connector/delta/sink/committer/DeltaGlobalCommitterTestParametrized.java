@@ -28,10 +28,7 @@ import java.util.List;
 
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.core.fs.Path;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -60,10 +57,10 @@ public class DeltaGlobalCommitterTestParametrized {
     @Parameterized.Parameters
     public static Collection<Object[]> params() {
         return Arrays.asList(
-            new Object[]{false, 0, TestDeltaLakeTable.getEmptyTestPartitionSpec(), false},
-            new Object[]{false, 0, TestDeltaLakeTable.getTestPartitionSpec(), false},
-            new Object[]{false, 1, TestDeltaLakeTable.getEmptyTestPartitionSpec(), true},
-            new Object[]{false, 1, TestDeltaLakeTable.getTestPartitionSpec(), true}
+            new Object[]{false, 0, DeltaSinkTestUtils.getEmptyTestPartitionSpec(), false},
+            new Object[]{false, 0, DeltaSinkTestUtils.getTestPartitionSpec(), false},
+            new Object[]{false, 1, DeltaSinkTestUtils.getEmptyTestPartitionSpec(), true},
+            new Object[]{false, 1, DeltaSinkTestUtils.getTestPartitionSpec(), true}
         );
     }
 
@@ -87,26 +84,26 @@ public class DeltaGlobalCommitterTestParametrized {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
         if (initializeTableBeforeCommit) {
             if (partitionSpec.isEmpty()) {
-                TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(
+                DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(
                     tablePath.getPath());
             } else {
-                TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+                DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
             }
         }
-        deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+        deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
     }
 
     @Test
-    public void testCommitToDeltaTableInAppendMode() throws Exception {
+    public void testCommitToDeltaTableInAppendMode() {
         //GIVEN
         List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            HadoopConfTest.getHadoopConf(),
+            DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
-            TestRowData.TEST_ROW_TYPE,
+            DeltaSinkTestUtils.TEST_ROW_TYPE,
             canTryUpdateSchema);
         List<DeltaCommittable> deltaCommittables =
-            TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
+            DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 

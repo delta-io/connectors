@@ -21,7 +21,7 @@ package org.apache.flink.connector.delta.sink;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;
 import org.junit.Test;
@@ -35,7 +35,7 @@ public class TestDeltaTablePartitionAssigner {
         TestContext context = new TestContext();
         DeltaTablePartitionAssigner<RowData> partitionAssigner =
             new DeltaTablePartitionAssigner<>(new RootPathAssigner());
-        RowData testRowData = TestRowData.getTestRowData(1).get(0);
+        RowData testRowData = DeltaSinkTestUtils.getTestRowData(1).get(0);
 
         // WHEN
         String partitionsPath = partitionAssigner.getBucketId(testRowData, context);
@@ -66,7 +66,7 @@ public class TestDeltaTablePartitionAssigner {
         TestContext context = new TestContext();
         DeltaTablePartitionAssigner<RowData> partitionAssigner =
             new DeltaTablePartitionAssigner<>(new MultiplePartitioningColumnComputer());
-        RowData testEvent = TestRowData.getTestRowDataEvent("a", "b", 3);
+        RowData testEvent = DeltaSinkTestUtils.getTestRowDataEvent("a", "b", 3);
 
         // WHEN
         String partitionsPath = partitionAssigner.getBucketId(testEvent, context);
@@ -114,7 +114,7 @@ public class TestDeltaTablePartitionAssigner {
 
         public final String partitionName;
 
-        public OnePartitioningColumnComputer(String partitionName) {
+        OnePartitioningColumnComputer(String partitionName) {
             this.partitionName = partitionName;
         }
 

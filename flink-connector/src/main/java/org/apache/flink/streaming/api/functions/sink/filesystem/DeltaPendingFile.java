@@ -18,19 +18,39 @@
 
 package org.apache.flink.streaming.api.functions.sink.filesystem;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.apache.flink.core.io.SimpleVersionedSerialization;
+import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
 
 /**
  * Wrapper class for {@link InProgressFileWriter.PendingFileRecoverable} object.
  * This class carries the internal committable information to be used during the checkpoint/commit
  * phase.
- *
+ * <p>
  * As similar to {@link org.apache.flink.connector.file.sink.FileSink} we need to carry
  * {@link InProgressFileWriter.PendingFileRecoverable} information to perform "local" commit
  * on file that the sink has written data to. However, as opposite to mentioned FileSink,
  * in DeltaSink we need to perform also "global" commit to the {@link io.delta.standalone.DeltaLog}
  * and for that additional file metadata must be provided. Hence, this class provides the required
  * information for both types of commits by wrapping pending file and attaching file's metadata.
+ * <p>
+ * Lifecycle of instances of this class is as follows:
+ * <ol>
+ *     <li>Instances of this class are being created inside
+ *         {@link org.apache.flink.connector.delta.sink.writer.DeltaWriterBucket#closePartFile}
+ *         method every time when any in-progress is called to be closed. This happens either when
+ *         some conditions for closing are met or at the end of every checkpoint interval during a
+ *         pre-commit phase when we are closing all the open files in all buckets</li>
+ *     <li>It's life span holds only until the end of a checkpoint interval</li>
+ *     <li>During pre-commit phase (and after closing every in-progress files) every existing
+ *         {@link DeltaPendingFile} instance is automatically transformed into a
+ *         {@link org.apache.flink.connector.delta.sink.committables.DeltaCommittable} instance</li>
+ * </ol>
  */
 public class DeltaPendingFile {
 
@@ -82,5 +102,61 @@ public class DeltaPendingFile {
 
     public LinkedHashMap<String, String> getPartitionSpec() {
         return new LinkedHashMap<>(partitionSpec);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // serde utils
+    ///////////////////////////////////////////////////////////////////////////
+
+    public static void serialize(
+        DeltaPendingFile deltaPendingFile,
+        DataOutputView dataOutputView,
+        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer) throws IOException {
+        assert deltaPendingFile.getFileName() != null;
+        assert deltaPendingFile.getPendingFile() != null;
+
+        dataOutputView.writeInt(deltaPendingFile.getPartitionSpec().size());
+        for (Map.Entry<String, String> entry : deltaPendingFile.getPartitionSpec().entrySet()) {
+            dataOutputView.writeUTF(entry.getKey());
+            dataOutputView.writeUTF(entry.getValue());
+        }
+
+        dataOutputView.writeUTF(deltaPendingFile.getFileName());
+        dataOutputView.writeLong(deltaPendingFile.getRecordCount());
+        dataOutputView.writeLong(deltaPendingFile.getFileSize());
+        dataOutputView.writeLong(deltaPendingFile.getLastUpdateTime());
+
+        SimpleVersionedSerialization.writeVersionAndSerialize(
+            pendingFileSerializer,
+            deltaPendingFile.getPendingFile(),
+            dataOutputView
+        );
+    }
+
+    public static DeltaPendingFile deserialize(
+        DataInputView dataInputView,
+        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer) throws IOException {
+        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
+        int partitionSpecEntriesCount = dataInputView.readInt();
+        for (int i = 0; i < partitionSpecEntriesCount; i++) {
+            partitionSpec.put(dataInputView.readUTF(), dataInputView.readUTF());
+        }
+
+        String pendingFileName = dataInputView.readUTF();
+        long pendingFileRecordCount = dataInputView.readLong();
+        long pendingFileSize = dataInputView.readLong();
+        long lastUpdateTime = dataInputView.readLong();
+        InProgressFileWriter.PendingFileRecoverable pendingFile =
+            SimpleVersionedSerialization.readVersionAndDeSerialize(
+                pendingFileSerializer, dataInputView);
+        return new DeltaPendingFile(
+            partitionSpec,
+            pendingFileName,
+            pendingFile,
+            pendingFileRecordCount,
+            pendingFileSize,
+            lastUpdateTime);
     }
 }

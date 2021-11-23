@@ -131,7 +131,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
                 OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
                 rowType,
                 generateNewAppId(),
-                false
+                false // canTryUpdateSchema
         );
     }
 

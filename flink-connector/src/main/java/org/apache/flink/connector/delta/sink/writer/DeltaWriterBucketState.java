@@ -25,8 +25,9 @@ import org.apache.flink.core.fs.Path;
  * State of a {@link DeltaWriterBucket} that will become part of each application's
  * snapshot created during pre-commit phase of a checkpoint process or manually on demand
  * by the user.
- * see fault_tolerance/#state-snapshots section on
- * <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/"</a>
+ * see `Fault Tolerance via State Snapshots` section on
+ *
+ * @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/learn-flink/overview/#fault-tolerance-via-state-snapshots" target="_blank">this page</a>
  *
  * <p>
  * This class is partially inspired by
@@ -35,9 +36,18 @@ import org.apache.flink.core.fs.Path;
  * <ol>
  *   <li>removed snapshotting in-progress file's state because
  *       {@link org.apache.flink.connector.delta.sink.DeltaSink} is supposed to always roll part
- *       files on checkpoint so there is no need to recover any in-progress files' states
+ *       files on checkpoint so there is no need to recover any in-progress files' states</li>
  *   <li>extends the state by adding application's unique identifier to guarantee the idempotent
  *       file writes and commits to the {@link io.delta.standalone.DeltaLog}
+ * </ol>
+ * <p>
+ * Lifecycle of instances of this class is as follows:
+ * <ol>
+ *     <li>Every instance is being created via {@link DeltaWriter#snapshotState()} method at the
+ *     finish phase of each checkpoint interval and serialized as a part of snapshotted app's state.
+ *     <li>It can be also created by the Flink framework itself during failure/snapshot recovery
+ *         when it's deserialized from the snapshotted state and provided as input param collection
+ *         to {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter}</li>
  * </ol>
  */
 @Internal
@@ -71,20 +81,14 @@ public class DeltaWriterBucketState {
 
     @Override
     public String toString() {
-        final StringBuilder strBuilder = new StringBuilder();
-
-        strBuilder
-            .append("BucketState for bucketId=")
-            .append(bucketId)
-            .append(" and bucketPath=")
-            .append(bucketPath)
-            .append(" and appId=")
-            .append(appId)
-            .append(" and checkpointId=")
-            .append(checkpointId);
-        ;
-
-        return strBuilder.toString();
+        return "BucketState for bucketId=" +
+            bucketId +
+            " and bucketPath=" +
+            bucketPath +
+            " and appId=" +
+            appId +
+            " and checkpointId=" +
+            checkpointId;
     }
 
     public String getAppId() {

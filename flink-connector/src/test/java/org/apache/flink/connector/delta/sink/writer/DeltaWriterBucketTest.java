@@ -27,9 +27,8 @@ import java.util.stream.Stream;
 
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committer.DeltaCommitter;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
-import org.apache.flink.connector.delta.sink.utils.WriterTestUtils;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.PartFileInfo;
@@ -58,8 +57,11 @@ public class DeltaWriterBucketTest {
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(bucketPath);
 
         // WHEN
-        List<DeltaCommittable> deltaCommittables =
-            onCheckpointActions(bucketWriter, bucketPath, false);
+        List<DeltaCommittable> deltaCommittables = onCheckpointActions(
+            bucketWriter,
+            bucketPath,
+            false // doCommit
+        );
 
         // THEN
         assertEquals(0, deltaCommittables.size());
@@ -71,14 +73,17 @@ public class DeltaWriterBucketTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path bucketPath = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
 
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(bucketPath);
 
         // WHEN
         writeData(bucketWriter, testRows);
-        List<DeltaCommittable> deltaCommittables =
-            onCheckpointActions(bucketWriter, bucketPath, true);
+        List<DeltaCommittable> deltaCommittables = onCheckpointActions(
+            bucketWriter,
+            bucketPath,
+            true // doCommit
+        );
 
         // THEN
         assertEquals(deltaCommittables.size(), 1);
@@ -92,18 +97,24 @@ public class DeltaWriterBucketTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path bucketPath = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
 
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(bucketPath);
 
         // WHEN
         writeData(bucketWriter, testRows);
-        List<DeltaCommittable> deltaCommittables1 =
-            onCheckpointActions(bucketWriter, bucketPath, true);
+        List<DeltaCommittable> deltaCommittables1 = onCheckpointActions(
+            bucketWriter,
+            bucketPath,
+            true // doCommit
+        );
 
         writeData(bucketWriter, testRows);
-        List<DeltaCommittable> deltaCommittables2 =
-            onCheckpointActions(bucketWriter, bucketPath, true);
+        List<DeltaCommittable> deltaCommittables2 = onCheckpointActions(
+            bucketWriter,
+            bucketPath,
+            true // doCommit
+        );
 
         // THEN
         assertEquals(deltaCommittables1.size(), 1);
@@ -125,7 +136,7 @@ public class DeltaWriterBucketTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path bucketPath = new Path(outDir.toURI());
         int rowsCount = 4;
-        List<RowData> testRows = TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
 
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(
             bucketPath,
@@ -134,8 +145,11 @@ public class DeltaWriterBucketTest {
         // WHEN
         // writing 4 rows, while only the second one should force rolling
         writeData(bucketWriter, testRows);
-        List<DeltaCommittable> deltaCommittables =
-            onCheckpointActions(bucketWriter, bucketPath, true);
+        List<DeltaCommittable> deltaCommittables = onCheckpointActions(
+            bucketWriter,
+            bucketPath,
+            true // doCommit
+        );
 
         // THEN
         assertEquals(
@@ -153,18 +167,35 @@ public class DeltaWriterBucketTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path bucketPath = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
 
         DeltaWriterBucket<RowData> bucketWriter = getBucketWriter(bucketPath);
 
         // WHEN
         writeData(bucketWriter, testRows);
         List<DeltaCommittable> deltaCommittables =
-            onCheckpointActions(bucketWriter, bucketPath, false);
+            onCheckpointActions(
+                bucketWriter,
+                bucketPath,
+                false // doCommit
+            );
 
         // THEN
         assertEquals(deltaCommittables.size(), 1);
         getWrittenRecordsCount(deltaCommittables, bucketPath);
+    }
+
+    @Test
+    public void testSerde() throws IOException {
+        DeltaWriterBucketState bucketState =
+            new DeltaWriterBucketState(
+                "bucketId",
+                new Path("file:///tmp/bucketId"),
+                "appId",
+                1
+            );
+        DeltaWriterBucketState deserialized = serializeAndDeserialize(bucketState);
+        assertBucketStateEquals(bucketState, deserialized);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -177,20 +208,23 @@ public class DeltaWriterBucketTest {
         return DeltaWriterBucket.DeltaWriterBucketFactory.getNewBucket(
             BUCKET_ID,
             bucketPath,
-            WriterTestUtils.createBucketWriter(bucketPath),
+            DeltaSinkTestUtils.createBucketWriter(bucketPath),
             rollingPolicy,
             OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build()
         );
     }
 
     private static DeltaWriterBucket<RowData> getBucketWriter(Path bucketPath) throws IOException {
-        return getBucketWriter(bucketPath, WriterTestUtils.ON_CHECKPOINT_ROLLING_POLICY);
+        return getBucketWriter(bucketPath, DeltaSinkTestUtils.ON_CHECKPOINT_ROLLING_POLICY);
     }
 
     private static List<DeltaCommittable> onCheckpointActions(DeltaWriterBucket<RowData> bucket,
                                                               Path bucketPath,
                                                               boolean doCommit) throws IOException {
-        List<DeltaCommittable> deltaCommittables = bucket.prepareCommit(false, APP_ID, 1);
+        List<DeltaCommittable> deltaCommittables = bucket.prepareCommit(
+            false, // flush
+            APP_ID,
+            1);
         DeltaWriterBucketState bucketState = bucket.snapshotState(APP_ID, 1);
 
         assertEquals(BUCKET_ID, bucketState.getBucketId());
@@ -198,7 +232,7 @@ public class DeltaWriterBucketTest {
 
         if (doCommit) {
             new DeltaCommitter(
-                WriterTestUtils.createBucketWriter(bucketPath)).commit(deltaCommittables);
+                DeltaSinkTestUtils.createBucketWriter(bucketPath)).commit(deltaCommittables);
         }
         return deltaCommittables;
     }
@@ -220,7 +254,7 @@ public class DeltaWriterBucketTest {
         for (DeltaCommittable committable : committables) {
             Path filePath = new Path(bucketPath, committable.getDeltaPendingFile().getFileName());
             writtenRecordsCount +=
-                TestParquetReader.readAndParseRecords(filePath, TestRowData.TEST_ROW_TYPE);
+                TestParquetReader.parseAndCountRecords(filePath, DeltaSinkTestUtils.TEST_ROW_TYPE);
         }
         return writtenRecordsCount;
     }
@@ -229,8 +263,8 @@ public class DeltaWriterBucketTest {
 
         /**
          * Forcing second row to roll current in-progress file.
-         * See {@link TestRowData#getTestRowData} for reference on the incrementing logic of the
-         * test rows.
+         * See {@link DeltaSinkTestUtils#getTestRowData} for reference on the incrementing logic of
+         * the test rows.
          */
         @Override
         public boolean shouldRollOnEvent(PartFileInfo<String> partFileState, RowData element) {
@@ -242,5 +276,25 @@ public class DeltaWriterBucketTest {
                                                   long currentTime) {
             return false;
         }
+    }
+
+    ///////////////////////////////////////////////////
+    // serde test utils
+    ///////////////////////////////////////////////////
+
+    private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)
+        throws IOException {
+        DeltaWriterBucketStateSerializer serializer =
+            new DeltaWriterBucketStateSerializer();
+        byte[] data = serializer.serialize(bucketState);
+        return serializer.deserialize(serializer.getVersion(), data);
+    }
+
+    private void assertBucketStateEquals(
+        DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
+        assertEquals(bucketState.getBucketId(), deserialized.getBucketId());
+        assertEquals(bucketState.getBucketPath(), deserialized.getBucketPath());
+        assertEquals(bucketState.getAppId(), deserialized.getAppId());
+        assertEquals(bucketState.getCheckpointId(), deserialized.getCheckpointId());
     }
 }

@@ -27,6 +27,8 @@ import org.apache.flink.core.fs.RecoverableWriter;
 import org.apache.flink.util.Preconditions;
 
 /**
+ * A factory that creates {@link DeltaBulkPartWriter DeltaBulkPartWriters}.
+ * <p>
  * This class is provided as a part of workaround for getting actual file size.
  * <p>
  * Compared to its original version {@link BulkPartWriter} it changes only the return types

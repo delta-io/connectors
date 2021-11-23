@@ -50,9 +50,10 @@ import io.delta.standalone.DeltaLog;
  * semantics for both {@code BATCH} and {@code STREAMING}.
  * <p>
  * Behaviour of this sink splits down upon two phases. The first phase takes place between
- * application's checkpoints when events are being flushed to files (or appended to writers'
+ * application's checkpoints when records are being flushed to files (or appended to writers'
  * buffers) where the behaviour is almost identical as in case of
  * {@link org.apache.flink.connector.file.sink.FileSink}.
+ * <p>
  * Next during the checkpoint phase files are "closed" (renamed) by the independent instances of
  * {@link org.apache.flink.connector.delta.sink.committer.DeltaCommitter} that behave very similar
  * to {@link org.apache.flink.connector.file.sink.committer.FileCommitter}.
@@ -62,16 +63,46 @@ import io.delta.standalone.DeltaLog;
  * This {@link DeltaSink} sources many specific implementations from the
  * {@link org.apache.flink.connector.file.sink.FileSink} so for most of the low level behaviour one
  * may refer to the docs from this module. The most notable differences to the FileSinks are:
- * - tightly coupling DeltaSink to the Bulk-/ParquetFormat
- * - extending committable information with files metadata (name, size, rows, last update timestamp)
- * - providing DeltaLake-specific behaviour which is mostly contained in the
- * {@link DeltaGlobalCommitter} implementing
- * the commit to the {@link DeltaLog} at the final stage of each checkpoint.
+ * <ul>
+ *  <li>tightly coupling DeltaSink to the Bulk-/ParquetFormat</li>
+ *  <li>extending committable information with files metadata (name, size, rows, last update
+ *      timestamp)</li>
+ *  <li>providing DeltaLake-specific behaviour which is mostly contained in the
+ *      {@link DeltaGlobalCommitter} implementing the commit to the {@link DeltaLog} at the final
+ *      stage of each checkpoint.</li>
+ * </ul>
+ * <p>
+ * The relations and lifecycle of objects within given {@link DeltaSink} are as follow
+ * <ul>
+ *     <li>{@link DeltaSink} is the main class exposing the user-facing methods for creating the
+ *         sink</li>
+ *     <li>{@link DeltaSinkBuilder} is the builder class for {@link DeltaSink} objects. It
+ *         exposes all main configuration settings for creating the sink.</li>
+ *     <li>{@link DeltaWriter} is the main interface for Flink's {@link Sink} topology performing
+ *         the single unit of work on an event-level and generating the committables that will be
+ *         used during commit stage. In our case {@link DeltaWriter} delegates the the actual work
+ *         to underlying {@link org.apache.flink.connector.delta.sink.writer.DeltaWriterBucket}
+ *         objects. The relation between the writer and its buckets is that the writer manages a
+ *         collection of the buckets for which it received the events during given checkpoint
+ *         interval. Here one bucket writer corresponds to a one partition in a Delta Lake's table.
+ *         So in a given checkpoint interval one writer can have zero, one or multiple buckets.
+ *     <li>{@link org.apache.flink.connector.delta.sink.writer.DeltaWriterBucket} is being created
+ *         always inside {@link DeltaWriter} instance and corresponds to a one partition in Delta
+ *         Lake's table (the partition's path and bucket's output path are matching). It is provided
+ *         by the {@link DeltaWriter} with incoming stream's events and passes those events
+ *         to a particular
+ *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkPartWriter}
+ *         instance that contains underlying logic for flushing data to the OS. Besides that it
+ *         manages metadata of the written files and records (both directly and indirectly by using
+ *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaInProgressPart})
+ *         and uses those metadata to generate committables' information during a pre-commit phase.
+ *
+ * </ul>
  *
  * @param <IN> Type of the elements in the input of the sink that are also the elements to be
  *             written to its output
  * @implNote This sink sources many methods and solutions from
- * {@link org.apache.flink.connector.file.sink.FileSink} implementation simply by coping the
+ * {@link org.apache.flink.connector.file.sink.FileSink} implementation simply by copying the
  * code since it was not possible to directly reuse those due to some access specifiers, use of
  * generics and need to provide some internal workarounds compared to the FileSink. To make it
  * explicit which methods are directly copied from FileSink we use `FileSink-specific methods`
@@ -92,12 +123,12 @@ public class DeltaSink<IN>
      * incoming stream events to the correct bucket writer and then flushed to the underlying files.
      * <p>
      * The logic for resolving constructor params differ depending on whether any previous writer's
-     * state exists.
-     * If no then we assume that this is a fresh start of the app and set next checkpoint id in
-     * {@link DeltaWriter} to 1 and app id is taken from the {@link DeltaSinkBuilder#getAppId}
-     * what guarantees us that each writer will get the same value.
-     * In other case, if we are provided by the Flink framework with some previous writers' states
-     * then we use those to restore values of appId and nextCheckpointId.
+     * states were provided.
+     * If there are no previous states then we assume that this is a fresh start of the app and set
+     * next checkpoint id in {@link DeltaWriter} to 1 and app id is taken from the
+     * {@link DeltaSinkBuilder#getAppId} what guarantees us that each writer will get the same
+     * value. In other case, if we are provided by the Flink framework with some previous writers'
+     * states then we use those to restore values of appId and nextCheckpointId.
      *
      * @param context {@link SinkWriter} init context object
      * @param states  restored states of the writers. Will be empty collection for fresh start.
@@ -146,7 +177,6 @@ public class DeltaSink<IN>
      * @return value of the nextCheckpointId to be passed to the new writer's instance
      */
     private long restoreOrGetNextCheckpointId(List<DeltaWriterBucketState> states) {
-
         if (states.isEmpty()) {
             return 1;
         }
@@ -182,9 +212,8 @@ public class DeltaSink<IN>
     }
 
     @Override
-    public Optional<
-        GlobalCommitter<DeltaCommittable,
-            DeltaGlobalCommittable>> createGlobalCommitter() {
+    public Optional<GlobalCommitter<DeltaCommittable,
+        DeltaGlobalCommittable>> createGlobalCommitter() {
         return Optional.of(sinkBuilder.createGlobalCommitter());
     }
 
