@@ -2,7 +2,7 @@ name: "Delta Lake Connectors Tests"
 on: [push, pull_request]
 jobs:
   build:
-    name: "Run tests "
+    name: "Run tests"
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -22,19 +22,19 @@ jobs:
             ~/.ivy2
             ~/.cache/coursier
           key: build-cache-scala${{ matrix.scala }}
-      - name: Run sqlDeltaImport tests
-        run: build/sbt "++ ${{ matrix.scala }} sqlDeltaImport/test"
+      - name: Run Scala Style tests
+      - run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
+      - name: Run sqlDeltaImport tests (Scala 2.12 only)
+        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
-      - name: Run compatibility tests
+      - name: Run Delta Standalone Compatibility tests (Scala 2.12 only)
       - run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
         if: matrix.scala != '2.11.12'
-      - name: Run SBT tests
-        run: |
-          build/sbt "++ ${{ matrix.scala }} testScalastyle"
-          build/sbt "++ ${{ matrix.scala }} standalone/test"
-          build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
-          build/sbt "++ ${{ matrix.scala }} hiveMR/test"
-          build/sbt "++ ${{ matrix.scala }} hiveTez/test"
-          build/sbt "++ ${{ matrix.scala }} hive2MR/test"
-          build/sbt "++ ${{ matrix.scala }} hive2Tez/test"
-          build/sbt "++ ${{ matrix.scala }} flinkConnector/test"
+      - name: Run Delta Standalone tests
+      - run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
+      - name: Run Hive 3 tests
+      - run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test hiveTez/test
+      - name: Run Hive 2 tests
+      - run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test hive2Tez/test
+      - name: Run Fink tests
+      - run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
