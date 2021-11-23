@@ -21,7 +21,8 @@ jobs:
             ~/.sbt
             ~/.ivy2
             ~/.cache/coursier
-          key: build-cache-scala${{ matrix.scala }}
+            ~/.m2
+          key: build-cache-with-scala_${{ matrix.scala }}
       - name: Run Scala Style tests
         run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
       - name: Run sqlDeltaImport tests (Scala 2.12 only)
@@ -36,5 +37,5 @@ jobs:
         run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test hiveTez/test
       - name: Run Hive 2 tests
         run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test hive2Tez/test
-      - name: Run Fink tests
+      - name: Run Flink tests
         run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
