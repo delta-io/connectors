@@ -23,7 +23,7 @@ jobs:
             ~/.cache/coursier
             ~/.m2
           key: build-cache-with-scala_${{ matrix.scala }}
-      - name: Run Scala Style tests
+      - name: Run Scala Style tests on test sources
         run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
       - name: Run sqlDeltaImport tests (Scala 2.12 only)
         run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
