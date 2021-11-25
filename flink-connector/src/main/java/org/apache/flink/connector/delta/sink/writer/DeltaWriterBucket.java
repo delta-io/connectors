@@ -70,21 +70,21 @@ import static org.apache.flink.util.Preconditions.checkState;
  *     <li>Every instance is being created via {@link DeltaWriter#write} method whenever writer
  *         receives first event that belongs to the bucket represented by given
  *         {@link DeltaWriterBucket} instance. Or in case of non-partitioned tables whenever writer
- *         receives the very first event as in such cases there is only one {@link DeltaWriterBucket}
- *         representing the root path of the table</li>
- *     <li>Life span of one {@link DeltaWriterBucket} may hold through one or more checkpoint intervals.
- *         It remains "active" as long as it receives data. If e.g. for given checkpoint interval
- *         instance of {@link DeltaWriter} hasn't received any events belonging to given bucket,
- *         then {@link DeltaWriterBucket} representind this bucket is de-listed from the writer's
- *         internal bucket's iterator. If in future checkpoint interval given {@link DeltaWriter}
- *         will receive some more events for given bucket then it will create new instance of
- *         {@link DeltaWriterBucket} representing this bucket.
+ *         receives the very first event as in such cases there is only one
+ *         {@link DeltaWriterBucket} representing the root path of the table</li>
+ *     <li>Life span of one {@link DeltaWriterBucket} may hold through one or more checkpoint
+ *         intervals. It remains "active" as long as it receives data. If e.g. for given checkpoint
+ *         interval instance of {@link DeltaWriter} hasn't received any events belonging to given
+ *         bucket, then {@link DeltaWriterBucket} representind this bucket is de-listed from the
+ *         writer's internal bucket's iterator. If in future checkpoint interval given
+ *         {@link DeltaWriter} will receive some more events for given bucket then it will create
+ *         new instance of {@link DeltaWriterBucket} representing this bucket.
  *         </li>
  *     <li>Number of instances of {@link DeltaWriterBucket} can be smaller, equal or greater then
  *         number of instance of {@link DeltaWriter}. It's smaller when not all (or none) of the
  *         writer's received events. It's equal if the table is not partitioned or if every writer
- *         has been receiving data for only one bucket. It's greater if any of the writers has received
- *         events belonging to more than one bucket during given checkpoint interval.</li>
+ *         has been receiving data for only one bucket. It's greater if any of the writers has
+ *         received events belonging to more than one bucket during given checkpoint interval.</li>
  * </ol>
  *
  * @param <IN> The type of input elements.
@@ -263,8 +263,8 @@ class DeltaWriterBucket<IN> {
 
     /**
      * Method responsible for "closing" currently opened in-progress file and appending new
-     * {@link DeltaPendingFile} instance to {@link this#pendingFiles}. Those pending files
-     * during commit will become critical part of committables information passed to both
+     * {@link DeltaPendingFile} instance to {@link DeltaWriterBucket#pendingFiles}. Those pending
+     * files during commit will become critical part of committables information passed to both
      * types of committers.
      *
      * @throws IOException Thrown if the encoder cannot be flushed, or if the output stream throws

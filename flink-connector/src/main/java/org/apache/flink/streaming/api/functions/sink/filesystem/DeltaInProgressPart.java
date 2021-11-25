@@ -39,8 +39,8 @@ package org.apache.flink.streaming.api.functions.sink.filesystem;
  *         met conditions for rolling (e.g. size threshold)</li>
  *     <li>It's life span holds as long as the underlying file stays in an in-progress state (so
  *         until it's "rolled"), but no longer then single checkpoint interval.</li>
- *     <li>During pre-commit phase every existing {@link DeltaInProgressPart} instance is automatically
- *         transformed ("rolled") into a {@link DeltaPendingFile} instance</li>
+ *     <li>During pre-commit phase every existing {@link DeltaInProgressPart} instance is
+ *         automatically transformed ("rolled") into a {@link DeltaPendingFile} instance</li>
  * </ol>
  *
  * @param <IN> The type of input elements.

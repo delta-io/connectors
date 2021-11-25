@@ -32,8 +32,8 @@ import org.apache.flink.util.Preconditions;
  * This class is provided as a part of workaround for getting actual file size.
  * <p>
  * Compared to its original version {@link BulkPartWriter} it changes only the return types
- * for methods {@link this#resumeFrom} and {@link this#openNew} to a custom implementation
- * of {@link BulkPartWriter} that is {@link DeltaBulkPartWriter}.
+ * for methods {@link DeltaBulkBucketWriter#resumeFrom} and {@link DeltaBulkBucketWriter#openNew} to
+ * a custom implementation of {@link BulkPartWriter} that is {@link DeltaBulkPartWriter}.
  *
  * @param <IN>       The type of input elements.
  * @param <BucketID> The type of bucket identifier

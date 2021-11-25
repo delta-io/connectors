@@ -58,9 +58,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>
  * Lifecycle of instances of this class is as follows:
  * <ol>
- *     <li>Every instance is being created via {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter} method</li>
- *     <li>Writers' life spand is the same as the application's (unless the worker node gets unresponding
- *         and the job manager needs to create a new instance to satisfy the parallelism)</li>
+ *     <li>Every instance is being created via
+ *         {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter} method</li>
+ *     <li>Writers' life spand is the same as the application's (unless the worker node gets
+ *         unresponding and the job manager needs to create a new instance to satisfy the
+ *         parallelism)</li>
  *     <li>Number of instances are managed globally by a job manager and this number is equal to the
  *         parallelism of the sink.
  *         @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/dev/datastream/execution/parallel/" target="_blank">Flink's parallel execution</a></li>
@@ -129,6 +131,12 @@ public class DeltaWriter<IN>
      *                         correctness is to follow DeltaLake's style of table partitioning.
      * @param bucketWriter     The {@link DeltaBulkBucketWriter} to be used when writing data.
      * @param rollingPolicy    The {@link CheckpointRollingPolicy} as specified by the user.
+     * @param outputFileConfig The {@link OutputFileConfig} to configure the options for output
+     *                         files.
+     * @param processingTimeService The {@link Sink.ProcessingTimeService} that allows to get the
+     *                             current processing time and register timers that will execute
+     *                             the given Sink.ProcessingTimeService.ProcessingTimeCallback when
+     *                             firing.
      * @param appId            Unique identifier of the current Flink app. This identifier needs to
      *                         constant across all app's restarts to guarantee idempotent
      *                         writes/commits to the DeltaLake's table.
@@ -168,6 +176,7 @@ public class DeltaWriter<IN>
     /**
      * Prepares the writer's state to be snapshotted between checkpoint intervals.
      * <p>
+     *
      * @implNote This method behaves in the similar way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#snapshotState}
      * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
@@ -240,10 +249,11 @@ public class DeltaWriter<IN>
      * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter} to finalize the
      * checkpoint interval and commit written files.
      * <p>
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#prepareCommit}
      * except that it uses custom {@link DeltaWriterBucket} implementation and
-     * also increments the {@link this#nextCheckpointId} counter.
+     * also increments the {@link DeltaWriter#nextCheckpointId} counter.
      */
     @Override
     public List<DeltaCommittable> prepareCommit(boolean flush) throws IOException {
@@ -278,7 +288,7 @@ public class DeltaWriter<IN>
      * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
      * implementations.
      * Additionally, it skips restoring the bucket in case of bucket id equal to the value of
-     * {@link this#NOOP_WRITER_STATE}.
+     * {@link DeltaWriter#NOOP_WRITER_STATE}.
      */
     public void initializeState(List<DeltaWriterBucketState> bucketStates) throws IOException {
         checkNotNull(bucketStates, "The retrieved state was null.");

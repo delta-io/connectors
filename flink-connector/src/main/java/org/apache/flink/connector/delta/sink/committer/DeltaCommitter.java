@@ -52,7 +52,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *       Valid note here is that's also the default {@link FileSink}'s behaviour for all of the
  *       bulk formats (Parquet included).</li>
  * </ol>
- * </p>
  * <p>
  * Lifecycle of instances of this class is as follows:
  * <ol>

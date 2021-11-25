@@ -29,7 +29,6 @@ import org.apache.flink.connector.delta.sink.Meta;
 import org.apache.flink.connector.delta.sink.SchemaConverter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
-import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.table.types.logical.RowType;
@@ -58,7 +57,8 @@ import io.delta.standalone.types.StructType;
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Instances of this class are being created during a (global) commit stage</li>
- *     <li>For given commit stage there is only one singleton instance of {@link DeltaGlobalCommitter}</li>
+ *     <li>For given commit stage there is only one singleton instance of
+ *         {@link DeltaGlobalCommitter}</li>
  *     <li>Every instance exists only during given commit stage after finishing particular
  *         checkpoint interval. Despite being bundled to a finish phase of a checkpoint interval
  *         a single instance of {@link DeltaGlobalCommitter} may process committables from multiple
@@ -109,10 +109,11 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Filters committables that will be provided to {@link this#commit} method.
+     * Filters committables that will be provided to {@link GlobalCommitter#commit} method.
      * <p>
      * We are always returning all the committables as we do not implement any retry behaviour
-     * in {@link this#commit} method and always want to try to commit all the received committables.
+     * in {@link GlobalCommitter#commit} method and always want to try to commit all the received
+     * committables.
      *
      * @param globalCommittables list of combined committables objects
      * @return same as input
@@ -127,7 +128,7 @@ public class DeltaGlobalCommitter
      * Compute an aggregated committable from a list of committables.
      * <p>
      * We just wrap received list of committables inside a {@link DeltaGlobalCommitter} instance
-     * as we will do all of the processing in {@link this#commit} method.
+     * as we will do all of the processing in {@link GlobalCommitter#commit} method.
      *
      * @param committables list of committables object that may be coming from multiple checkpoint
      *                     intervals
@@ -190,7 +191,6 @@ public class DeltaGlobalCommitter
      *   <li>if the commit fails then we fail the application as well. If it succeeds then we
      *       proceed with the next checkpointId (if any).
      * </ol>
-     * </p>
      *
      * @param globalCommittables list of combined committables objects
      * @return always empty collection as we do not want any retry behaviour
