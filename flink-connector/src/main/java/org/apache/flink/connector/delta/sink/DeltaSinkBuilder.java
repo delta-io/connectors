@@ -254,6 +254,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     /**
      * Creates the actual sink.
+     * @return constructed {@link DeltaSink} object
      */
     public DeltaSink<IN> build() {
         return new DeltaSink<>(this);

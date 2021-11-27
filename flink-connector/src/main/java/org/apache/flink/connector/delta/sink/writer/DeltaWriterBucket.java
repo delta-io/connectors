@@ -90,7 +90,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * @param <IN> The type of input elements.
  */
 @Internal
-class DeltaWriterBucket<IN> {
+public class DeltaWriterBucket<IN> {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeltaWriterBucket.class);
 

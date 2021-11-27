@@ -124,24 +124,28 @@ public class DeltaWriter<IN>
     /**
      * A constructor creating a new empty bucket (DeltaLake table's partitions) manager.
      *
-     * @param basePath         The base path for the table
-     * @param bucketAssigner   The {@link BucketAssigner} provided by the user. It is advised to use
-     *                         {@link DeltaTablePartitionAssigner} however users are allowed to use
-     *                         any custom implementation of bucketAssigner. The only requirement for
-     *                         correctness is to follow DeltaLake's style of table partitioning.
-     * @param bucketWriter     The {@link DeltaBulkBucketWriter} to be used when writing data.
-     * @param rollingPolicy    The {@link CheckpointRollingPolicy} as specified by the user.
-     * @param outputFileConfig The {@link OutputFileConfig} to configure the options for output
-     *                         files.
+     * @param basePath              The base path for the table
+     * @param bucketAssigner        The {@link BucketAssigner} provided by the user. It is advised
+     *                              to use {@link DeltaTablePartitionAssigner} however users are
+     *                              allowed to use any custom implementation of bucketAssigner. The
+     *                              only requirement for correctness is to follow DeltaLake's style
+     *                              of table partitioning.
+     * @param bucketWriter          The {@link DeltaBulkBucketWriter} to be used when writing data.
+     * @param rollingPolicy         The {@link CheckpointRollingPolicy} as specified by the user.
+     * @param outputFileConfig      The {@link OutputFileConfig} to configure the options for output
+     *                              files.
      * @param processingTimeService The {@link Sink.ProcessingTimeService} that allows to get the
-     *                             current processing time and register timers that will execute
-     *                             the given Sink.ProcessingTimeService.ProcessingTimeCallback when
-     *                             firing.
-     * @param appId            Unique identifier of the current Flink app. This identifier needs to
-     *                         constant across all app's restarts to guarantee idempotent
-     *                         writes/commits to the DeltaLake's table.
-     * @param nextCheckpointId Identifier of the next checkpoint interval to be committed. During
-     *                         DeltaLog's commit phase it will be used as transaction's version.
+     *                              current processing time and register timers that will execute
+     *                              the given Sink.ProcessingTimeService.ProcessingTimeCallback when
+     *                              firing.
+     * @param bucketCheckInterval   interval for invoking the {@link Sink.ProcessingTimeService}'s
+     *                              callback.
+     * @param appId                 Unique identifier of the current Flink app. This identifier
+     *                              needs to constant across all app's restarts to guarantee
+     *                              idempotent writes/commits to the DeltaLake's table.
+     * @param nextCheckpointId      Identifier of the next checkpoint interval to be committed.
+     *                              During DeltaLog's commit phase it will be used as transaction's
+     *                              version.
      */
     public DeltaWriter(
         final Path basePath,

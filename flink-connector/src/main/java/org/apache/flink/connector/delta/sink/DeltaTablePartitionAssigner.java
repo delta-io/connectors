@@ -32,7 +32,7 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  * <p>
  * This implementation can be perceived as a utility class for complying to the DeltaLake's
  * partitioning style (that follows Apache Hive's partitioning style by providing the partitioning
- * column's and its values as FS directories paths, e.g. "/<some_path>/table_1/date=2020-01-01")
+ * column's and its values as FS directories paths, e.g. "/some_path/table_1/date=2020-01-01")
  * It's still possible for users to roll out their own version of {@link BucketAssigner}
  * and pass it to the {@link DeltaSinkBuilder} during creation of the sink.
  *
@@ -74,14 +74,16 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
          * If the table has two partitioning columns 'date' and 'country' then this method should
          * return linked hashmap like:
          * LinkedHashMap(
-         * "date" -> "2020-01-01",
-         * "country" -> "x"
+         * "date" -&gt; "2020-01-01",
+         * "country" -&gt; "x"
          * )
          * <p>
          * for event that should be written to example path of:
-         * "/<some_path>/table_1/date=2020-01-01/country=x".
+         * '/some_path/table_1/date=2020-01-01/country=x'.
          *
          * @param element input record.
+         * @param context {@link BucketAssigner.Context} that can be used during partition's
+         *                assignment
          * @return partition values.
          */
         LinkedHashMap<String, String> generatePartitionValues(

@@ -45,7 +45,8 @@ lazy val commonSettings = Seq(
   organization := "io.delta",
   scalaVersion := "2.12.8",
   fork := true,
-  javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
+  javacOptions ++= Seq("-source", "1.8"), // "-target", "1.8", , "-Xlint:unchecked"
+  publishArtifact in (Compile, packageDoc) := false,
   scalacOptions ++= Seq("-target:jvm-1.8", "-Ywarn-unused-import"),
   // Configurations to speed up tests and reduce memory footprint
   javaOptions in Test ++= Seq(
@@ -403,7 +404,7 @@ lazy val testStandaloneCosmetic = project.dependsOn(standaloneCosmetic)
   )
 
 lazy val standalone = (project in file("standalone"))
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
+  //.enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     name := "delta-standalone-original",
     skip in publish := true,
@@ -430,7 +431,7 @@ lazy val standalone = (project in file("standalone"))
       "org.slf4j" % "slf4j-log4j12" % "1.7.25"
     ),
     sourceGenerators in Compile += Def.task {
-      val file = (sourceManaged in Compile).value / "meta" / "package.scala"
+      val file = (sourceManaged in Compile).value / "io" / "delta" / "standalone" / "package.scala"
       IO.write(file,
         s"""package io.delta
           |
@@ -486,29 +487,31 @@ lazy val standalone = (project in file("standalone"))
       val art = (artifact in assembly).value
       art.withClassifier(Some("assembly"))
     },
-    addArtifact(artifact in assembly, assembly),
-    /**
-     * Unidoc settings
-     * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
-     */
-    javacOptions in (JavaUnidoc, unidoc) := Seq(
-      "-public",
-      "-windowtitle", "Delta Standalone Reader " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
-      "-noqualifier", "java.lang",
-      "-tag", "return:X",
-      // `doclint` is disabled on Circle CI. Need to enable it manually to test our javadoc.
-      "-Xdoclint:all"
-    ),
-    unidocAllSources in(JavaUnidoc, unidoc) := {
-      (unidocAllSources in(JavaUnidoc, unidoc)).value
-        // ignore any internal Scala code
-        .map(_.filterNot(_.getName.contains("$")))
-        .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
-        // ignore project `hive` which depends on this project
-        .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
-    },
-    // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
-    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
+    addArtifact(artifact in assembly, assembly)
+//    ,
+//    /**
+//     * Unidoc settings
+//     * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
+//     */
+//    javacOptions in (JavaUnidoc, unidoc) := Seq(
+//      "-public",
+//      "-windowtitle", "Delta Standalone Reader " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
+//      "-noqualifier", "java.lang",
+//      "-tag", "return:X",
+//      "-tag", "implNote:a:Implementation Note:",
+//      // `doclint` is disabled on Circle CI. Need to enable it manually to test our javadoc.
+//      "-Xdoclint:all"
+//    ),
+//    unidocAllSources in(JavaUnidoc, unidoc) := {
+//      (unidocAllSources in(JavaUnidoc, unidoc)).value
+//        // ignore any internal Scala code
+//        .map(_.filterNot(_.getName.contains("$")))
+//        .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+//        // ignore project `hive` which depends on this project
+//        .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
+//    },
+//    // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
+//    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
   )
 
 /*
@@ -619,17 +622,15 @@ lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",
     commonSettings,
-    publishArtifact := scalaBinaryVersion.value == "2.12",
+    releaseSettings,
     publishArtifact in Test := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-core" % flinkVersion,
-      "org.apache.flink" % "flink-connector-files" % flinkVersion,
-      "org.apache.flink" % "flink-table-common" % flinkVersion,
-      "org.apache.flink" %% "flink-parquet" % flinkVersion,
-      "org.apache.flink" %% "flink-runtime" % flinkVersion,
-      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion,
-      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
+      "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided",
+      "org.apache.flink" %% "flink-runtime" % flinkVersion % "provided",
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion% "provided",
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
       "org.apache.flink" %% "flink-streaming-java" % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
@@ -647,5 +648,4 @@ lazy val flinkConnector = (project in file("flink-connector"))
       Seq(file)
     }
   )
-  .settings(skipReleaseSettings)
   .dependsOn(standalone)
