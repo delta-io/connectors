@@ -32,6 +32,7 @@ import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.utils.PartitionPathUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import io.delta.standalone.DeltaLog;
@@ -500,10 +501,12 @@ public class DeltaGlobalCommitter
      * @return {@link AddFile} object generated from input
      */
     private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
-        Map<String, String> partitionSpec = deltaPendingFile.getPartitionSpec();
+        LinkedHashMap<String, String> partitionSpec = deltaPendingFile.getPartitionSpec();
         long modificationTime = deltaPendingFile.getLastUpdateTime();
+        String filePath = PartitionPathUtils.generatePartitionPath(partitionSpec) +
+            deltaPendingFile.getFileName();
         return new AddFile(
-            deltaPendingFile.getFileName(),
+            filePath,
             partitionSpec,
             deltaPendingFile.getFileSize(),
             modificationTime,
@@ -513,10 +516,8 @@ public class DeltaGlobalCommitter
     }
 
     @Override
-    public void endOfInput() {
-    }
+    public void endOfInput() {}
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 }

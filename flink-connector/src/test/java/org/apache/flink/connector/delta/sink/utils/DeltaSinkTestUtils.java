@@ -20,20 +20,23 @@ package org.apache.flink.connector.delta.sink.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.DeltaSink;
+import org.apache.flink.connector.delta.sink.DeltaSinkBuilder;
+import org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.core.fs.FileSystem;
@@ -241,12 +244,12 @@ public class DeltaSinkTestUtils {
 
     public static int validateIfPathContainsParquetFilesWithData(String deltaTablePath)
         throws IOException {
-        List<File> files =
-            Stream.of(Objects.requireNonNull(new File(deltaTablePath).listFiles()))
-                .filter(file -> !file.isDirectory())
-                .filter(file -> !file.getName().contains("inprogress"))
-                .filter(file -> file.getName().endsWith(".snappy.parquet"))
-                .collect(Collectors.toList());
+        List<File> files = Files.walk(Paths.get(deltaTablePath))
+            .map(java.nio.file.Path::toFile)
+            .filter(file -> !file.isDirectory())
+            .filter(file -> !file.getName().contains("inprogress"))
+            .filter(file -> file.getName().endsWith(".snappy.parquet"))
+            .collect(Collectors.toList());
 
         assertTrue(files.size() > 0);
 
@@ -315,16 +318,32 @@ public class DeltaSinkTestUtils {
     // IT case utils
     ///////////////////////////////////////////////////////////////////////////
 
-    public static DeltaSink<RowData> createDeltaSink(String deltaTablePath) {
+    public static DeltaSink<RowData> createDeltaSink(String deltaTablePath,
+                                                     boolean isTablePartitioned) {
         ParquetWriterFactory<RowData> factory = DeltaSinkTestUtils.createTestWriterFactory();
 
-        return DeltaSink
+        DeltaSinkBuilder<RowData> builder = DeltaSink
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 DeltaSinkTestUtils.getHadoopConf(),
                 factory,
-                DeltaSinkTestUtils.TEST_ROW_TYPE)
-            .build();
+                DeltaSinkTestUtils.TEST_ROW_TYPE);
+
+        if (isTablePartitioned) {
+            return builder
+                .withBucketAssigner(getTestPartitionAssigner())
+                .build();
+        }
+        return builder.build();
+    }
+
+    public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {
+        DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> partitionComputer =
+            (element, context) -> new LinkedHashMap<String, String>() {{
+                    put("a", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
+                    put("c", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
+                }};
+        return new DeltaTablePartitionAssigner<>(partitionComputer);
     }
 
     public static MiniCluster getMiniCluster() {

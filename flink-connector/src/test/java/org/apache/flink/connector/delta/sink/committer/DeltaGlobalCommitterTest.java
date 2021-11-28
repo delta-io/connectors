@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.apache.flink.connector.delta.sink.SchemaConverter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
@@ -44,11 +45,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import io.delta.standalone.DeltaLog;
+import io.delta.standalone.actions.AddFile;
 
 /**
  * Tests for {@link DeltaGlobalCommitter}.
  */
-// TODO cover all corner cases
 public class DeltaGlobalCommitterTest {
 
     private final String TEST_APP_ID = UUID.randomUUID().toString();
@@ -81,12 +82,8 @@ public class DeltaGlobalCommitterTest {
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            DeltaSinkTestUtils.TEST_ROW_TYPE,
-            false // canTryUpdateSchema
-        );
+        DeltaGlobalCommitter globalCommitter =
+            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -115,6 +112,7 @@ public class DeltaGlobalCommitterTest {
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
+        // add new field to the schema
         List<RowType.RowField> fields = new ArrayList<>(
             DeltaSinkTestUtils.TEST_ROW_TYPE.getFields());
         fields.add(new RowType.RowField("someNewField", new IntType()));
@@ -151,20 +149,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE
-                .getFields()
-                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
-        );
-        fields.add(new RowType.RowField("someNewField", new IntType()));
-        RowType updatedSchema = new RowType(fields);
-
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            updatedSchema,
-            false // canTryUpdateSchema
-        );
+        RowType updatedSchema = dropOneColumnFromSchema();
+        DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -181,20 +167,9 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE
-                .getFields()
-                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
-        );
-        fields.add(new RowType.RowField("someNewField", new IntType()));
-        RowType updatedSchema = new RowType(fields);
+        RowType updatedSchema = dropOneColumnFromSchema();
 
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            updatedSchema,
-            true // canTryUpdateSchema
-        );
+        DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -205,20 +180,13 @@ public class DeltaGlobalCommitterTest {
         //GIVEN
         DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
 
-        LinkedHashMap<String, String> nonMatchingPartitionSpec =
-            DeltaSinkTestUtils.getTestPartitionSpec();
-        nonMatchingPartitionSpec.remove(nonMatchingPartitionSpec.keySet().toArray()[0]);
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            1, nonMatchingPartitionSpec);
+            1, getNonMatchingPartitionSpec());
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            DeltaSinkTestUtils.TEST_ROW_TYPE,
-            false // canTryUpdateSchema
-        );
+        DeltaGlobalCommitter globalCommitter =
+            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -240,12 +208,8 @@ public class DeltaGlobalCommitterTest {
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            DeltaSinkTestUtils.TEST_ROW_TYPE,
-            false // canTryUpdateSchema
-        );
+        DeltaGlobalCommitter globalCommitter =
+            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -260,15 +224,110 @@ public class DeltaGlobalCommitterTest {
             deltaLog.snapshot().getAllFiles().size());
     }
 
-    /**
-     * TODO
-     * Test cases to cover:
-     * test with committables from different checkpoint intervals, one outdated (only one should
-     * pass)
-     * test with committables from different checkpoint intervals with different schemas
-     * test with committables from the same checkpoint interval containg different partition columns
-     * (should fail)
-     */
+    @Test
+    public void testCommittablesFromDifferentCheckpointIntervalOneOutdated() throws IOException {
+        // GIVEN
+        // although it does not make any sense for real world scenarios that the retried set of
+        // committables is different from the previous one however for this test it better to
+        // differentiate those by changing the number of files to commit which will make the final
+        // validation unambiguous
+        int numAddedFiles1FirstTrial = 3;
+        int numAddedFiles1SecondTrial = 4;
+        int numAddedFiles2 = 10;
+        DeltaLog deltaLog = DeltaLog.forTable(
+            DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
+        assertEquals(-1, deltaLog.snapshot().getVersion());
+
+        List<DeltaCommittable> deltaCommittables1FirstTrial =
+            DeltaSinkTestUtils.getListOfDeltaCommittables(
+                numAddedFiles1FirstTrial, new LinkedHashMap<>(), 1);
+        List<DeltaCommittable> deltaCommittables1SecondTrial =
+            DeltaSinkTestUtils.getListOfDeltaCommittables(
+                numAddedFiles1SecondTrial, new LinkedHashMap<>(), 1);
+        List<DeltaCommittable> deltaCommittables2 = DeltaSinkTestUtils.getListOfDeltaCommittables(
+            numAddedFiles2, new LinkedHashMap<>(), 2);
+        List<DeltaCommittable> deltaCommittablesCombined = new ArrayList<>(Collections.emptyList());
+        deltaCommittablesCombined.addAll(deltaCommittables1SecondTrial);
+        deltaCommittablesCombined.addAll(deltaCommittables2);
+
+
+        List<DeltaGlobalCommittable> globalCommittables1FirstTrial =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables1FirstTrial));
+        List<DeltaGlobalCommittable> globalCommittablesCombined =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittablesCombined));
+
+        DeltaGlobalCommitter globalCommitter =
+            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
+
+        // WHEN
+        // we first commit committables from the former checkpoint interval, and then combined
+        // committables from both checkpoint intervals
+        globalCommitter.commit(globalCommittables1FirstTrial);
+        globalCommitter.commit(globalCommittablesCombined);
+
+        // THEN
+        // we should've committed only files from the first try for checkpointId == 1 and files
+        // for checkpointId == 2
+        deltaLog.update();
+        assertEquals(1, deltaLog.snapshot().getVersion());
+        List<AddFile> filesInTable = deltaLog.snapshot().getAllFiles();
+        assertEquals(numAddedFiles1FirstTrial + numAddedFiles2, filesInTable.size());
+
+        // we simply check if the table really contains all the files from the first trial
+        // and by implication it will also mean that it does not contain any files from second trial
+        for (DeltaCommittable deltaCommittable : deltaCommittables1FirstTrial) {
+            Stream<String> filePathsInTableStream = filesInTable
+                .stream()
+                .map(AddFile::getPath);
+            assertTrue(
+                filePathsInTableStream.anyMatch(name -> {
+                    String name1 = deltaCommittable.getDeltaPendingFile().getFileName();
+                    return name.equals(name1);
+                })
+            );
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testCommittablesFromDifferentCheckpointIntervalOneWithIncompatiblePartitions()
+        throws Exception {
+        //GIVEN
+        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        int numAddedFiles1 = 3;
+        int numAddedFiles2 = 5;
+        DeltaLog deltaLog = DeltaLog.forTable(
+            DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
+        assertEquals(0, deltaLog.snapshot().getVersion());
+        int initialNumberOfFiles = deltaLog.snapshot().getAllFiles().size();
+
+        List<DeltaCommittable> deltaCommittables1 = DeltaSinkTestUtils.getListOfDeltaCommittables(
+            numAddedFiles1, DeltaSinkTestUtils.getTestPartitionSpec(), 1);
+        List<DeltaCommittable> deltaCommittables2 = DeltaSinkTestUtils.getListOfDeltaCommittables(
+            numAddedFiles2, getNonMatchingPartitionSpec(), 2);
+
+        List<DeltaGlobalCommittable> globalCommittables = Arrays.asList(
+            new DeltaGlobalCommittable(deltaCommittables1),
+            new DeltaGlobalCommittable(deltaCommittables2)
+        );
+
+        DeltaGlobalCommitter globalCommitter =
+            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
+
+        // WHEN
+        try {
+            globalCommitter.commit(globalCommittables);
+        } catch (Exception exc) {
+            // the commit should raise an exception for incompatible committables for the second
+            // checkpoint interval but correct committables for the first checkpoint interval should
+            // have been committed
+            deltaLog.update();
+            assertEquals(1, deltaLog.snapshot().getVersion());
+            assertEquals(
+                initialNumberOfFiles + numAddedFiles1, deltaLog.snapshot().getAllFiles().size());
+            // we rethrow the exception for the test to pass
+            throw exc;
+        }
+    }
 
     @Test
     public void test() throws Exception {
@@ -317,6 +376,36 @@ public class DeltaGlobalCommitterTest {
         // THEN
         assertTrue(globalCommittable.getDeltaCommittables().isEmpty());
         assertTrue(deserialized.getDeltaCommittables().isEmpty());
+    }
+
+    ///////////////////////////////////////////////////
+    // test method utils
+    ///////////////////////////////////////////////////
+
+    private DeltaGlobalCommitter getTestGlobalCommitter(RowType schema) {
+        return new DeltaGlobalCommitter(
+            DeltaSinkTestUtils.getHadoopConf(),
+            tablePath,
+            schema,
+            false // canTryUpdateSchema
+        );
+    }
+
+    private RowType dropOneColumnFromSchema() {
+        List<RowType.RowField> fields = new ArrayList<>(
+            DeltaSinkTestUtils.TEST_ROW_TYPE
+                .getFields()
+                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
+        );
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        return new RowType(fields);
+    }
+
+    private LinkedHashMap<String, String> getNonMatchingPartitionSpec() {
+        LinkedHashMap<String, String> nonMatchingPartitionSpec =
+            DeltaSinkTestUtils.getTestPartitionSpec();
+        nonMatchingPartitionSpec.remove(nonMatchingPartitionSpec.keySet().toArray()[0]);
+        return nonMatchingPartitionSpec;
     }
 
     ///////////////////////////////////////////////////

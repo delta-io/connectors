@@ -54,7 +54,12 @@ public class DeltaGlobalCommitterTestParametrized {
     @ClassRule
     public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
-    @Parameterized.Parameters
+    @Parameterized.Parameters(
+        name = "canTryUpdateSchema = {0}, " +
+            "expectedTableVersionAfterCommit = {1}, " +
+            "partitionSpec = {2}, " +
+            "initializeTableBeforeCommit = {3}, "
+    )
     public static Collection<Object[]> params() {
         return Arrays.asList(
             new Object[]{false, 0, DeltaSinkTestUtils.getEmptyTestPartitionSpec(), false},

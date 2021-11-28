@@ -34,6 +34,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.table.data.RowData;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
@@ -113,9 +114,14 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
+        DeltaSink<RowData> deltaSink = DeltaSinkTestUtils.createDeltaSink(
+            path,
+            false // isTablePartitioned
+        );
+
         env.fromCollection(DeltaSinkTestUtils.getTestRowData(NUM_RECORDS))
             .setParallelism(1)
-            .sinkTo(DeltaSinkTestUtils.createDeltaSink(path))
+            .sinkTo(deltaSink)
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
