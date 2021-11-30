@@ -41,9 +41,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -116,36 +114,38 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     private OutputFileConfig outputFileConfig;
 
     protected DeltaSinkBuilder(
-            Path basePath,
-            Configuration conf,
-            ParquetWriterFactory<IN> writerFactory,
-            BucketAssigner<IN, String> assigner,
-            RowType rowType) {
+        Path basePath,
+        Configuration conf,
+        ParquetWriterFactory<IN> writerFactory,
+        BucketAssigner<IN, String> assigner,
+        CheckpointRollingPolicy<IN, String> policy,
+        RowType rowType,
+        boolean canTryUpdateSchema) {
         this(
-                basePath,
-                conf,
-                DEFAULT_BUCKET_CHECK_INTERVAL,
-                writerFactory,
-                assigner,
-                OnCheckpointRollingPolicy.build(),
-                OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
-                rowType,
-                generateNewAppId(),
-                false // canTryUpdateSchema
+            basePath,
+            conf,
+            DEFAULT_BUCKET_CHECK_INTERVAL,
+            writerFactory,
+            assigner,
+            policy,
+            OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
+            rowType,
+            generateNewAppId(),
+            canTryUpdateSchema
         );
     }
 
     protected DeltaSinkBuilder(
-            Path basePath,
-            Configuration conf,
-            long bucketCheckInterval,
-            ParquetWriterFactory<IN> writerFactory,
-            BucketAssigner<IN, String> assigner,
-            CheckpointRollingPolicy<IN, String> policy,
-            OutputFileConfig outputFileConfig,
-            RowType rowType,
-            String appId,
-            boolean canTryUpdateSchema) {
+        Path basePath,
+        Configuration conf,
+        long bucketCheckInterval,
+        ParquetWriterFactory<IN> writerFactory,
+        BucketAssigner<IN, String> assigner,
+        CheckpointRollingPolicy<IN, String> policy,
+        OutputFileConfig outputFileConfig,
+        RowType rowType,
+        String appId,
+        boolean canTryUpdateSchema) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
         this.bucketCheckInterval = bucketCheckInterval;
@@ -160,30 +160,16 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
         return new DeltaSinkBuilder<>(
-                tableBasePath,
-                serializableConfiguration.conf(),
-                bucketCheckInterval,
-                writerFactory,
-                bucketAssigner,
-                rollingPolicy,
-                outputFileConfig,
-                rowType,
-                appId,
-                canTryUpdateSchema);
-    }
-
-    public DeltaSinkBuilder<IN> withAppId(final String appId) {
-        return new DeltaSinkBuilder<>(
-                tableBasePath,
-                serializableConfiguration.conf(),
-                bucketCheckInterval,
-                writerFactory,
-                bucketAssigner,
-                rollingPolicy,
-                outputFileConfig,
-                rowType,
-                appId,
-                canTryUpdateSchema);
+            tableBasePath,
+            serializableConfiguration.conf(),
+            bucketCheckInterval,
+            writerFactory,
+            bucketAssigner,
+            rollingPolicy,
+            outputFileConfig,
+            rowType,
+            appId,
+            canTryUpdateSchema);
     }
 
     public DeltaSinkBuilder<IN> withCanTryUpdateSchema(final boolean canTryUpdateSchema) {
@@ -197,7 +183,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     DeltaGlobalCommitter createGlobalCommitter() {
         return new DeltaGlobalCommitter(
-                serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
+            serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
     }
 
     Path getTableBasePath() {
@@ -227,7 +213,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     }
 
     public DeltaSinkBuilder<IN> withRollingPolicy(
-            CheckpointRollingPolicy<IN, String> rollingPolicy) {
+        CheckpointRollingPolicy<IN, String> rollingPolicy) {
         this.rollingPolicy = checkNotNull(rollingPolicy);
         return this;
     }
@@ -237,23 +223,9 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         return this;
     }
 
-    public DeltaSinkBuilder<IN> withNewBucketAssigner(
-            BucketAssigner<IN, String> assigner) {
-        return new DeltaSinkBuilder<>(
-                tableBasePath,
-                serializableConfiguration.conf(),
-                bucketCheckInterval,
-                writerFactory,
-                checkNotNull(assigner),
-                rollingPolicy,
-                outputFileConfig,
-                rowType,
-                appId,
-                canTryUpdateSchema);
-    }
-
     /**
      * Creates the actual sink.
+     *
      * @return constructed {@link DeltaSink} object
      */
     public DeltaSink<IN> build() {
@@ -264,41 +236,41 @@ public class DeltaSinkBuilder<IN> implements Serializable {
                                  String appId,
                                  long nextCheckpointId) throws IOException {
         return new DeltaWriter<>(
-                tableBasePath,
-                bucketAssigner,
-                createBucketWriter(),
-                rollingPolicy,
-                outputFileConfig,
-                context.getProcessingTimeService(),
-                bucketCheckInterval,
-                appId,
-                nextCheckpointId);
+            tableBasePath,
+            bucketAssigner,
+            createBucketWriter(),
+            rollingPolicy,
+            outputFileConfig,
+            context.getProcessingTimeService(),
+            bucketCheckInterval,
+            appId,
+            nextCheckpointId);
     }
 
     SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
-            throws IOException {
+        throws IOException {
         return new DeltaWriterBucketStateSerializer();
     }
 
     SimpleVersionedSerializer<DeltaCommittable> getCommittableSerializer()
-            throws IOException {
+        throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
         return new DeltaCommittableSerializer(
-                bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+            bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     SimpleVersionedSerializer<DeltaGlobalCommittable> getGlobalCommittableSerializer()
-            throws IOException {
+        throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
         return new DeltaGlobalCommittableSerializer(
-                bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+            bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     private DeltaBulkBucketWriter<IN, String> createBucketWriter() throws IOException {
         return new DeltaBulkBucketWriter<>(
-                FileSystem.get(tableBasePath.toUri()).createRecoverableWriter(), writerFactory);
+            FileSystem.get(tableBasePath.toUri()).createRecoverableWriter(), writerFactory);
     }
 
     /**
@@ -309,20 +281,14 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         private static final long serialVersionUID = 2818087325120827526L;
 
         DefaultDeltaFormatBuilder(
-                Path basePath,
-                final Configuration conf,
-                ParquetWriterFactory<IN> writerFactory,
-                RowType rowType) {
-            super(basePath, conf, writerFactory, new BasePathBucketAssigner<>(), rowType);
-        }
-
-        DefaultDeltaFormatBuilder(
-                Path basePath,
-                final Configuration conf,
-                ParquetWriterFactory<IN> writerFactory,
-                BucketAssigner<IN, String> assigner,
-                RowType rowType) {
-            super(basePath, conf, writerFactory, assigner, rowType);
+            Path basePath,
+            final Configuration conf,
+            ParquetWriterFactory<IN> writerFactory,
+            BucketAssigner<IN, String> assigner,
+            CheckpointRollingPolicy<IN, String> policy,
+            RowType rowType,
+            boolean canTryUpdateSchema) {
+            super(basePath, conf, writerFactory, assigner, policy, rowType, canTryUpdateSchema);
         }
     }
 }

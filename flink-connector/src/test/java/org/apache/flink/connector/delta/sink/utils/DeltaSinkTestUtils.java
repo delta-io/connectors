@@ -35,7 +35,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.delta.sink.DeltaSink;
-import org.apache.flink.connector.delta.sink.DeltaSinkBuilder;
 import org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
@@ -322,19 +321,19 @@ public class DeltaSinkTestUtils {
                                                      boolean isTablePartitioned) {
         ParquetWriterFactory<RowData> factory = DeltaSinkTestUtils.createTestWriterFactory();
 
-        DeltaSinkBuilder<RowData> builder = DeltaSink
+        if (isTablePartitioned) {
+            return DeltaSink
+                .forDeltaFormat(
+                    new Path(deltaTablePath),
+                    DeltaSinkTestUtils.getHadoopConf(),
+                    DeltaSinkTestUtils.TEST_ROW_TYPE,
+                    getTestPartitionAssigner());
+        }
+        return DeltaSink
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 DeltaSinkTestUtils.getHadoopConf(),
-                factory,
                 DeltaSinkTestUtils.TEST_ROW_TYPE);
-
-        if (isTablePartitioned) {
-            return builder
-                .withBucketAssigner(getTestPartitionAssigner())
-                .build();
-        }
-        return builder.build();
     }
 
     public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {

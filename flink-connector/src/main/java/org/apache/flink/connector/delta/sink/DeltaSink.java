@@ -36,6 +36,9 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
+import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -228,10 +231,7 @@ public class DeltaSink<IN>
     }
 
     /**
-     * Convenience method for creating {@link DeltaSink}
-     * <p>
-     * For configuring additional options (e.g. bucket assigners in case of partitioning tables)
-     * see {@link DeltaSinkBuilder}.
+     * Convenience method for creating {@link DeltaSink} to a non-partitioned DeltaLake's table.
      *
      * @param basePath root path of the DeltaLake's table
      * @param conf     Hadoop's conf object that will be used for creating instances of
@@ -240,53 +240,51 @@ public class DeltaSink<IN>
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSinkBuilder<RowData> forDeltaFormat(
+    public static DeltaSink<RowData> forDeltaFormat(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
     ) {
-        conf.set("parquet.compression", "SNAPPY");
-        ParquetWriterFactory<RowData> writerFactory =
-            ParquetRowDataBuilder.createWriterFactory(rowType, conf, true);
-
-        return new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
-            basePath,
-            conf,
-            writerFactory,
-            rowType
+        return forDeltaFormat(
+            basePath, conf, rowType, new BasePathBucketAssigner<>()
         );
     }
 
     /**
-     * Convenience method for creating {@link DeltaSink}.
-     * <p>
-     * Developer must ensure that writerFactory is configured to use SNAPPY compression codec.
-     * <p>
-     * For configuring additional options (e.g. bucket assigners in case of partitioning tables)
-     * see {@link DeltaSinkBuilder}.
+     * Convenience method for creating {@link DeltaSink} to a partitioned DeltaLake's table.
      *
-     * @param basePath      root path of the DeltaLake's table
-     * @param conf          Hadoop's conf object that will be used for creating instances of
-     *                      {@link io.delta.standalone.DeltaLog}
-     * @param writerFactory writer factory with predefined configuration for creating new writers
-     *                      that will be writing Parquet files with DeltaLake's expected format
-     * @param rowType       Flink's logical type to indicate the structure of the events in the
-     *                      stream
-     * @param <IN>          Type of the elements in the input of the sink that are also the elements
-     *                      to be written to its output
+     * @param basePath root path of the DeltaLake's table
+     * @param conf     Hadoop's conf object that will be used for creating instances of
+     *                 {@link io.delta.standalone.DeltaLog} and will be also passed to the
+     *                 {@link ParquetRowDataBuilder} to create {@link ParquetWriterFactory}
+     * @param rowType  Flink's logical type to indicate the structure of the events in the stream
+     * @param assigner {@link BucketAssigner} object containing the partition assignment behaviour.
+     *                 It is advised to use {@link DeltaTablePartitionAssigner} for most of the
+     *                 cases, however for advanced partition assignment behaviour users can provide
+     *                 their own implementation of {@link BucketAssigner}.
      * @return builder for the DeltaSink
      */
-    public static <IN> DeltaSinkBuilder<IN> forDeltaFormat(
+    public static DeltaSink<RowData> forDeltaFormat(
         final Path basePath,
         final Configuration conf,
-        final ParquetWriterFactory<IN> writerFactory,
-        final RowType rowType
+        final RowType rowType,
+        BucketAssigner<RowData, String> assigner
     ) {
+        conf.set("parquet.compression", "SNAPPY");
+        ParquetWriterFactory<RowData> writerFactory = ParquetRowDataBuilder.createWriterFactory(
+            rowType,
+            conf,
+            true // utcTimestamp
+        );
+
         return new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
             basePath,
             conf,
             writerFactory,
-            rowType
-        );
+            assigner,
+            OnCheckpointRollingPolicy.build(),
+            rowType,
+            false // canTryUpdateSchema
+        ).build();
     }
 }
