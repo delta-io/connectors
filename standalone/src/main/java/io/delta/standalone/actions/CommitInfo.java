@@ -266,14 +266,15 @@ public class CommitInfo implements Action {
     }
 
     /**
-     * @return a new {@code CommitInfo.Builder}
+     * @return a new {@link CommitInfo.Builder}
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for CommitInfo. Enables construction of CommitInfo object with default values.
+     * Builder class for {@link CommitInfo}. Enables construction of {@link CommitInfo}s with
+     * default values.
      */
     public static class Builder {
         @Nonnull private Optional<Long> version = Optional.empty();
@@ -368,7 +369,10 @@ public class CommitInfo implements Action {
         }
 
         /**
-         * @return a new {@code CommitInfo} with the same properties as {@code this}
+         * Builds a {@link CommitInfo} using the provided parameters. If a parameter is not provided
+         * its default values is used.
+         *
+         * @return a new {@link CommitInfo} with the properties added to the builder
          */
         public CommitInfo build() {
             CommitInfo commitInfo = new CommitInfo(this.version, this.timestamp, this.userId,

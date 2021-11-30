@@ -123,7 +123,7 @@ public final class FieldMetadata {
     }
 
     /**
-     * Builder class for FieldMetadata.
+     * Builder class for {@link FieldMetadata}.
      */
     public static class Builder {
         private Map<String, Object> metadata = new HashMap<String, Object>();
@@ -184,7 +184,7 @@ public final class FieldMetadata {
         }
 
         /**
-         * @return a new {@code FieldMetadata} with the same mappings as {@code this}
+         * @return a new {@link FieldMetadata} with the mappings added to the builder
          */
         public FieldMetadata build() {
             return new FieldMetadata(this.metadata);

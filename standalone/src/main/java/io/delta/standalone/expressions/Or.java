@@ -3,7 +3,9 @@ package io.delta.standalone.expressions;
 import io.delta.standalone.internal.exception.DeltaErrors;
 
 /**
- * Usage: {@code new Or(expr1, expr2)} - Logical OR
+ * Evaluates logical {@code expr1} OR {@code expr2} for {@code new Or(expr1, expr2)}.
+ *
+ * Requires both left and right input expressions evaluate to booleans upon evaluation.
  */
 public final class Or extends BinaryOperator implements Predicate {
 
@@ -12,7 +14,7 @@ public final class Or extends BinaryOperator implements Predicate {
     }
 
     @Override
-    public Object nullSafeEval(Object leftResult, Object rightResult) {
+    protected Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
             throw DeltaErrors.illegalExpressionValueType(
                     "OR",
