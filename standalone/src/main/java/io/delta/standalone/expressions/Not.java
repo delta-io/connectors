@@ -1,5 +1,6 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.types.BooleanType;
 import io.delta.standalone.internal.exception.DeltaErrors;
 
 /**
@@ -10,17 +11,16 @@ import io.delta.standalone.internal.exception.DeltaErrors;
 public class Not extends UnaryExpression implements Predicate {
     public Not(Expression child) {
         super(child);
+        if (!(child.dataType() instanceof BooleanType)) {
+            throw DeltaErrors.illegalExpressionValueType(
+                    "NOT",
+                    "bool",
+                    child.dataType().getTypeName());
+        }
     }
 
     @Override
-    protected Object nullSafeEval(Object childResult) {
-        if (!(childResult instanceof Boolean)) {
-            throw DeltaErrors.illegalExpressionValueType(
-                    "NOT",
-                    "Boolean",
-                    childResult.getClass().getName());
-        }
-
+    public Object nullSafeEval(Object childResult) {
         return !((boolean) childResult);
     }
 

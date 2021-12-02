@@ -36,7 +36,10 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -82,7 +85,7 @@ import io.delta.standalone.DeltaLog;
  * from FileSink.
  */
 public class DeltaSink<IN>
-        implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
+    implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
 
     private final DeltaSinkBuilder<IN> sinkBuilder;
 
@@ -90,13 +93,80 @@ public class DeltaSink<IN>
         this.sinkBuilder = checkNotNull(sinkBuilder);
     }
 
+    /**
+     * This method creates the {@link SinkWriter} instance that will be responsible for passing
+     * incoming stream events to the correct bucket writer and then flushed to the underlying files.
+     * <p>
+     * The logic for resolving constructor params differ depending on whether any previous writer's
+     * states were provided.
+     * If there are no previous states then we assume that this is a fresh start of the app and set
+     * next checkpoint id in {@link DeltaWriter} to 1 and app id is taken from the
+     * {@link DeltaSinkBuilder#getAppId} what guarantees us that each writer will get the same
+     * value. In other case, if we are provided by the Flink framework with some previous writers'
+     * states then we use those to restore values of appId and nextCheckpointId.
+     *
+     * @param context {@link SinkWriter} init context object
+     * @param states  restored states of the writers. Will be empty collection for fresh start.
+     * @return new {@link SinkWriter} object
+     * @throws IOException When the recoverable writer cannot be instantiated.
+     */
     @Override
     public SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState> createWriter(
-            InitContext context,
-            List<DeltaWriterBucketState> states
+        InitContext context,
+        List<DeltaWriterBucketState> states
     ) throws IOException {
-        DeltaWriter<IN> writer = sinkBuilder.createWriter();
+        String appId = restoreOrCreateAppId(states);
+        long nextCheckpointId = restoreOrGetNextCheckpointId(states);
+        DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
+        writer.initializeState(states);
         return writer;
+    }
+
+    /**
+     * Restores application's id snapshotted in any of the {@link DeltaWriter}s' states or gets
+     * new one from the builder in case there is no previous states.
+     * <p>
+     * In order to gurantee the idempotency of the GlobalCommitter we need unique identifier of the
+     * app. We obtain it with simple logic: if it's the first run of the application (so no restart
+     * from snapshot or failure recovery happened and the writer's state is empty) then assign appId
+     * to a newly generated UUID that will be further stored in the state of each writer.
+     * Alternatively if the writer's states are not empty then we resolve appId from one of the
+     * restored states.
+     *
+     * @param states restored list of writer's buckets states that include previously generated
+     *               appId
+     * @return newly created or resolved from restored writer's states unique identifier of the app.
+     */
+    private String restoreOrCreateAppId(List<DeltaWriterBucketState> states) {
+        if (states.isEmpty()) {
+            return sinkBuilder.getAppId();
+        }
+        return states.get(0).getAppId();
+    }
+
+    /**
+     * Restores the last checkpoint id snapshotted in one of the most recent {@link DeltaWriter}s'
+     * states or sets it to "1" in case there is no previous states.
+     * <p>
+     * In order to gurantee the idempotency of the GlobalCommitter we need to version consecutive
+     * commits with consecutive identifiers. For this purpose we are using checkpointId that is
+     * being "manually" managed in writer's internal logic, added to the committables information
+     * and incremented on every precommit action (after generating the committables).
+     *
+     * @param states restored list of writer's buckets states that include previously generated
+     *               appId
+     * @return value of the nextCheckpointId to be passed to the new writer's instance
+     */
+    private long restoreOrGetNextCheckpointId(List<DeltaWriterBucketState> states) {
+        if (states.isEmpty()) {
+            return 1;
+        }
+        return states
+            .stream()
+            .map(DeltaWriterBucketState::getCheckpointId)
+            .mapToLong(v -> v)
+            .max()
+            .getAsLong();
     }
 
     @Override
@@ -123,15 +193,14 @@ public class DeltaSink<IN>
     }
 
     @Override
-    public Optional<
-            GlobalCommitter<DeltaCommittable,
-                    DeltaGlobalCommittable>> createGlobalCommitter() {
+    public Optional<GlobalCommitter<DeltaCommittable,
+        DeltaGlobalCommittable>> createGlobalCommitter() {
         return Optional.of(sinkBuilder.createGlobalCommitter());
     }
 
     @Override
     public Optional<
-            SimpleVersionedSerializer<DeltaGlobalCommittable>> getGlobalCommittableSerializer() {
+        SimpleVersionedSerializer<DeltaGlobalCommittable>> getGlobalCommittableSerializer() {
         try {
             return Optional.of(sinkBuilder.getGlobalCommittableSerializer());
         } catch (IOException e) {
@@ -140,24 +209,33 @@ public class DeltaSink<IN>
     }
 
     /**
-     * Convenience method for creating {@link DeltaSink}
-     * <p>
-     * For configuring additional options (e.g. bucket assigners in case of partitioning tables)
-     * see {@link DeltaSinkBuilder}.
+     * Convenience method for creating {@link DeltaSink} to a non-partitioned DeltaLake's table.
      *
      * @param basePath root path of the DeltaLake's table
      * @param conf     Hadoop's conf object that will be used for creating instances of
      *                 {@link io.delta.standalone.DeltaLog} and will be also passed to the
      *                 {@link ParquetRowDataBuilder} to create {@link ParquetWriterFactory}
+     * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
     public static DeltaSinkBuilder<RowData> forDeltaFormat(
-            final Path basePath,
-            final Configuration conf
+        final Path basePath,
+        final Configuration conf,
+        final RowType rowType
     ) {
+        conf.set("parquet.compression", "SNAPPY");
+        ParquetWriterFactory<RowData> writerFactory = ParquetRowDataBuilder.createWriterFactory(
+            rowType,
+            conf,
+            true // utcTimestamp
+        );
+
         return new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
-                basePath,
-                conf
+            basePath,
+            conf,
+            writerFactory,
+            new BasePathBucketAssigner<>(),
+            OnCheckpointRollingPolicy.build()
         );
     }
 }

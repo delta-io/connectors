@@ -26,20 +26,29 @@ import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Versioned serializer for {@link DeltaCommittable}.
  */
 @Internal
 public class DeltaCommittableSerializer
-        implements SimpleVersionedSerializer<DeltaCommittable> {
+    implements SimpleVersionedSerializer<DeltaCommittable> {
 
     /**
      * Magic number value for sanity check whether the provided bytes where not corrupted
      */
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
-    public DeltaCommittableSerializer() {
+    private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+        pendingFileSerializer;
+
+    public DeltaCommittableSerializer(
+        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer) {
+        this.pendingFileSerializer = checkNotNull(pendingFileSerializer);
     }
 
     @Override
@@ -67,18 +76,26 @@ public class DeltaCommittableSerializer
     }
 
     void serializeV1(DeltaCommittable committable, DataOutputView dataOutputView)
-            throws IOException {
+        throws IOException {
+        dataOutputView.writeUTF(committable.getAppId());
+        dataOutputView.writeLong(committable.getCheckpointId());
+        DeltaPendingFile.serialize(
+            committable.getDeltaPendingFile(), dataOutputView, pendingFileSerializer);
     }
 
     DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
-        return new DeltaCommittable();
+        String appId = dataInputView.readUTF();
+        long checkpointId = dataInputView.readLong();
+        DeltaPendingFile deltaPendingFile =
+            DeltaPendingFile.deserialize(dataInputView, pendingFileSerializer);
+        return new DeltaCommittable(deltaPendingFile, appId, checkpointId);
     }
 
     private static void validateMagicNumber(DataInputView in) throws IOException {
         int magicNumber = in.readInt();
         if (magicNumber != MAGIC_NUMBER) {
             throw new IOException(
-                    String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
+                String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
 }
