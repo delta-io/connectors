@@ -437,13 +437,19 @@ abstract class DeltaLogSuiteBase extends FunSuite {
 
   test("DeltaLog.tableExists") {
     withTempDir { dir =>
+
       val conf = new Configuration()
       assert(!DeltaLog.tableExists(conf, dir.getCanonicalPath))
 
-      // let's check we didn't accidentally create a _delta_log during the above call
+      val log = DeltaLog.forTable(conf, dir.getCanonicalPath)
+      // check that we didn't create a table by instantiating a DeltaLog instance
       assert(!DeltaLog.tableExists(conf, dir.getCanonicalPath))
 
-      val log = DeltaLog.forTable(conf, dir.getCanonicalPath)
+      log.startTransaction().commit(
+        Seq(MetadataJ.builder().build()).asJava,
+        new Operation(Operation.Name.CREATE_TABLE),
+        "test"
+      )
       assert(DeltaLog.tableExists(conf, dir.getCanonicalPath))
     }
   }
