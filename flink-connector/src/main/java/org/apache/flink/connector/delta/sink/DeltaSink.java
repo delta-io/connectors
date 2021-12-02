@@ -158,7 +158,7 @@ public class DeltaSink<IN>
      * app. We obtain it with simple logic: if it's the first run of the application (so no restart
      * from snapshot or failure recovery happened and the writer's state is empty) then assign appId
      * to a newly generated UUID that will be further stored in the state of each writer.
-     * Alternatively if the writer's states are not empty then we resolve appId from on of the
+     * Alternatively if the writer's states are not empty then we resolve appId from one of the
      * restored states.
      *
      * @param states restored list of writer's buckets states that include previously generated

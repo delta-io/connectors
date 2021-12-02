@@ -83,7 +83,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     /**
      * Unique identifier of the current Flink's app. Value from this builder will be read
      * only during the fresh start of the application. For restarts or failure recovery
-     * it will be resolved from the snaphosted state.
+     * it will be resolved from the snapshoted state.
      */
     private final String appId;
 
@@ -137,8 +137,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             assigner,
             policy,
             OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
-            rowType,
             generateNewAppId(),
+            rowType,
             canTryUpdateSchema
         );
     }
@@ -151,8 +151,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         BucketAssigner<IN, String> assigner,
         CheckpointRollingPolicy<IN, String> policy,
         OutputFileConfig outputFileConfig,
-        RowType rowType,
         String appId,
+        RowType rowType,
         boolean canTryUpdateSchema) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
@@ -161,8 +161,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         this.bucketAssigner = checkNotNull(assigner);
         this.rollingPolicy = checkNotNull(policy);
         this.outputFileConfig = checkNotNull(outputFileConfig);
-        this.rowType = rowType;
         this.appId = appId;
+        this.rowType = rowType;
         this.canTryUpdateSchema = canTryUpdateSchema;
     }
 
@@ -175,8 +175,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             bucketAssigner,
             rollingPolicy,
             outputFileConfig,
-            rowType,
             appId,
+            rowType,
             canTryUpdateSchema);
     }
 

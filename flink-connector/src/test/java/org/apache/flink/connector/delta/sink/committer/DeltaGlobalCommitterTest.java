@@ -195,6 +195,7 @@ public class DeltaGlobalCommitterTest {
         int numAddedFiles2 = 5;
         DeltaLog deltaLog = DeltaLog.forTable(
             DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
+        int initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
         assertEquals(-1, deltaLog.snapshot().getVersion());
 
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
@@ -216,7 +217,7 @@ public class DeltaGlobalCommitterTest {
         deltaLog.update();
         assertEquals(1, deltaLog.snapshot().getVersion());
         assertEquals(
-            numAddedFiles1 + numAddedFiles2,
+            initialTableFilesCount + numAddedFiles1 + numAddedFiles2,
             deltaLog.snapshot().getAllFiles().size());
     }
 
@@ -245,7 +246,6 @@ public class DeltaGlobalCommitterTest {
         List<DeltaCommittable> deltaCommittablesCombined = new ArrayList<>(Collections.emptyList());
         deltaCommittablesCombined.addAll(deltaCommittables1SecondTrial);
         deltaCommittablesCombined.addAll(deltaCommittables2);
-
 
         List<DeltaGlobalCommittable> globalCommittables1FirstTrial =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables1FirstTrial));

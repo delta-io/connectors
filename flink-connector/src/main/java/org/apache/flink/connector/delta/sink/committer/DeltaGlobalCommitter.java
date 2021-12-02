@@ -18,7 +18,16 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -279,12 +288,13 @@ public class DeltaGlobalCommitter
     private void handleMetadataUpdate(long currentTableVersion,
                                       OptimisticTransaction transaction,
                                       List<String> partitionColumns) {
+        Metadata transactionMetadata = transaction.metadata();
         if ((currentTableVersion != -1) &&
-            (!partitionColumns.equals(transaction.metadata().getPartitionColumns()))) {
+            (!partitionColumns.equals(transactionMetadata.getPartitionColumns()))) {
             String printableTablePartitionColumns;
-            if (transaction.metadata().getPartitionColumns() != null) {
+            if (transactionMetadata.getPartitionColumns() != null) {
                 printableTablePartitionColumns = Arrays.toString(
-                    transaction.metadata().getPartitionColumns().toArray());
+                    transactionMetadata.getPartitionColumns().toArray());
             } else {
                 printableTablePartitionColumns = "null";
             }
@@ -295,19 +305,30 @@ public class DeltaGlobalCommitter
         }
 
         Metadata metadataAction = prepareMetadata(partitionColumns);
-        boolean schemasAreMatching = metadataAction
-            .getSchema()
-            .toJson()
-            .equals(transaction.metadata().getSchema().toJson());
+        StructType currentTableSchema = transactionMetadata.getSchema();
+        StructType commitSchema = metadataAction.getSchema();
+        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, commitSchema);
         if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
             transaction.updateMetadata(metadataAction);
         } else if (!schemasAreMatching) {
+            String printableCurrentTableSchema =  currentTableSchema == null ? "null"
+                : currentTableSchema.toPrettyJson();
+            String printableCommitSchema =  commitSchema == null ? "null"
+                : commitSchema.toPrettyJson();
+
             throw new RuntimeException(
                 "DataStream's schema is different from current table's schema. \n" +
-                    "provided: " + metadataAction.getSchema().toPrettyJson() + "\n" +
-                    "is different from: " +
-                    transaction.metadata().getSchema().toPrettyJson());
+                    "provided: " + printableCurrentTableSchema + "\n" +
+                    "is different from: " + printableCommitSchema);
         }
+    }
+
+    private boolean areSchemasEqual(@Nullable StructType first,
+                                    @Nullable StructType second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        return first.toJson().equals(second.toJson());
     }
 
     /**
@@ -516,8 +537,10 @@ public class DeltaGlobalCommitter
     }
 
     @Override
-    public void endOfInput() {}
+    public void endOfInput() {
+    }
 
     @Override
-    public void close() {}
+    public void close() {
+    }
 }

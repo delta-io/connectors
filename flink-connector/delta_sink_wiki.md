@@ -1,17 +1,3 @@
-description: Learn how to read Delta tables from JVM applications without <AS>.
----
-​ .. aws-gcp::
-​
-  ---
-orphan: 1
----
-​ .. azure::
-​
-  ---
-orphan: 1
----
-​
-
 # Flink DeltaSink
 
 ​ The Flink DeltaSink is a Java library that can be used to construct Apache Flink's sink object for
@@ -50,7 +36,7 @@ TODO add snippets for creating the sink. ​
 is the main class for creating the sink instance programmatically.
 
 - Instantiate a `DeltaSinkBuilder` with `DeltaSink.forDeltaFormat)`
-  TODO needs discussions ​
+- <TODO needs discussions ​>
 
   ​
 
