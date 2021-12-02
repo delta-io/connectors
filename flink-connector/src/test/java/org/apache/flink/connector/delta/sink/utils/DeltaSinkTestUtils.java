@@ -319,21 +319,19 @@ public class DeltaSinkTestUtils {
 
     public static DeltaSink<RowData> createDeltaSink(String deltaTablePath,
                                                      boolean isTablePartitioned) {
-        ParquetWriterFactory<RowData> factory = DeltaSinkTestUtils.createTestWriterFactory();
-
         if (isTablePartitioned) {
             return DeltaSink
                 .forDeltaFormat(
                     new Path(deltaTablePath),
                     DeltaSinkTestUtils.getHadoopConf(),
                     DeltaSinkTestUtils.TEST_ROW_TYPE,
-                    getTestPartitionAssigner());
+                    getTestPartitionAssigner()).build();
         }
         return DeltaSink
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 DeltaSinkTestUtils.getHadoopConf(),
-                DeltaSinkTestUtils.TEST_ROW_TYPE);
+                DeltaSinkTestUtils.TEST_ROW_TYPE).build();
     }
 
     public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {

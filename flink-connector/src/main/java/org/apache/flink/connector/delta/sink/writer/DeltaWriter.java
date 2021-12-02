@@ -87,8 +87,23 @@ public class DeltaWriter<IN>
     // DeltaSink-specific fields
     ///////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Unique identifier of the application that will be passed as part of committables' information
+     * during {@link DeltaWriter#prepareCommit} method. It's also snapshotted as a part of the
+     * writer's state in order to support failure recovery and provide exactly-once delivery
+     * guarantee. This value will be unique to a streaming job as long as it is being restarted
+     * using checkpoint/savepoint information.
+     */
     private final String appId;
 
+    /**
+     * Unique identifier of a checkpoint interval. It's necessary to maintain and increment this
+     * value inside writer as this needs to be passed as a part of committables' information during
+     * {@link DeltaWriter#prepareCommit} method. Its value is always incremented by one after
+     * generating set of committables for given checkpoint interval. It's also snapshotted as a part
+     * of the writer's state in order to support failure recovery and provide exactly-once delivery
+     * guarantee. For a fresh start of an application it always starts with the value of "1".
+     */
     private long nextCheckpointId;
 
     ///////////////////////////////////////////////////////////////////////////

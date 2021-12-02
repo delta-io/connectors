@@ -88,18 +88,18 @@ import io.delta.standalone.DeltaLog;
  *         objects. The relation between the writer and its buckets is that the writer manages a
  *         collection of the buckets for which it received the events during given checkpoint
  *         interval. Here one bucket writer corresponds to a one partition in a Delta Lake's table.
- *         So in a given checkpoint interval one writer can have zero, one or multiple buckets.
+ *         So in a given checkpoint interval one writer can have zero, one or multiple buckets.</li>
  *     <li>{@link org.apache.flink.connector.delta.sink.writer.DeltaWriterBucket} is being created
  *         always inside {@link DeltaWriter} instance and corresponds to a one partition in Delta
  *         Lake's table (the partition's path and bucket's output path are matching). It is provided
  *         by the {@link DeltaWriter} with incoming stream's events and passes those events
- *         to a particular
+ *         to a particular</li>
  *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkPartWriter}
  *         instance that contains underlying logic for flushing data to the OS. Besides that it
  *         manages metadata of the written files and records (both directly and indirectly by using
  *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaInProgressPart})
- *         and uses those metadata to generate committables' information during a pre-commit phase.
- *
+ *         and uses those metadata to generate committables' information during a pre-commit
+ *         phase.</li>
  * </ul>
  *
  * @param <IN> Type of the elements in the input of the sink that are also the elements to be
@@ -151,6 +151,9 @@ public class DeltaSink<IN>
     }
 
     /**
+     * Restores application's id snapshotted in any of the {@link DeltaWriter}s' states or gets
+     * new one from the builder in case there is no previous states.
+     * <p>
      * In order to gurantee the idempotency of the GlobalCommitter we need unique identifier of the
      * app. We obtain it with simple logic: if it's the first run of the application (so no restart
      * from snapshot or failure recovery happened and the writer's state is empty) then assign appId
@@ -170,6 +173,9 @@ public class DeltaSink<IN>
     }
 
     /**
+     * Restores the last checkpoint id snapshotted in one of the most recent {@link DeltaWriter}s'
+     * states or sets it to "1" in case there is no previous states.
+     * <p>
      * In order to gurantee the idempotency of the GlobalCommitter we need to version consecutive
      * commits with consecutive identifiers. For this purpose we are using checkpointId that is
      * being "manually" managed in writer's internal logic, added to the committables information
@@ -240,7 +246,7 @@ public class DeltaSink<IN>
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSink<RowData> forDeltaFormat(
+    public static DeltaSinkBuilder<RowData> forDeltaFormat(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
@@ -264,7 +270,7 @@ public class DeltaSink<IN>
      *                 their own implementation of {@link BucketAssigner}.
      * @return builder for the DeltaSink
      */
-    public static DeltaSink<RowData> forDeltaFormat(
+    public static DeltaSinkBuilder<RowData> forDeltaFormat(
         final Path basePath,
         final Configuration conf,
         final RowType rowType,
@@ -285,6 +291,6 @@ public class DeltaSink<IN>
             OnCheckpointRollingPolicy.build(),
             rowType,
             false // canTryUpdateSchema
-        ).build();
+        );
     }
 }
