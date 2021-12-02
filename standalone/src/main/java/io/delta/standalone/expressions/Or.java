@@ -5,7 +5,7 @@ import io.delta.standalone.internal.exception.DeltaErrors;
 /**
  * Evaluates logical {@code expr1} OR {@code expr2} for {@code new Or(expr1, expr2)}.
  * <p>
- * Requires both left and right input expressions evaluate to booleans upon evaluation.
+ * Requires both left and right input expressions evaluate to booleans.
  */
 public final class Or extends BinaryOperator implements Predicate {
 
