@@ -10,7 +10,7 @@ import io.delta.standalone.types.*;
 
 /**
  * A literal value.
- *
+ * <p>
  * Only supports primitive data types, see
  * <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types">Delta Transaction Log Protocol: Primitive Types</a>.
  */

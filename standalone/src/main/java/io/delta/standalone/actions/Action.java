@@ -22,7 +22,6 @@ package io.delta.standalone.actions;
  * <p>
  * You can use the following code to extract the concrete type of an {@link Action}.
  * <pre>{@code
- *   // {@link io.delta.standalone.DeltaLog#getChanges(long, boolean)} getChanges()} is one way to get such actions
  *   List<Action> actions = ...
  *   actions.forEach(x -> {
  *       if (x instanceof AddFile) {
@@ -37,8 +36,12 @@ package io.delta.standalone.actions;
  */
 public interface Action {
 
-    /** The maximum reader version of the protocol that this version of Delta Standalone understands. */
+    /** The maximum reader version of the protocol that this version of Delta Standalone
+     * understands.
+     */
     int readerVersion = 1;
-    /** The maximum writer version of the protocol that this version of Delta Standalone understands. */
+    /** The maximum writer version of the protocol that this version of Delta Standalone
+     * understands.
+     */
     int writerVersion = 2;
 }

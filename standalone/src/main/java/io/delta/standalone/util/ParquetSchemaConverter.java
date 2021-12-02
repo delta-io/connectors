@@ -22,6 +22,8 @@ import io.delta.standalone.types.StructType;
 import io.delta.standalone.internal.util.SparkToParquetSchemaConverter;
 
 /**
+ * :: DeveloperApi ::
+ * <p>
  * Converter class to convert {@link StructType} to Parquet {@link MessageType}.
  */
 public final class ParquetSchemaConverter {
@@ -29,6 +31,8 @@ public final class ParquetSchemaConverter {
     private ParquetSchemaConverter(){};
 
     /**
+     * :: DeveloperApi ::
+     * <p>
      * Represents Parquet timestamp types.
      * <ul>
      *   <li>INT96 is a non-standard but commonly used timestamp type in Parquet.</li>
@@ -49,6 +53,8 @@ public final class ParquetSchemaConverter {
             ParquetOutputTimestampType.INT96;
 
     /**
+     * :: DeveloperApi ::
+     * <p>
      * Convert a {@link StructType} to Parquet {@link MessageType}.
      *
      * @param schema  the schema to convert
@@ -62,6 +68,8 @@ public final class ParquetSchemaConverter {
     }
 
     /**
+     * :: DeveloperApi ::
+     * <p>
      * Convert a {@link StructType} to Parquet {@link MessageType}.
      *
      * @param schema  the schema to convert
@@ -79,6 +87,8 @@ public final class ParquetSchemaConverter {
     }
 
     /**
+     * :: DeveloperApi ::
+     * <p>
      * Convert a {@link StructType} to Parquet {@link MessageType}.
      *
      * @param schema  the schema to convert
@@ -95,6 +105,8 @@ public final class ParquetSchemaConverter {
     }
 
     /**
+     * :: DeveloperApi ::
+     * <p>
      * Convert a {@link StructType} to Parquet {@link MessageType}.
      *
      * @param schema  the schema to convert

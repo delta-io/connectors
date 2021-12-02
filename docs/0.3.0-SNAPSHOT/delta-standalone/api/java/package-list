@@ -6,3 +6,8 @@ io.delta.standalone.expressions
 io.delta.standalone.storage
 io.delta.standalone.types
 io.delta.standalone.util
+org.apache.flink.connector.delta.sink
+org.apache.flink.connector.delta.sink.committables
+org.apache.flink.connector.delta.sink.committer
+org.apache.flink.connector.delta.sink.writer
+org.apache.flink.streaming.api.functions.sink.filesystem

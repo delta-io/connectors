@@ -25,7 +25,7 @@ import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.internal.expressions.Util;
 
 /**
- * Evaluates {@code expr} IN {@code exprList} for {@code new IN(expr, exprList)}. True if
+ * Evaluates if {@code expr} is in {@code exprList} for {@code new In(expr, exprList)}. True if
  * {@code expr} is equal to any expression in {@code exprList}, else false.
  */
 public final class In implements Predicate {

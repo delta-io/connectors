@@ -25,7 +25,10 @@ import io.delta.standalone.expressions.Expression;
 /**
  * Provides access to an iterator over the files in this snapshot.
  * <p>
- * Typically created with a read predicate {@link Expression} to let users filter files.
+ * Typically created with a read predicate {@link Expression} to let users filter files. Please note
+ * filtering is only supported on <b>partition columns</b> and users should use
+ * {@link DeltaScan#getResidualPredicate()} to check for any unapplied portion of the input
+ * predicate.
  */
 public interface DeltaScan {
 
@@ -49,8 +52,9 @@ public interface DeltaScan {
 
     /**
      * @return portion of the input predicate that can be evaluated by Delta Standalone using only
-     *         metadata. Files returned by {@link #getFiles()} are guaranteed to satisfy the pushed
-     *         predicate, and the caller doesn’t need to apply them again on the returned files.
+     *         metadata (filters on partition columns). Files returned by {@link #getFiles()} are
+     *         guaranteed to satisfy the pushed predicate, and the caller doesn’t need to apply them
+     *         again on the returned files.
      */
     Optional<Expression> getPushedPredicate();
 

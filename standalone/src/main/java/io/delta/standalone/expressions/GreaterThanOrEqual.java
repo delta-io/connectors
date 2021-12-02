@@ -1,7 +1,7 @@
 package io.delta.standalone.expressions;
 
 /**
- * Evaluates {@code expr1} >= {@code expr2} for {@code new GreaterThanOrEqual(expr1, expr2)}.
+ * Evaluates {@code expr1} &gt;= {@code expr2} for {@code new GreaterThanOrEqual(expr1, expr2)}.
  */
 public final class GreaterThanOrEqual extends BinaryComparison implements Predicate {
     public GreaterThanOrEqual(Expression left, Expression right) {

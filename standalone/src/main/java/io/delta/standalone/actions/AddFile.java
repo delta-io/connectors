@@ -70,7 +70,7 @@ public final class AddFile implements FileAction {
 
     /**
      * @return the corresponding {@link RemoveFile} for this file, instantiated with
-     *         {@code deletionTimestamp = {@link System#currentTimeMillis()}
+     *         {@code deletionTimestamp =} {@link System#currentTimeMillis()}
      */
     @Nonnull
     public RemoveFile remove() {

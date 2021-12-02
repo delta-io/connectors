@@ -2,8 +2,8 @@ package io.delta.standalone.expressions;
 
 /**
  * A {@link BinaryExpression} that is an operator, meaning the string representation is
- * {@ccode x symbol y}, rather than {@code funcName(x, y)}.
- *
+ * {@code x symbol y}, rather than {@code funcName(x, y)}.
+ * <p>
  * Requires both inputs to be of the same data type.
  */
 public abstract class BinaryOperator extends BinaryExpression {

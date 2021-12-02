@@ -12,7 +12,7 @@ import io.delta.standalone.types.*;
  * <p>
  * It is recommended that you instantiate using an existing table schema {@link StructType}
  * with {@link StructType#column(String)}. For example, {@code mySchema.column(columnName)}.
- *
+ * <p>
  * Only supports primitive data types, see
  * <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types">Delta Transaction Log Protocol: Primitive Types</a>.
  */

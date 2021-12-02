@@ -49,6 +49,11 @@ public interface OptimisticTransaction {
     /**
      * Mark files matched by the {@code readPredicate} as read by this transaction.
      * <p>
+     * Please note filtering is only supported on <b>partition columns</b>, thus the files matched
+     * may be a superset of the files in the Delta table that satisfy {@code readPredicate}. Users
+     * should use {@link DeltaScan#getResidualPredicate()} to check for any unapplied portion of the
+     * input predicate.
+     * <p>
      * Internally, {@code readPredicate} and the matched {@code readFiles} will be used to determine
      * if logical conflicts between this transaction and previously-committed transactions can be
      * resolved (i.e. no error thrown).
@@ -66,7 +71,7 @@ public interface OptimisticTransaction {
      * </ul>
      *
      * @param readPredicate  Predicate used to determine which files were read.
-     * @return a {@link DeltaScan} containing the list of files matching the push portion of the
+     * @return a {@link DeltaScan} containing the list of files matching the pushed portion of the
      *         readPredicate.
      */
     DeltaScan markFilesAsRead(Expression readPredicate);
