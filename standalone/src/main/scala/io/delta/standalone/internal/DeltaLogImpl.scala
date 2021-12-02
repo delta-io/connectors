@@ -138,6 +138,9 @@ private[internal] class DeltaLogImpl private(
     new OptimisticTransactionImpl(this, snapshot)
   }
 
+  /** Whether a Delta table exists at this directory. */
+  def tableExists: Boolean = snapshot.version >= 0
+
   ///////////////////////////////////////////////////////////////////////////
   // Internal Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -210,14 +213,6 @@ private[standalone] object DeltaLogImpl {
 
   def forTable(hadoopConf: Configuration, dataPath: Path, clock: Clock): DeltaLogImpl = {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
-  }
-
-  def tableExists(hadoopConf: Configuration, dataPath: String): Boolean = {
-    DeltaLogImpl.forTable(hadoopConf, dataPath).snapshot.version >= 0
-  }
-
-  def tableExists(hadoopConf: Configuration, dataPath: Path): Boolean = {
-    DeltaLogImpl.forTable(hadoopConf, dataPath).snapshot.version >= 0
   }
 
   private def apply(
