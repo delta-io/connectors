@@ -72,7 +72,6 @@ import io.delta.standalone.actions.CommitInfo;
 public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSinkITCase {
 
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
-    protected static final int NUM_SINKS = 1;
 
     @Parameterized.Parameters(
         name = "triggerFailover = {0}, isPartitioned = {1}"

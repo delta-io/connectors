@@ -30,6 +30,7 @@ import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.table.types.logical.RowType;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -56,16 +57,19 @@ public class DeltaGlobalCommitterTestParametrized {
 
     @Parameterized.Parameters(
         name = "canTryUpdateSchema = {0}, " +
-            "expectedTableVersionAfterCommit = {1}, " +
-            "partitionSpec = {2}, " +
-            "initializeTableBeforeCommit = {3}, "
+            "initializeTableBeforeCommit = {1}, " +
+            "partitionSpec = {2}, "
     )
     public static Collection<Object[]> params() {
         return Arrays.asList(
-            new Object[]{false, 0, DeltaSinkTestUtils.getEmptyTestPartitionSpec(), false},
-            new Object[]{false, 0, DeltaSinkTestUtils.getTestPartitionSpec(), false},
-            new Object[]{false, 1, DeltaSinkTestUtils.getEmptyTestPartitionSpec(), true},
-            new Object[]{false, 1, DeltaSinkTestUtils.getTestPartitionSpec(), true}
+            new Object[]{false, false, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
+            new Object[]{false, false, DeltaSinkTestUtils.getTestPartitionSpec()},
+            new Object[]{false, true, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
+            new Object[]{false, true, DeltaSinkTestUtils.getTestPartitionSpec()},
+            new Object[]{true, false, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
+            new Object[]{true, true, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
+            new Object[]{true, false, DeltaSinkTestUtils.getTestPartitionSpec()},
+            new Object[]{true, true, DeltaSinkTestUtils.getTestPartitionSpec()}
         );
     }
 
@@ -73,13 +77,13 @@ public class DeltaGlobalCommitterTestParametrized {
     public boolean canTryUpdateSchema;
 
     @Parameterized.Parameter(1)
-    public int expectedTableVersionAfterCommit;
+    public boolean initializeTableBeforeCommit;
 
     @Parameterized.Parameter(2)
     public LinkedHashMap<String, String> partitionSpec;
 
-    @Parameterized.Parameter(3)
-    public boolean initializeTableBeforeCommit;
+    private int expectedTableVersionAfterCommit;
+    private RowType testRowType;
 
     private Path tablePath;
     private DeltaLog deltaLog;
@@ -96,6 +100,9 @@ public class DeltaGlobalCommitterTestParametrized {
             }
         }
         deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
+        expectedTableVersionAfterCommit = initializeTableBeforeCommit ? 1 : 0;
+        testRowType = canTryUpdateSchema ?
+            DeltaSinkTestUtils.addNewColumnToSchema() : DeltaSinkTestUtils.TEST_ROW_TYPE;
     }
 
     @Test
@@ -105,7 +112,7 @@ public class DeltaGlobalCommitterTestParametrized {
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
-            DeltaSinkTestUtils.TEST_ROW_TYPE,
+            testRowType,
             canTryUpdateSchema);
         List<DeltaCommittable> deltaCommittables =
             DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);

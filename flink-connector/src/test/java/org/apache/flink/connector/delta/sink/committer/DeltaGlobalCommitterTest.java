@@ -35,7 +35,6 @@ import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.RowType;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -113,10 +112,7 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // add new field to the schema
-        List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE.getFields());
-        fields.add(new RowType.RowField("someNewField", new IntType()));
-        RowType updatedSchema = new RowType(fields);
+        RowType updatedSchema = DeltaSinkTestUtils.addNewColumnToSchema();
 
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
@@ -149,7 +145,7 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = dropOneColumnFromSchema();
+        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
         // WHEN
@@ -167,7 +163,7 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = dropOneColumnFromSchema();
+        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
 
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
@@ -330,10 +326,6 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test
-    public void test() throws Exception {
-    }
-
-    @Test
     public void testGlobalCommittableSerializerWithCommittables() throws IOException {
         // GIVEN
         LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
@@ -389,16 +381,6 @@ public class DeltaGlobalCommitterTest {
             schema,
             false // canTryUpdateSchema
         );
-    }
-
-    private RowType dropOneColumnFromSchema() {
-        List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE
-                .getFields()
-                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
-        );
-        fields.add(new RowType.RowField("someNewField", new IntType()));
-        return new RowType(fields);
     }
 
     private LinkedHashMap<String, String> getNonMatchingPartitionSpec() {

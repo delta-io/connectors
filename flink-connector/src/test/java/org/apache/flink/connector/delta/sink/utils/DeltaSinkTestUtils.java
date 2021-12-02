@@ -99,6 +99,23 @@ public class DeltaSinkTestUtils {
         return CONVERTER.toInternal(Row.of(name, surname, age));
     }
 
+    public static RowType addNewColumnToSchema() {
+        List<RowType.RowField> fields = new ArrayList<>(
+            DeltaSinkTestUtils.TEST_ROW_TYPE.getFields());
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        return new RowType(fields);
+    }
+
+    public static RowType dropOneColumnFromSchema() {
+        List<RowType.RowField> fields = new ArrayList<>(
+            DeltaSinkTestUtils.TEST_ROW_TYPE
+                .getFields()
+                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
+        );
+        fields.add(new RowType.RowField("someNewField", new IntType()));
+        return new RowType(fields);
+    }
+
     ///////////////////////////////////////////////////////////////////////////
     // test delta lake table utils
     ///////////////////////////////////////////////////////////////////////////
