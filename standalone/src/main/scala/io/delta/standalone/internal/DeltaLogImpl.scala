@@ -139,7 +139,7 @@ private[internal] class DeltaLogImpl private(
   }
 
   /** Whether a Delta table exists at this directory. */
-  def tableExists: Boolean = snapshot.version >= 0
+  override def tableExists: Boolean = snapshot.version >= 0
 
   ///////////////////////////////////////////////////////////////////////////
   // Internal Methods
