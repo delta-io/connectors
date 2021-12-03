@@ -86,8 +86,8 @@ public class TestParquetReader {
         return recordsRead;
     }
 
-    private static ParquetColumnarRowSplitReader getTestParquetReader(Path path,
-                                                              RowType rowType) throws IOException {
+    private static ParquetColumnarRowSplitReader getTestParquetReader(
+        Path path, RowType rowType) throws IOException {
         return ParquetSplitReaderUtil.genPartColumnarRowReader(
             true, // utcTimestamp
             true, // caseSensitive

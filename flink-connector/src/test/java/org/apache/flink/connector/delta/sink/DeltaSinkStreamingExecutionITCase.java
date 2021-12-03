@@ -138,7 +138,7 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
         int writtenRecordsCount =
             DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
-        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialDeltaFiles.size());
+        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialTableRecordsCount);
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());
@@ -203,6 +203,10 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
     // Streaming mode user functions
     ///////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Implementation idea and some functions is borrowed from 'StreamingExecutionTestSource' in
+     * {@link StreamingExecutionFileSinkITCase}
+     */
     private static class DeltaStreamingExecutionTestSource
         extends RichParallelSourceFunction<RowData>
         implements CheckpointListener, CheckpointedFunction {
@@ -274,7 +278,8 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
                 // run until finished.
                 sendRecordsUntil(numberOfRecords, ctx);
 
-                // Wait for the last checkpoint to commit all the pending records.
+                // need to add tiny time buffer as in very rare cases the job is terminated by test
+                // runner before the global commit is finalized
                 Thread.sleep(50);
                 isWaitingCheckpointComplete = true;
                 CountDownLatch latch = LATCH_MAP.get(latchId);
@@ -308,8 +313,6 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         @Override
         public void notifyCheckpointComplete(long checkpointId) {
             if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
-                // need to add some time buffer as in very rare cases the job is terminated before
-                // execution of the global commit
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }

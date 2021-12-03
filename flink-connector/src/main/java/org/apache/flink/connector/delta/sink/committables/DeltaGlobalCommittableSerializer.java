@@ -78,7 +78,6 @@ public class DeltaGlobalCommittableSerializer
 
     private void serializeV1(DeltaGlobalCommittable committable, DataOutputView dataOutputView)
         throws IOException {
-
         dataOutputView.writeInt(committable.getDeltaCommittables().size());
         for (DeltaCommittable deltaCommittable : committable.getDeltaCommittables()) {
             new DeltaCommittableSerializer(pendingFileSerializer)
@@ -92,7 +91,6 @@ public class DeltaGlobalCommittableSerializer
         for (int i = 0; i < deltaCommittablesSize; i++) {
             DeltaCommittable deserializedCommittable =
                 new DeltaCommittableSerializer(pendingFileSerializer).deserializeV1(dataInputView);
-
             deltaCommittables.add(deserializedCommittable);
         }
         return new DeltaGlobalCommittable(deltaCommittables);

@@ -53,14 +53,14 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>
  * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
  * similar. The main differences are use of custom implementations for some member classes and also
- * managing {@link io.delta.standalone.DeltaLog} transactional ids:
- * {@link DeltaWriter#appId} and {@link DeltaWriter#nextCheckpointId}
+ * managing {@link io.delta.standalone.DeltaLog} transactional ids: {@link DeltaWriter#appId} and
+ * {@link DeltaWriter#nextCheckpointId}.
  * <p>
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Every instance is being created via
  *         {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter} method</li>
- *     <li>Writers' life spand is the same as the application's (unless the worker node gets
+ *     <li>Writers' life span is the same as the application's (unless the worker node gets
  *         unresponding and the job manager needs to create a new instance to satisfy the
  *         parallelism)</li>
  *     <li>Number of instances are managed globally by a job manager and this number is equal to the
@@ -156,7 +156,7 @@ public class DeltaWriter<IN>
      * @param bucketCheckInterval   interval for invoking the {@link Sink.ProcessingTimeService}'s
      *                              callback.
      * @param appId                 Unique identifier of the current Flink app. This identifier
-     *                              needs to constant across all app's restarts to guarantee
+     *                              needs to be constant across all app's restarts to guarantee
      *                              idempotent writes/commits to the DeltaLake's table.
      * @param nextCheckpointId      Identifier of the next checkpoint interval to be committed.
      *                              During DeltaLog's commit phase it will be used as transaction's
@@ -219,8 +219,8 @@ public class DeltaWriter<IN>
         }
 
         if (states.isEmpty()) {
-            // we still need to snapshot app id even though there are no active buckets in the
-            // writer.
+            // we still need to snapshot transactional ids (appId and checkpointId) even though
+            // there are no active buckets in the writer.
             states.add(
                 new DeltaWriterBucketState(NOOP_WRITER_STATE, basePath, appId, nextCheckpointId)
             );
@@ -267,7 +267,6 @@ public class DeltaWriter<IN>
      * {@link org.apache.flink.connector.delta.sink.committer.DeltaCommitter} and
      * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter} to finalize the
      * checkpoint interval and commit written files.
-     * <p>
      *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#prepareCommit}

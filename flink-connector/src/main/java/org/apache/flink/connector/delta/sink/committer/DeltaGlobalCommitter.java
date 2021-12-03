@@ -311,9 +311,9 @@ public class DeltaGlobalCommitter
         if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
             transaction.updateMetadata(metadataAction);
         } else if (!schemasAreMatching) {
-            String printableCurrentTableSchema =  currentTableSchema == null ? "null"
+            String printableCurrentTableSchema = currentTableSchema == null ? "null"
                 : currentTableSchema.toPrettyJson();
-            String printableCommitSchema =  commitSchema == null ? "null"
+            String printableCommitSchema = commitSchema == null ? "null"
                 : commitSchema.toPrettyJson();
 
             throw new RuntimeException(

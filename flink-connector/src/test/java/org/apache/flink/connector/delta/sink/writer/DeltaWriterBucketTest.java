@@ -173,8 +173,7 @@ public class DeltaWriterBucketTest {
 
         // WHEN
         writeData(bucketWriter, testRows);
-        List<DeltaCommittable> deltaCommittables =
-            onCheckpointActions(
+        List<DeltaCommittable> deltaCommittables = onCheckpointActions(
                 bucketWriter,
                 bucketPath,
                 false // doCommit
