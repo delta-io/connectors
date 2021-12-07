@@ -18,17 +18,7 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -101,12 +91,6 @@ public class DeltaGlobalCommitter
      */
     private final boolean canTryUpdateSchema;
 
-    ///////////////////////////////////////////////////
-    // transaction's mutable params
-    ///////////////////////////////////////////////////
-
-    Map<Long, Map<String, Long>> operationMetricsPerCheckpoint = new HashMap<>();
-
     public DeltaGlobalCommitter(Configuration conf,
                                 Path basePath,
                                 RowType rowType,
@@ -123,6 +107,10 @@ public class DeltaGlobalCommitter
      * We are always returning all the committables as we do not implement any retry behaviour
      * in {@link GlobalCommitter#commit} method and always want to try to commit all the received
      * committables.
+     * <p>
+     * If there will be any previous committables from checkpoint intervals other than the most
+     * recent one then we will try to commit them in an idempotent manner during
+     * {@link DeltaGlobalCommitter#commit} method and not by filtering them.
      *
      * @param globalCommittables list of combined committables objects
      * @return same as input
@@ -168,36 +156,36 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Commits already written files to the DeltaLake table using unique identifier for the given
-     * Flink job (appId) and checkpointId delivered with every committable object. Those ids
-     * together construct transactionId that will be used for verification whether given set of
-     * files has already been committed to the Delta table.
+     * Commits already written files to the Delta table using unique identifier for the given Flink
+     * job (appId) and checkpointId delivered with every committable object. Those ids together
+     * construct transactionId that will be used for verification whether given set of files has
+     * already been committed to the Delta table.
      *
      * <p>During commit preparation phase:
      *
      * <ol>
-     *   <li>first appId is resolved from any of the provided committables.
+     *   <li>First appId is resolved from any of the provided committables.
      *       If no appId is resolved then it means that no committables were provided and no commit
      *       is performed. Such situations may happen when e.g. there were no stream events received
      *       within given checkpoint interval,
      *   <li>If appId is successfully resolved then the provided set of committables needs to be
-     *       flatten (as one {@link DeltaGlobalCommittable} contains a list of
+     *       flattened (as one {@link DeltaGlobalCommittable} contains a list of
      *       {@link DeltaCommittable}), mapped to {@link AddFile} objects and then grouped by
      *       checkpointId. The grouping part is necessary as committer object may receive
      *       committables from different checkpoint intervals,
-     *   <li>we process each of the resolved checkpointId incrementally,
-     *   <li>during processing each of the checkpointId and their committables we first query
-     *       the DeltaLog for last checkpointed version for given appId. Here checkpointed version
-     *       equals checkpointId. We proceed with the transaction only if current checkpointId is
-     *       greater than last checkpointed version.
-     *   <li>if above condition is met the we handle the metadata for data in given stream by
+     *   <li>We process each of the resolved checkpointId in increasing order,
+     *   <li>During processing each of the checkpointId and their committables, we first query
+     *       the DeltaLog for last committed transaction version for given appId. Here transaction
+     *       version equals checkpointId. We proceed with the transaction only if current
+     *       checkpointId is greater than last committed transaction version.
+     *   <li>If above condition is met, then we handle the metadata for data in given stream by
      *       comparing the stream's schema with current table snapshot's schema. We proceed with
      *       the transaction only when the schemas are matching or when it was explicitly configured
      *       during creation of the sink that we can try to update the schema.
-     *   <li>if above validation passes then we prepare the final set of {@link Action} objects to
+     *   <li>If above validation passes then we prepare the final set of {@link Action} objects to
      *       be committed along with transaction's metadata and mandatory parameters,
-     *   <li>we try to commit the prepared transaction
-     *   <li>if the commit fails then we fail the application as well. If it succeeds then we
+     *   <li>We try to commit the prepared transaction
+     *   <li>If the commit fails then we fail the application as well. If it succeeds then we
      *       proceed with the next checkpointId (if any).
      * </ol>
      *
@@ -216,37 +204,88 @@ public class DeltaGlobalCommitter
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
-                    List<AddFile> addFiles =
-                        prepareAddFileActions(committablesPerCheckpoint.get(checkpointId));
-                    List<String> partitionColumns = resolvePartitionColumnsForCurrentCheckpoint(
-                        addFiles);
-                    handleMetadataUpdate(
-                        deltaLog.snapshot().getVersion(), transaction, partitionColumns);
-                    List<Action> actions = prepareActionsForTransaction(
-                        appId, checkpointId, addFiles);
-                    Operation operation = prepareDeltaLogOperation(
-                        addFiles.size(),
-                        partitionColumns,
-                        checkpointId
-                    );
-
-                    transaction.commit(actions, operation, ENGINE_INFO);
+                    doCommit(
+                        transaction,
+                        committablesPerCheckpoint.get(checkpointId),
+                        deltaLog.snapshot().getVersion());
                 }
             }
         }
         return Collections.emptyList();
     }
 
-    private List<String> resolvePartitionColumnsForCurrentCheckpoint(
-        List<AddFile> addFilesForCurrentCheckpointId) {
-        // at this point we have already assured that all the AddFile actions per current checkpoint
-        // have the same partition columns so in order to get partition columns for current
-        // checkpoint we only need to reach the first one in the list
-        Map<String, String> currentPartitionValues =
-            addFilesForCurrentCheckpointId
-                .get(0)
-                .getPartitionValues();
-        return new ArrayList<>(currentPartitionValues.keySet());
+    /**
+     * Prepares the set of {@link AddFile} actions from given set of committables, generates the
+     * metadata and metrics and finally performs actual commit to the {@link DeltaLog}.
+     * <p>
+     * During this process we map single committables to {@link AddFile} objects. Additionally,
+     * during the iteration process we also validate whether the committables for the same
+     * checkpoint interval have the same set of partition columns and throw a
+     * {@link RuntimeException} when this condition is not met. At the final stage we handle the
+     * metadata update along with preparing the final set of metrics and perform the actual commit
+     * to the {@link DeltaLog}.
+     *
+     * @param transaction {@link OptimisticTransaction} instance that will be used for committing
+     *                     given checkpoint interval
+     * @param committables list of committables for particular checkpoint interval
+     * @param currentSnapshotVersion version of the latest snapshot for the Delta table queried from
+     *                               the {@link DeltaLog}
+     */
+    private void doCommit(OptimisticTransaction transaction,
+                          List<DeltaCommittable> committables,
+                          long currentSnapshotVersion) {
+        String appId = committables.get(0).getAppId();
+        long checkpointId = committables.get(0).getCheckpointId();
+
+        List<AddFile> addFileActions = new ArrayList<>();
+        Set<String> partitionColumnsSet = null;
+        long numOutputRows = 0;
+        long numOutputBytes = 0;
+        for (DeltaCommittable deltaCommittable : committables) {
+            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+            AddFile action = deltaPendingFile.toAddFile();
+            addFileActions.add(action);
+
+            Set<String> currentPartitionCols = deltaPendingFile.getPartitionSpec().keySet();
+            if (partitionColumnsSet == null) {
+                partitionColumnsSet = currentPartitionCols;
+            }
+
+            boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(
+                currentPartitionCols,
+                partitionColumnsSet);
+
+            if (!isPartitionColumnsMetadataRetained) {
+                throw new RuntimeException(
+                    "Partition columns cannot differ for files in the same checkpointId. " +
+                        "checkpointId=" + checkpointId + " " +
+                        "Partition spec " + deltaPendingFile.getPartitionSpec() +
+                        " does not comply with partition columns from other committables: " +
+                        partitionColumnsSet
+                );
+            }
+
+            numOutputRows += deltaPendingFile.getRecordCount();
+            numOutputBytes += deltaPendingFile.getFileSize();
+        }
+
+        List<String> partitionColumns = partitionColumnsSet == null
+            ? Collections.emptyList() : new ArrayList<>(partitionColumnsSet);
+
+        handleMetadataUpdate(currentSnapshotVersion, transaction, partitionColumns);
+        List<Action> actions = prepareActionsForTransaction(appId, checkpointId, addFileActions);
+
+        Map<String, String> operationMetrics = prepareOperationMetrics(
+            addFileActions.size(),
+            numOutputRows,
+            numOutputBytes
+        );
+        Operation operation = prepareDeltaLogOperation(
+            partitionColumns,
+            operationMetrics
+        );
+
+        transaction.commit(actions, operation, ENGINE_INFO);
     }
 
     /**
@@ -355,17 +394,12 @@ public class DeltaGlobalCommitter
     /**
      * Prepares {@link Operation} object for current transaction
      *
-     * @param numAddedFiles       number of added files to be committed with the transaction
-     * @param partitionColumns    partition columns for data in current transaction
-     * @param currentCheckpointId identifier of the checkpoint interval for which the transaction
-     *                            will be committed
+     * @param partitionColumns partition columns for data in current transaction
+     * @param operationMetrics resolved operation metrics for current transaction
      * @return {@link Operation} object for current transaction
      */
-    private Operation prepareDeltaLogOperation(int numAddedFiles,
-                                               List<String> partitionColumns,
-                                               long currentCheckpointId) {
-        Map<String, String> operationMetrics =
-            prepareOperationMetrics(numAddedFiles, currentCheckpointId);
+    private Operation prepareDeltaLogOperation(List<String> partitionColumns,
+                                               Map<String, String> operationMetrics) {
         Map<String, String> operationParameters = new HashMap<>();
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -409,95 +443,24 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Prepares the set of {@link AddFile} actions from given set of committables.
-     * <p>
-     * During this process we map single committables to {@link AddFile}. Additionally, during
-     * the iteration process we also validate whether the committables for the same checkpoint
-     * interval have the same set of partition columns and throw a {@link RuntimeException} when
-     * this condition is not met.
-     *
-     * @param committables list of combined committables for particular checkpoint interval
-     * @return {@link AddFile} actions generated from input list of committables. It is guaranteed
-     * that all actions per have the same partition columns within given checkpoint interval.
-     */
-    private List<AddFile> prepareAddFileActions(List<DeltaCommittable> committables) {
-        List<AddFile> addFiles = new ArrayList<>();
-        Set<String> partitionColumns = null;
-
-        for (DeltaCommittable deltaCommittable : committables) {
-            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
-            long checkpointId = deltaCommittable.getCheckpointId();
-
-            AddFile action = deltaPendingFile.convertDeltaPendingFileToAddFileAction();
-            addFiles.add(action);
-
-            Set<String> currentPartitionCols = deltaPendingFile.getPartitionSpec().keySet();
-
-            if (partitionColumns == null) {
-                partitionColumns = currentPartitionCols;
-            }
-
-            boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(
-                currentPartitionCols,
-                partitionColumns);
-
-            if (!isPartitionColumnsMetadataRetained) {
-                throw new RuntimeException(
-                    "Partition columns cannot differ for files in the same checkpointId. " +
-                        "checkpointId=" + checkpointId + " " +
-                        "Partition spec " + deltaPendingFile.getPartitionSpec() +
-                        " does not comply with partition columns from other committables: " +
-                        partitionColumns
-                );
-            }
-
-            // prepare operation's metrics
-            if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
-                operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
-            }
-            Map<String, Long> currentOperationMetricsPerCheckpoint =
-                operationMetricsPerCheckpoint.get(checkpointId);
-
-            long currentNumOutputRows = currentOperationMetricsPerCheckpoint
-                .getOrDefault(Operation.Metrics.numOutputRows, 0L);
-
-            long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
-                .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
-
-            currentOperationMetricsPerCheckpoint.put(
-                Operation.Metrics.numOutputRows,
-                currentNumOutputRows + deltaPendingFile.getRecordCount());
-            currentOperationMetricsPerCheckpoint.put(
-                Operation.Metrics.numOutputBytes,
-                currentNumOutputBytes + deltaPendingFile.getFileSize());
-        }
-        return addFiles;
-    }
-
-    /**
-     * Prepare operation metrics to be passed to the constructor of {@link Operation} object for
+     * Prepares operation metrics to be passed to the constructor of {@link Operation} object for
      * current transaction.
      *
-     * @param numAddedFiles       number of added files that will be added in current transaction
-     * @param currentCheckpointId identifier of the checkpoint interval for which the transaction
-     *                            will be committed
+     * @param numAddedFiles   number of added files for current transaction
+     * @param numOutputRows   number of rows written for current transaction
+     * @param numOutputBytes  size in bytes of the written contents for current transaction
      * @return resolved operation metrics for current transaction
      */
     private Map<String, String> prepareOperationMetrics(int numAddedFiles,
-                                                        long currentCheckpointId) {
-        long cumulatedRecordCount = operationMetricsPerCheckpoint.get(currentCheckpointId)
-            .get(Operation.Metrics.numOutputRows);
-
-        long cumulatedSize = operationMetricsPerCheckpoint.get(currentCheckpointId)
-            .get(Operation.Metrics.numOutputBytes);
-
+                                                        long numOutputRows,
+                                                        long numOutputBytes) {
         Map<String, String> operationMetrics = new HashMap<>();
         // number of removed files will be supported for different operation modes
         operationMetrics.put(Operation.Metrics.numRemovedFiles, "0");
         operationMetrics.put(Operation.Metrics.numAddedFiles, String.valueOf(numAddedFiles));
-        operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(cumulatedRecordCount));
-        operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(cumulatedSize));
-
+        operationMetrics.put(
+            Operation.Metrics.numOutputRows, String.valueOf(numOutputRows));
+        operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(numOutputBytes));
         return operationMetrics;
     }
 
