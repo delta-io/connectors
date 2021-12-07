@@ -55,7 +55,7 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
     public void setup() {
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+            DeltaSinkTestUtils.initTestForNonPartitionedTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }

@@ -146,14 +146,14 @@ public class DeltaSinkTestUtils {
             .getResource(TEST_DELTA_TABLE_INITIAL_STATE_P_DIR)
             .getPath();
 
-    public static void initializeTestStateForNonPartitionedDeltaTable(String targetTablePath)
+    public static void initTestForNonPartitionedTable(String targetTablePath)
         throws IOException {
         FileUtils.copyDirectory(
             new File(TEST_DELTA_TABLE_INITIAL_STATE_NP_FULL_PATH),
             new File(targetTablePath));
     }
 
-    public static void initializeTestStateForPartitionedDeltaTable(String targetTablePath)
+    public static void initTestForPartitionedTable(String targetTablePath)
         throws IOException {
         FileUtils.copyDirectory(
             new File(TEST_DELTA_TABLE_INITIAL_STATE_P_FULL_PATH),

@@ -43,13 +43,13 @@ public class DeltaGlobalCommittableSerializer
      */
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
-    private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
-        pendingFileSerializer;
+    private final DeltaCommittableSerializer deltaCommittableSerializer;
 
     public DeltaGlobalCommittableSerializer(
         SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
             pendingFileSerializer) {
-        this.pendingFileSerializer = checkNotNull(pendingFileSerializer);
+        checkNotNull(pendingFileSerializer);
+        deltaCommittableSerializer = new DeltaCommittableSerializer(pendingFileSerializer);
     }
 
     @Override
@@ -80,8 +80,7 @@ public class DeltaGlobalCommittableSerializer
         throws IOException {
         dataOutputView.writeInt(committable.getDeltaCommittables().size());
         for (DeltaCommittable deltaCommittable : committable.getDeltaCommittables()) {
-            new DeltaCommittableSerializer(pendingFileSerializer)
-                .serializeV1(deltaCommittable, dataOutputView);
+            deltaCommittableSerializer.serializeV1(deltaCommittable, dataOutputView);
         }
     }
 
@@ -90,7 +89,7 @@ public class DeltaGlobalCommittableSerializer
         List<DeltaCommittable> deltaCommittables = new ArrayList<>(deltaCommittablesSize);
         for (int i = 0; i < deltaCommittablesSize; i++) {
             DeltaCommittable deserializedCommittable =
-                new DeltaCommittableSerializer(pendingFileSerializer).deserializeV1(dataInputView);
+                deltaCommittableSerializer.deserializeV1(dataInputView);
             deltaCommittables.add(deserializedCommittable);
         }
         return new DeltaGlobalCommittable(deltaCommittables);

@@ -70,7 +70,7 @@ public class DeltaGlobalCommitterTest {
     public void testCommitTwice() throws Exception {
         //GIVEN
         int numAddedFiles = 3;
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
             DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
         assertEquals(deltaLog.snapshot().getVersion(), 0);
@@ -102,7 +102,7 @@ public class DeltaGlobalCommitterTest {
     @Test
     public void testCanTryUpdateSchemaSetToTrue() throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
             DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
 
@@ -137,7 +137,7 @@ public class DeltaGlobalCommitterTest {
     @Test(expected = RuntimeException.class)
     public void testCanTryUpdateSchemaSetToFalse() throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
 
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
             3, DeltaSinkTestUtils.getTestPartitionSpec());
@@ -155,7 +155,7 @@ public class DeltaGlobalCommitterTest {
     @Test(expected = RuntimeException.class)
     public void testCanTryUpdateIncompatibleSchema() throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
 
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
             3, DeltaSinkTestUtils.getTestPartitionSpec());
@@ -174,7 +174,7 @@ public class DeltaGlobalCommitterTest {
     @Test(expected = RuntimeException.class)
     public void testWrongStreamPartitionValues() throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
 
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
             1, getNonMatchingPartitionSpec());
@@ -288,7 +288,7 @@ public class DeltaGlobalCommitterTest {
     public void testCommittablesFromDifferentCheckpointIntervalOneWithIncompatiblePartitions()
         throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
         int numAddedFiles1 = 3;
         int numAddedFiles2 = 5;
         DeltaLog deltaLog = DeltaLog.forTable(

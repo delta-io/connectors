@@ -98,9 +98,9 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
             if (isPartitioned) {
-                DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(deltaTablePath);
+                DeltaSinkTestUtils.initTestForPartitionedTable(deltaTablePath);
             } else {
-                DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+                DeltaSinkTestUtils.initTestForNonPartitionedTable(deltaTablePath);
             }
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
@@ -233,6 +233,8 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
 
         private volatile boolean hasCompletedCheckpoint;
 
+        private volatile boolean isLastCheckpointInterval;
+
         DeltaStreamingExecutionTestSource(
             String latchId, int numberOfRecords, boolean isFailoverScenario) {
             this.latchId = latchId;
@@ -278,9 +280,6 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
                 // run until finished.
                 sendRecordsUntil(numberOfRecords, ctx);
 
-                // need to add tiny time buffer as in very rare cases the job is terminated by test
-                // runner before the global commit is finalized
-                Thread.sleep(50);
                 isWaitingCheckpointComplete = true;
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.await();
@@ -312,10 +311,19 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
 
         @Override
         public void notifyCheckpointComplete(long checkpointId) {
-            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
+            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput
+                && isLastCheckpointInterval) {
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }
+
+            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput
+                && !isLastCheckpointInterval) {
+                // we set the job to run for one additional checkpoint interval to avoid any
+                // premature job termination and race conditions
+                isLastCheckpointInterval = true;
+            }
+
             hasCompletedCheckpoint = true;
         }
 

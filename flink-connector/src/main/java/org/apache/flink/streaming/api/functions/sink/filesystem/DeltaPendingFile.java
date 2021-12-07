@@ -26,6 +26,9 @@ import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.table.utils.PartitionPathUtils;
+
+import io.delta.standalone.actions.AddFile;
 
 /**
  * Wrapper class for {@link InProgressFileWriter.PendingFileRecoverable} object.
@@ -102,6 +105,26 @@ public class DeltaPendingFile {
 
     public LinkedHashMap<String, String> getPartitionSpec() {
         return new LinkedHashMap<>(partitionSpec);
+    }
+
+    /**
+     * Converts {@link DeltaPendingFile} object to a {@link AddFile} object
+     *
+     * @return {@link AddFile} object generated from input
+     */
+    public AddFile convertDeltaPendingFileToAddFileAction() {
+        LinkedHashMap<String, String> partitionSpec = this.getPartitionSpec();
+        long modificationTime = this.getLastUpdateTime();
+        String filePath = PartitionPathUtils.generatePartitionPath(partitionSpec) +
+            this.getFileName();
+        return new AddFile(
+            filePath,
+            partitionSpec,
+            this.getFileSize(),
+            modificationTime,
+            true, // dataChange
+            null,
+            null);
     }
 
     ///////////////////////////////////////////////////////////////////////////

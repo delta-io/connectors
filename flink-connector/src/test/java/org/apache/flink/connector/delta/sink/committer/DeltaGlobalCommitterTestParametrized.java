@@ -93,10 +93,10 @@ public class DeltaGlobalCommitterTestParametrized {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
         if (initializeTableBeforeCommit) {
             if (partitionSpec.isEmpty()) {
-                DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(
+                DeltaSinkTestUtils.initTestForNonPartitionedTable(
                     tablePath.getPath());
             } else {
-                DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
+                DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
             }
         }
         deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());

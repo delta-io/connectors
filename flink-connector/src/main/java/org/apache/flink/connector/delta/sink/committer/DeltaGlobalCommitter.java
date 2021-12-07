@@ -23,12 +23,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -41,7 +41,6 @@ import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.table.utils.PartitionPathUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import io.delta.standalone.DeltaLog;
@@ -209,27 +208,24 @@ public class DeltaGlobalCommitter
     public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         String appId = resolveAppId(globalCommittables);
         if (appId != null) { // means there are committables to process
-            Map<Long, List<AddFile>> addFileActionsPerCheckpoint =
-                prepareAddFileActionsPerCheckpoint(globalCommittables);
+            SortedMap<Long, List<DeltaCommittable>> committablesPerCheckpoint =
+                groupCommittablesByCheckpointInterval(globalCommittables);
             DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
-            List<Long> sortedCheckpointIds =
-                getSortedListOfCheckpointIds(addFileActionsPerCheckpoint);
-
-            for (long checkpointId : sortedCheckpointIds) {
+            for (long checkpointId : committablesPerCheckpoint.keySet()) {
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
-                    List<AddFile> addFilesForCurrentCheckpointId =
-                        addFileActionsPerCheckpoint.get(checkpointId);
+                    List<AddFile> addFiles =
+                        prepareAddFileActions(committablesPerCheckpoint.get(checkpointId));
                     List<String> partitionColumns = resolvePartitionColumnsForCurrentCheckpoint(
-                        addFilesForCurrentCheckpointId);
+                        addFiles);
                     handleMetadataUpdate(
                         deltaLog.snapshot().getVersion(), transaction, partitionColumns);
                     List<Action> actions = prepareActionsForTransaction(
-                        appId, checkpointId, addFilesForCurrentCheckpointId);
+                        appId, checkpointId, addFiles);
                     Operation operation = prepareDeltaLogOperation(
-                        addFileActionsPerCheckpoint.get(checkpointId).size(),
+                        addFiles.size(),
                         partitionColumns,
                         checkpointId
                     );
@@ -239,15 +235,6 @@ public class DeltaGlobalCommitter
             }
         }
         return Collections.emptyList();
-    }
-
-    private List<Long> getSortedListOfCheckpointIds(
-        Map<Long, List<AddFile>> addFileActionsPerCheckpoint) {
-        return addFileActionsPerCheckpoint
-            .keySet()
-            .stream()
-            .sorted()
-            .collect(Collectors.toList());
     }
 
     private List<String> resolvePartitionColumnsForCurrentCheckpoint(
@@ -395,79 +382,96 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Prepares the set of {@link AddFile} actions grouped per checkpointId.
-     * During this process we not only map the single committables to {@link AddFile} actions and
-     * group them by checkpointId but also flatten collection of {@link DeltaGlobalCommittable}
-     * objects (each containing its own collection of {@link DeltaCommittable}). Additionally,
-     * during the iteration process we also validate whether the committables for the same
-     * checkpoint interval have the same set of partition columns and throw
-     * a {@link RuntimeException} when this condition is not met.
+     * Prepares the set of {@link DeltaCommittable} grouped per checkpointId.
+     * <p>
+     * During this process we not only group committables by checkpointId but also flatten
+     * collection of {@link DeltaGlobalCommittable} objects (each containing its own collection of
+     * {@link DeltaCommittable}).
      *
-     * @param globalCommittables list of combined @link DeltaGlobalCommittable} objects
-     * @return {@link AddFile} actions grouped by the checkpoint interval in the form of
-     * {@link java.util.Map}. It is guaranteed that all actions per have the same partition columns
-     * within given checkpoint interval.
+     * @param globalCommittables list of combined {@link DeltaGlobalCommittable} objects
+     * @return collections of {@link DeltaCommittable} grouped by checkpoint id (map keys are sorted
+     * in ascending order).
      */
-    private Map<Long, List<AddFile>> prepareAddFileActionsPerCheckpoint(
+    private SortedMap<Long, List<DeltaCommittable>> groupCommittablesByCheckpointInterval(
         List<DeltaGlobalCommittable> globalCommittables) {
-        Map<Long, List<AddFile>> addFilesPerCheckpoint = new HashMap<>();
-        Map<Long, Set<String>> partitionColumnsMetadataPerCheckpoint = new HashMap<>();
+        SortedMap<Long, List<DeltaCommittable>> committablesPerCheckpoint = new TreeMap<>();
 
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
-                DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
                 long checkpointId = deltaCommittable.getCheckpointId();
-
-                if (!addFilesPerCheckpoint.containsKey(checkpointId)) {
-                    addFilesPerCheckpoint.put(checkpointId, new ArrayList<>());
+                if (!committablesPerCheckpoint.containsKey(checkpointId)) {
+                    committablesPerCheckpoint.put(checkpointId, new ArrayList<>());
                 }
-
-                AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
-                addFilesPerCheckpoint.get(checkpointId).add(action);
-
-                LinkedHashMap<String, String> currentPartitionSpec =
-                    deltaPendingFile.getPartitionSpec();
-                if (!partitionColumnsMetadataPerCheckpoint.containsKey(checkpointId)) {
-                    partitionColumnsMetadataPerCheckpoint.put(
-                        checkpointId, currentPartitionSpec.keySet());
-                }
-
-                boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(
-                    currentPartitionSpec.keySet(),
-                    partitionColumnsMetadataPerCheckpoint.get(checkpointId));
-
-                if (!isPartitionColumnsMetadataRetained) {
-                    throw new RuntimeException(
-                        "Partition columns cannot differ for files in the same checkpointId. " +
-                            "checkpointId=" + checkpointId + " " +
-                            "Partition spec " + deltaPendingFile.getPartitionSpec() +
-                            " does not comply with: " +
-                            partitionColumnsMetadataPerCheckpoint.get(checkpointId)
-                    );
-                }
-
-                // prepare operation's metrics
-                if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
-                    operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
-                }
-                Map<String, Long> currentOperationMetricsPerCheckpoint =
-                    operationMetricsPerCheckpoint.get(checkpointId);
-
-                long currentNumOutputRows = currentOperationMetricsPerCheckpoint
-                    .getOrDefault(Operation.Metrics.numOutputRows, 0L);
-
-                long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
-                    .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
-
-                currentOperationMetricsPerCheckpoint.put(
-                    Operation.Metrics.numOutputRows,
-                    currentNumOutputRows + deltaPendingFile.getRecordCount());
-                currentOperationMetricsPerCheckpoint.put(
-                    Operation.Metrics.numOutputBytes,
-                    currentNumOutputBytes + deltaPendingFile.getFileSize());
+                committablesPerCheckpoint.get(checkpointId).add(deltaCommittable);
             }
         }
-        return addFilesPerCheckpoint;
+        return committablesPerCheckpoint;
+    }
+
+    /**
+     * Prepares the set of {@link AddFile} actions from given set of committables.
+     * <p>
+     * During this process we map single committables to {@link AddFile}. Additionally, during
+     * the iteration process we also validate whether the committables for the same checkpoint
+     * interval have the same set of partition columns and throw a {@link RuntimeException} when
+     * this condition is not met.
+     *
+     * @param committables list of combined committables for particular checkpoint interval
+     * @return {@link AddFile} actions generated from input list of committables. It is guaranteed
+     * that all actions per have the same partition columns within given checkpoint interval.
+     */
+    private List<AddFile> prepareAddFileActions(List<DeltaCommittable> committables) {
+        List<AddFile> addFiles = new ArrayList<>();
+        Set<String> partitionColumns = null;
+
+        for (DeltaCommittable deltaCommittable : committables) {
+            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+            long checkpointId = deltaCommittable.getCheckpointId();
+
+            AddFile action = deltaPendingFile.convertDeltaPendingFileToAddFileAction();
+            addFiles.add(action);
+
+            Set<String> currentPartitionCols = deltaPendingFile.getPartitionSpec().keySet();
+
+            if (partitionColumns == null) {
+                partitionColumns = currentPartitionCols;
+            }
+
+            boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(
+                currentPartitionCols,
+                partitionColumns);
+
+            if (!isPartitionColumnsMetadataRetained) {
+                throw new RuntimeException(
+                    "Partition columns cannot differ for files in the same checkpointId. " +
+                        "checkpointId=" + checkpointId + " " +
+                        "Partition spec " + deltaPendingFile.getPartitionSpec() +
+                        " does not comply with partition columns from other committables: " +
+                        partitionColumns
+                );
+            }
+
+            // prepare operation's metrics
+            if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
+                operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
+            }
+            Map<String, Long> currentOperationMetricsPerCheckpoint =
+                operationMetricsPerCheckpoint.get(checkpointId);
+
+            long currentNumOutputRows = currentOperationMetricsPerCheckpoint
+                .getOrDefault(Operation.Metrics.numOutputRows, 0L);
+
+            long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
+                .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
+
+            currentOperationMetricsPerCheckpoint.put(
+                Operation.Metrics.numOutputRows,
+                currentNumOutputRows + deltaPendingFile.getRecordCount());
+            currentOperationMetricsPerCheckpoint.put(
+                Operation.Metrics.numOutputBytes,
+                currentNumOutputBytes + deltaPendingFile.getFileSize());
+        }
+        return addFiles;
     }
 
     /**
@@ -513,27 +517,6 @@ public class DeltaGlobalCommitter
             }
         }
         return true;
-    }
-
-    /**
-     * Converts {@link DeltaPendingFile} object to a {@link AddFile} object
-     *
-     * @param deltaPendingFile input object to be converted to {@link AddFile} object
-     * @return {@link AddFile} object generated from input
-     */
-    private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
-        LinkedHashMap<String, String> partitionSpec = deltaPendingFile.getPartitionSpec();
-        long modificationTime = deltaPendingFile.getLastUpdateTime();
-        String filePath = PartitionPathUtils.generatePartitionPath(partitionSpec) +
-            deltaPendingFile.getFileName();
-        return new AddFile(
-            filePath,
-            partitionSpec,
-            deltaPendingFile.getFileSize(),
-            modificationTime,
-            true, // dataChange
-            null,
-            null);
     }
 
     @Override
