@@ -155,6 +155,22 @@ public final class Metadata implements Action {
     }
 
     /**
+     * @return a new {@link Metadata.Builder} initialized with the same properties as this
+     *         {@link Metadata} instance
+     */
+    public Builder copyBuilder() {
+        return builder()
+                .id(id)
+                .name(name)
+                .description(description)
+                .format(format)
+                .partitionColumns(partitionColumns)
+                .configuration(configuration)
+                .createdTime(createdTime)
+                .schema(schema);
+    }
+
+    /**
      * @return a new {@link Metadata.Builder}
      */
     public static Builder builder() {
@@ -207,6 +223,11 @@ public final class Metadata implements Action {
 
         public Builder createdTime(Long createdTime) {
             this.createdTime = Optional.of(createdTime);
+            return this;
+        }
+
+        public Builder createdTime(Optional<Long> createdTime) {
+            this.createdTime = createdTime;
             return this;
         }
 
