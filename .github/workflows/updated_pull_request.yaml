@@ -14,6 +14,6 @@ jobs:
       - uses: alex-page/github-project-automation-plus@2af3cf061aeca8ac6ab40a960eee1968a7f9ce0e
         if: ${{ github.event.pull_request || github.event.issue.pull_request }}
         with:
-          project: oss-eng-delta-ecosystem
+          project: oss-delta-prs
           column: Needs Review
           repo-token: ${{ secrets.PROJECT_BOARD_AUTOMATION_TOKEN }}
