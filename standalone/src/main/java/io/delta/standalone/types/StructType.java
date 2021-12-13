@@ -202,7 +202,8 @@ public final class StructType extends DataType {
     }
 
     /**
-     * Whether a new schema can replace this existing schema in a Delta table.
+     * Whether a new schema can replace this existing schema in a Delta table without rewriting data
+     * files in the table.
      * <p>
      * Returns false if the new schema:
      * <ul>
