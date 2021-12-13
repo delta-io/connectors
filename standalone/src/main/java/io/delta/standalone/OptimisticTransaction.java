@@ -86,7 +86,6 @@ public interface OptimisticTransaction {
      * <pre>{@code
      * Metadata newMetadata = optimisticTransaction.metadata().copyBuilder()
      *     .schema(newSchema)
-     *     .createdTime(System.currentTimeMillis())
      *     .build();
      * optimisticTransaction.updateMetadata(newMetadata);
      * }</pre>

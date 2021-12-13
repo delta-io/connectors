@@ -62,6 +62,13 @@ class ActionBuildersSuite extends FunSuite {
     assert(metadataFromBuilder == metadataFromConstructor)
   }
 
+  test("Metadata constructor matches Metadata.Builder constructor") {
+    assert(
+      classOf[MetadataJ].getConstructors.map(_.getParameterCount()).toList.max ==
+      classOf[MetadataJ.Builder].getConstructors.map(_.getParameterCount()).toList.max
+    )
+  }
+
   test("copyBuilder constructor for Metadata") {
     val metadata = new MetadataJ(
       "test_id",

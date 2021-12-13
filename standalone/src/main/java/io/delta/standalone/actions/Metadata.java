@@ -159,15 +159,8 @@ public final class Metadata implements Action {
      *         {@link Metadata} instance
      */
     public Builder copyBuilder() {
-        return builder()
-                .id(id)
-                .name(name)
-                .description(description)
-                .format(format)
-                .partitionColumns(partitionColumns)
-                .configuration(configuration)
-                .createdTime(createdTime)
-                .schema(schema);
+        return new Builder(id, name, description, format, partitionColumns, configuration,
+                createdTime, schema);
     }
 
     /**
@@ -190,6 +183,27 @@ public final class Metadata implements Action {
         @Nonnull private Map<String, String> configuration = Collections.emptyMap();
         @Nonnull private Optional<Long> createdTime = Optional.of(System.currentTimeMillis());
         @Nullable private StructType schema;
+
+        public Builder(){};
+
+        public Builder(
+                @Nonnull String id,
+                @Nullable String name,
+                @Nullable String description,
+                @Nonnull Format format,
+                @Nonnull List<String> partitionColumns,
+                @Nonnull Map<String, String> configuration,
+                @Nonnull Optional<Long> createdTime,
+                @Nullable StructType schema) {
+            this.id = id;
+            this.name = name;
+            this.description = description;
+            this.format = format;
+            this.partitionColumns = partitionColumns;
+            this.configuration = configuration;
+            this.createdTime = createdTime;
+            this.schema = schema;
+        }
 
         public Builder id(@Nonnull String id) {
             this.id = id;
@@ -226,7 +240,7 @@ public final class Metadata implements Action {
             return this;
         }
 
-        public Builder createdTime(Optional<Long> createdTime) {
+        public Builder createdTime(@Nonnull Optional<Long> createdTime) {
             this.createdTime = createdTime;
             return this;
         }
