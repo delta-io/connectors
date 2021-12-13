@@ -186,7 +186,7 @@ public final class Metadata implements Action {
 
         public Builder(){};
 
-        public Builder(
+        private Builder(
                 @Nonnull String id,
                 @Nullable String name,
                 @Nullable String description,
