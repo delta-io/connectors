@@ -226,7 +226,8 @@ private[internal] class OptimisticTransactionImpl(
           DeltaFileOperations.tryRelativizePath(
             deltaLog.fs,
             deltaLog.getPath,
-            new Path(addFile.path)).toString)
+            new Path(addFile.path)
+          ).toString)
       case a: Action => a
     }
 
