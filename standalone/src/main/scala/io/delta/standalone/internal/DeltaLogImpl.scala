@@ -54,7 +54,7 @@ private[internal] class DeltaLogImpl private(
   lazy val store = createLogStore(hadoopConf)
 
   /** Direct access to the underlying storage system. */
-  lazy val fs = logPath.getFileSystem(hadoopConf)
+  protected[internal] lazy val fs = logPath.getFileSystem(hadoopConf)
 
   // TODO: There is a race here where files could get dropped when increasing the
   // retention interval...
