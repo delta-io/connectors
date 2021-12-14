@@ -64,9 +64,13 @@ class ActionBuildersSuite extends FunSuite {
 
   test("Metadata constructor matches Metadata.Builder constructor") {
     assert(
-      classOf[MetadataJ].getDeclaredConstructors.map(_.getParameterCount()).toList.max ==
-      classOf[MetadataJ.Builder].getDeclaredConstructors.map(_.getParameterCount()).toList.max,
-      "Metadata and Metadata.Builder's constructors are not the same. Please update them" +
+      classOf[MetadataJ].getDeclaredConstructors
+        .filter(!_.isSynthetic)
+        .map(_.getParameterCount()).toList.max ==
+      classOf[MetadataJ.Builder].getDeclaredConstructors
+        .filter(!_.isSynthetic)
+        .map(_.getParameterCount()).toList.max,
+      "Metadata and Metadata.Builder's constructors are not the same. Please update them " +
         "accordingly if you add a new field to Metadata."
     )
   }
