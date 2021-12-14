@@ -302,7 +302,6 @@ class OptimisticTransactionSuite
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
       val committedAddFile = log.update().getAllFiles.asScala.head
-      // TODO Should we be qualifying paths if they're not in the table path?
       assert(Path.getPathWithoutSchemeAndAuthority(new Path(committedAddFile.getPath)).toString ==
         "/absolute/path/to/file/test.parquet")
     }
