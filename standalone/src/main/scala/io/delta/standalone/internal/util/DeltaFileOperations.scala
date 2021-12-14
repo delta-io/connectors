@@ -23,7 +23,7 @@ import io.delta.standalone.internal.logging.Logging
 /**
  * Utility methods on files, directories, and paths.
  */
-object DeltaFileOperations extends Logging {
+private[internal] object DeltaFileOperations extends Logging {
 
   /**
    * Given a path `child`:
@@ -76,5 +76,4 @@ object DeltaFileOperations extends Logging {
       child
     }
   }
-
 }

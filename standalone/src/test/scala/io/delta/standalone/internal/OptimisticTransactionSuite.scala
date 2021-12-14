@@ -24,7 +24,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import io.delta.standalone.DeltaLog
-import io.delta.standalone.actions.{CommitInfo, Protocol, Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ, SetTransaction => SetTransactionJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo, Metadata => MetadataJ, Protocol, SetTransaction => SetTransactionJ}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{AddFile, Metadata}
@@ -267,19 +267,14 @@ class OptimisticTransactionSuite
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // prepareCommit() relativize paths tests
+  // prepareCommit() relativizes AddFile paths
   ///////////////////////////////////////////////////////////////////////////
 
   test("converts absolute path to relative path when in table path") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
-      val addFile = AddFile(
-        dir.getCanonicalPath + "/path/to/file/test.parquet",
-        Map(),
-        0,
-        0,
-        true)
+      val addFile = AddFile(dir.getCanonicalPath + "/path/to/file/test.parquet", Map(), 0, 0, true)
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
       val committedAddFile = log.update().getAllFiles.asScala.head
@@ -291,12 +286,7 @@ class OptimisticTransactionSuite
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
-      val addFile = AddFile(
-        "path/to/file/test.parquet",
-        Map(),
-        0,
-        0,
-        true)
+      val addFile = AddFile("path/to/file/test.parquet", Map(), 0, 0, true)
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
       val committedAddFile = log.update().getAllFiles.asScala.head
@@ -308,16 +298,11 @@ class OptimisticTransactionSuite
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
-      val addFile = AddFile(
-        "/absolute/path/to/file/test.parquet",
-        Map(),
-        0,
-        0,
-        true)
+      val addFile = AddFile("/absolute/path/to/file/test.parquet", Map(), 0, 0, true)
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
       val committedAddFile = log.update().getAllFiles.asScala.head
-      // Should we be qualifying paths if they're not in the table path?
+      // TODO Should we be qualifying paths if they're not in the table path?
       assert(Path.getPathWithoutSchemeAndAuthority(new Path(committedAddFile.getPath)).toString ==
         "/absolute/path/to/file/test.parquet")
     }

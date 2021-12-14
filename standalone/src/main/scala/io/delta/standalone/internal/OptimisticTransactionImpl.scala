@@ -219,7 +219,7 @@ private[internal] class OptimisticTransactionImpl(
     val customCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
 
-    // Convert absolute paths to relative
+    // Convert AddFile paths to relative paths if they're in the table path
     var finalActions = actions.map {
       case addFile: AddFile =>
         addFile.copy(path =
