@@ -301,12 +301,12 @@ class OptimisticTransactionSuite
       val addFile = AddFile("/absolute/path/to/file/test.parquet", Map(), 0, 0, true)
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
-      val committedPath = new Path(log.update().getAllFiles.asScala.head.getPath)
+      val committedAddFile = log.update().getAllFiles.asScala.head
+      val committedPath = new Path(committedAddFile.getPath)
       // Path is fully qualified
       assert(committedPath.isAbsolute && !committedPath.isAbsoluteAndSchemeAuthorityNull)
       // Path is unaltered
-      assert(Path.getPathWithoutSchemeAndAuthority(committedPath).toString ==
-        "/absolute/path/to/file/test.parquet")
+      assert(committedAddFile.getPath === "file:/absolute/path/to/file/test.parquet")
     }
   }
 }
