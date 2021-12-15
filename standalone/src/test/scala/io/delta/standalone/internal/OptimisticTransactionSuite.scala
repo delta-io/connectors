@@ -294,15 +294,18 @@ class OptimisticTransactionSuite
     }
   }
 
-  test("absolute path unchanged when not in table path") {
+  test("absolute path is unaltered and made fully qualified when not in table path") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val addFile = AddFile("/absolute/path/to/file/test.parquet", Map(), 0, 0, true)
       txn.commit(Metadata() :: addFile :: Nil, op, "test")
 
-      val committedAddFile = log.update().getAllFiles.asScala.head
-      assert(Path.getPathWithoutSchemeAndAuthority(new Path(committedAddFile.getPath)).toString ==
+      val committedPath = new Path(log.update().getAllFiles.asScala.head.getPath)
+      // Path is fully qualified
+      assert(committedPath.isAbsolute && !committedPath.isAbsoluteAndSchemeAuthorityNull)
+      // Path is unaltered
+      assert(Path.getPathWithoutSchemeAndAuthority(committedPath).toString ==
         "/absolute/path/to/file/test.parquet")
     }
   }

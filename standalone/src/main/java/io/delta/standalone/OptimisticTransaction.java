@@ -36,8 +36,8 @@ public interface OptimisticTransaction {
      * concurrent writer this method will throw an exception.
      * <p>
      * Note: any {@link io.delta.standalone.actions.AddFile} with an absolute path within the table
-     * path will be updated to have a relative path (based off of the table path). Because of this, be
-     * sure to generate all {@link io.delta.standalone.actions.RemoveFile}s from
+     * path will be updated to have a relative path (based off of the table path). Because of this,
+     * be sure to generate all {@link io.delta.standalone.actions.RemoveFile}s from
      * {@link io.delta.standalone.actions.AddFile}s read from the Delta Log, and not the
      * {@link io.delta.standalone.actions.AddFile}s created pre-commit.
      *
