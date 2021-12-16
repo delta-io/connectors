@@ -413,7 +413,6 @@ lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     name := "delta-standalone-original",
-    skip in publish := true,
     commonSettings,
     skipReleaseSettings,
     mimaSettings,
