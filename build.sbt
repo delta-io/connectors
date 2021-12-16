@@ -123,7 +123,7 @@ lazy val releaseSettings = Seq(
 
 lazy val skipReleaseSettings = Seq(
   publishArtifact := false,
-  publish := ()
+  skip in publish := true
 )
 
 // Looks some of release settings should be set for the root project as well.
