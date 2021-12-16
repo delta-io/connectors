@@ -79,7 +79,7 @@ lazy val commonSettings = Seq(
 lazy val releaseSettings = Seq(
   publishMavenStyle := true,
   publishArtifact := true,
-  (publishArtifact in Test) := false,
+  publishArtifact in Test := false,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseCrossBuild := true,
   publishTo := {
@@ -128,7 +128,7 @@ lazy val skipReleaseSettings = Seq(
 
 // Looks some of release settings should be set for the root project as well.
 publishArtifact := false  // Don't release the root project
-(skip in publish) := true
+skip in publish := true
 publishTo := Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
 releaseCrossBuild := false
 releaseProcess := Seq[ReleaseStep](
