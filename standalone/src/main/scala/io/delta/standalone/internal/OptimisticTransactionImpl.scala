@@ -180,14 +180,6 @@ private[internal] class OptimisticTransactionImpl(
       SchemaUtils.checkUnenforceableNotNullConstraints(latestMetadata.schema)
     }
 
-    // Remove the protocol version properties
-    val noProtocolVersionConfig = latestMetadata.configuration.filter {
-      case (Protocol.MIN_READER_VERSION_PROP, _) => false
-      case (Protocol.MIN_WRITER_VERSION_PROP, _) => false
-      case _ => true
-    }
-
-    latestMetadata = latestMetadata.copy(configuration = noProtocolVersionConfig)
     verifyNewMetadata(latestMetadata)
 
     logInfo(s"Updated metadata from ${newMetadata.getOrElse("-")} to $latestMetadata")
@@ -211,6 +203,7 @@ private[internal] class OptimisticTransactionImpl(
 
   /**
    * Prepare for a commit by doing all necessary pre-commit checks and modifications to the actions.
+   *
    * @return The finalized set of actions.
    */
   private def prepareCommit(actions: Seq[Action]): Seq[Action] = {
@@ -218,6 +211,10 @@ private[internal] class OptimisticTransactionImpl(
 
     val customCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
+
+    assert(!actions.exists(_.isInstanceOf[Metadata]),
+      "Cannot commit Metadata actions in OptimisticTransaction::commit, use " +
+        "OptimisticTransaction::updateMetadata to update table metadata.")
 
     // Convert AddFile paths to relative paths if they're in the table path
     var finalActions = actions.map {
@@ -233,13 +230,7 @@ private[internal] class OptimisticTransactionImpl(
 
     // If the metadata has changed, add that to the set of actions
     finalActions = newMetadata.toSeq ++ finalActions
-
-    val metadataChanges = finalActions.collect { case m: Metadata => m }
-    assert(metadataChanges.length <= 1,
-      "Cannot change the metadata more than once in a transaction.")
-
-    metadataChanges.foreach { m =>
-      verifyNewMetadata(m)
+    newMetadata.foreach { m =>
       verifySchemaCompatibility(snapshot.metadataScala.schema, m.schema, actions)
     }
 
