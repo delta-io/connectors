@@ -35,10 +35,6 @@ public interface OptimisticTransaction {
      * latest version as of this transaction's instantiation. In the case of a conflict with a
      * concurrent writer this method will throw an exception.
      * <p>
-     * To update the table metadata, use {@link OptimisticTransaction#updateMetadata}. Passing a
-     * {@link Metadata} action to {@link OptimisticTransaction#commit} will throw an
-     * {@link IllegalArgumentException}.
-     * <p>
      * Note: any {@link io.delta.standalone.actions.AddFile} with an absolute path within the table
      * path will be updated to have a relative path (based off of the table path). Because of this,
      * be sure to generate all {@link io.delta.standalone.actions.RemoveFile}s using

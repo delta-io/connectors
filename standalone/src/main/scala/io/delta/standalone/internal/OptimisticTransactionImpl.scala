@@ -64,6 +64,7 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Stores the updated metadata (if any) that will result from this txn. */
   private var newMetadata: Option[Metadata] = None
+  private var newMetadataJ: Option[MetadataJ] = None // TODO: document
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
@@ -99,7 +100,15 @@ private[internal] class OptimisticTransactionImpl(
       actionsJ: java.lang.Iterable[T],
       op: Operation,
       engineInfo: String): CommitResult = {
-    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
+
+    actionsJ.asScala.collect { case m: MetadataJ => m }.foreach { m =>
+      updateMetadata(m)
+    }
+
+    val actions = actionsJ.asScala
+      .map(ConversionUtils.convertActionJ)
+      .filter(!_.isInstanceOf[Metadata])
+      .toSeq
 
     // Try to commit at the next version.
     var preparedActions = prepareCommit(actions)
@@ -165,6 +174,12 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   override def updateMetadata(metadataJ: MetadataJ): Unit = {
+
+    // this Metadata instance was previously added
+    if (newMetadataJ.exists(_ eq metadataJ)) {
+      return
+    }
+
     assert(newMetadata.isEmpty,
       "Cannot change the metadata more than once in a transaction.")
 
@@ -185,6 +200,7 @@ private[internal] class OptimisticTransactionImpl(
     logInfo(s"Updated metadata from ${newMetadata.getOrElse("-")} to $latestMetadata")
 
     newMetadata = Some(latestMetadata)
+    newMetadataJ = Some(metadataJ)
   }
 
   override def readWholeTable(): Unit = {
@@ -203,7 +219,6 @@ private[internal] class OptimisticTransactionImpl(
 
   /**
    * Prepare for a commit by doing all necessary pre-commit checks and modifications to the actions.
-   *
    * @return The finalized set of actions.
    */
   private def prepareCommit(actions: Seq[Action]): Seq[Action] = {
@@ -211,10 +226,6 @@ private[internal] class OptimisticTransactionImpl(
 
     val customCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
-
-    assert(!actions.exists(_.isInstanceOf[Metadata]),
-      "Cannot commit Metadata actions in OptimisticTransaction::commit, use " +
-        "OptimisticTransaction::updateMetadata to update table metadata.")
 
     // Convert AddFile paths to relative paths if they're in the table path
     var finalActions = actions.map {
@@ -228,13 +239,12 @@ private[internal] class OptimisticTransactionImpl(
       case a: Action => a
     }
 
-    // If the metadata has changed, add that to the set of actions
-    finalActions = newMetadata.toSeq ++ finalActions
-    newMetadata.foreach { m =>
+    newMetadata.foreach{ m =>
       verifySchemaCompatibility(snapshot.metadataScala.schema, m.schema, actions)
     }
 
-    finalActions = newProtocol.toSeq ++ finalActions
+    // If the metadata has changed, add that to the set of actions
+    finalActions = newMetadata.toSeq ++ finalActions
 
     if (snapshot.version == -1) {
       deltaLog.ensureLogDirectoryExist()
@@ -254,6 +264,8 @@ private[internal] class OptimisticTransactionImpl(
     if (protocolOpt.isDefined) {
       assert(protocolOpt.get == Protocol(), s"Invalid Protocol ${protocolOpt.get.simpleString}. " +
         s"Currently only Protocol readerVersion 1 and writerVersion 2 is supported.")
+    } else {
+      finalActions = newProtocol.toSeq ++ finalActions
     }
 
     val partitionColumns = metadataScala.partitionColumns.toSet
