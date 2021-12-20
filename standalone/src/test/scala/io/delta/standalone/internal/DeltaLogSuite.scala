@@ -28,8 +28,8 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scalatest.FunSuite
-import io.delta.standalone.{DeltaLog, Operation, Snapshot}
 
+import io.delta.standalone.{DeltaLog, Operation, Snapshot}
 import io.delta.standalone.actions.{AddFile => AddFileJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.exceptions.DeltaStandaloneException
 
