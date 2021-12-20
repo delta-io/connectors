@@ -64,7 +64,8 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Stores the updated metadata (if any) that will result from this txn. */
   private var newMetadata: Option[Metadata] = None
-  private var newMetadataJ: Option[MetadataJ] = None // TODO: document
+  /** Stores the updated Java metadata (if any) that will result from this txn. */
+  private var newMetadataJ: Option[MetadataJ] = None
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None

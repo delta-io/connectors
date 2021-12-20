@@ -193,7 +193,8 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val txn = log.startTransaction()
       val metadata = ConversionUtils.convertMetadata(Metadata())
       txn.updateMetadata(metadata)
-      txn.commit((metadata :: Nil).asJava, manualUpdate, engineInfo) // todo: how to assert no error
+      val result = txn.commit((metadata :: Nil).asJava, manualUpdate, engineInfo)
+      assert(result.getVersion == 0)
     }
   }
 
