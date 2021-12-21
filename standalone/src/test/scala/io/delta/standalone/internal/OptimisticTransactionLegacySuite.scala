@@ -164,7 +164,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
     }
   }
 
-  test("commits shouldn't have more than one Metadata") {
+  test("commits shouldn't have more than one unique Metadata") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
@@ -187,13 +187,16 @@ class OptimisticTransactionLegacySuite extends FunSuite {
     }
   }
 
-  test("can commit the *same* Metadata as used for updateMetadata ") {
+  test("can commit the same Metadata as used for updateMetadata ") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val metadata = ConversionUtils.convertMetadata(Metadata())
       txn.updateMetadata(metadata)
-      val result = txn.commit((metadata :: Nil).asJava, manualUpdate, engineInfo)
+      val result = txn.commit(
+        (metadata.copyBuilder().build() :: Nil).asJava,
+        manualUpdate,
+        engineInfo)
       assert(result.getVersion == 0)
     }
   }

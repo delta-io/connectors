@@ -64,8 +64,6 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Stores the updated metadata (if any) that will result from this txn. */
   private var newMetadata: Option[Metadata] = None
-  /** Stores the updated Java metadata (if any) that will result from this txn. */
-  private var newMetadataJ: Option[MetadataJ] = None
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
@@ -174,17 +172,29 @@ private[internal] class OptimisticTransactionImpl(
     scan
   }
 
+  /**
+   * All [[Metadata]] actions must go through this function, and be added to the committed actions
+   * via `newMetadata` (they shouldn't ever be passed into `prepareCommit`.)
+   * This function enforces:
+   * - At most one unique [[Metadata]] is committed in a single transaction.
+   * - If this is the first commit, the committed metadata configuration includes global Delta
+   *   configuration defaults.
+   * - Checks for unenforceable NOT NULL constraints in the table schema.
+   *  - Checks for column name duplication.
+   *    - Verifies column names are parquet compatible.
+   *    - Enforces that protocol versions are not part of the table properties.
+   */
   override def updateMetadata(metadataJ: MetadataJ): Unit = {
 
+    var latestMetadata = ConversionUtils.convertMetadataJ(metadataJ)
+
     // this Metadata instance was previously added
-    if (newMetadataJ.exists(_ eq metadataJ)) {
+    if (newMetadata.contains(latestMetadata)) {
       return
     }
 
     assert(newMetadata.isEmpty,
       "Cannot change the metadata more than once in a transaction.")
-
-    var latestMetadata = ConversionUtils.convertMetadataJ(metadataJ)
 
     if (readVersion == -1 || isCreatingNewTable) {
       latestMetadata = withGlobalConfigDefaults(latestMetadata)
@@ -200,7 +210,6 @@ private[internal] class OptimisticTransactionImpl(
     logInfo(s"Updated metadata from ${newMetadata.getOrElse("-")} to $latestMetadata")
 
     newMetadata = Some(latestMetadata)
-    newMetadataJ = Some(metadataJ)
   }
 
   override def readWholeTable(): Unit = {
