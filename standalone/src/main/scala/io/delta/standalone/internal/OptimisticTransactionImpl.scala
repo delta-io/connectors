@@ -189,7 +189,6 @@ private[internal] class OptimisticTransactionImpl(
     if (readVersion == -1 || isCreatingNewTable) {
       latestMetadata = withGlobalConfigDefaults(latestMetadata)
       isCreatingNewTable = true
-      newProtocol = Some(Protocol())
     }
 
     if (snapshot.metadataScala.schemaString != latestMetadata.schemaString) {
@@ -240,7 +239,7 @@ private[internal] class OptimisticTransactionImpl(
       case a: Action => a
     }
 
-    newMetadata.foreach{ m =>
+    newMetadata.foreach { m =>
       verifySchemaCompatibility(snapshot.metadataScala.schema, m.schema, actions)
     }
 
@@ -265,8 +264,6 @@ private[internal] class OptimisticTransactionImpl(
     if (protocolOpt.isDefined) {
       assert(protocolOpt.get == Protocol(), s"Invalid Protocol ${protocolOpt.get.simpleString}. " +
         s"Currently only Protocol readerVersion 1 and writerVersion 2 is supported.")
-    } else {
-      finalActions = newProtocol.toSeq ++ finalActions
     }
 
     val partitionColumns = metadataScala.partitionColumns.toSet

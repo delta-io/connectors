@@ -308,7 +308,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
     }
   }
 
-  test("updateMetadata removes Protocol properties from metadata config") {
+  test("updateMetadata fails for metadata with Protocol configuration properties") {
     // Note: These Protocol properties are not currently exposed to the user. However, they
     //       might be in the future, and nothing is stopping the user now from seeing these
     //       properties in Delta OSS and adding them to the config map here.
