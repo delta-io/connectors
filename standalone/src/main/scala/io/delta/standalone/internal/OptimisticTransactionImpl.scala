@@ -180,9 +180,9 @@ private[internal] class OptimisticTransactionImpl(
    * - If this is the first commit, the committed metadata configuration includes global Delta
    *   configuration defaults.
    * - Checks for unenforceable NOT NULL constraints in the table schema.
-   *  - Checks for column name duplication.
-   *    - Verifies column names are parquet compatible.
-   *    - Enforces that protocol versions are not part of the table properties.
+   * - Checks for column name duplication.
+   * - Verifies column names are parquet compatible.
+   * - Enforces that protocol versions are not part of the table properties.
    */
   override def updateMetadata(metadataJ: MetadataJ): Unit = {
 
