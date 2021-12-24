@@ -30,7 +30,7 @@ def delete_if_exists(path):
         print("Deleted %s " % path)
 
 def run_maven_proj(test_dir, example, version, maven_repo, scala_version):
-    print(f"\n\n##### Running Maven verification {example[0]} on standalone version {version} with scala version {scala_version}#####")
+    print(f"\n\n##### Running Maven verification {example} on standalone version {version} with scala version {scala_version}#####")
     clear_artifact_cache()
     with WorkingDirectory(test_dir):
         cmd = ["mvn", "package", "exec:java", "-Dexec.cleanupDaemonThreads=false",
