@@ -34,7 +34,7 @@ def run_maven_proj(test_dir, example, version, maven_repo, scala_version):
     clear_artifact_cache()
     with WorkingDirectory(test_dir):
         cmd = ["mvn", "package", "exec:java", "-Dexec.cleanupDaemonThreads=false",
-            f"-Dexec.mainClass={example}",
+            f"-Dexec.mainClass=example.{example}",
             f"-Dscala.version={scala_version}", f"-Dstaging.repo.url={maven_repo}",
             f"-Dstandalone.version={version}"]
         run_cmd(cmd, stream_output=True)
@@ -46,7 +46,7 @@ def run_sbt_proj(test_dir, example, version, maven_repo, scala_version):
     if maven_repo:
         env["EXTRA_MAVEN_REPO"] = maven_repo
     with WorkingDirectory(test_dir):
-        cmd = ["build/sbt", f"++ {scala_version}", f"{example[0].lower() + example[1:]}/runMain {example}"]
+        cmd = ["build/sbt", f"++ {scala_version}", f"{example[0].lower() + example[1:]}/runMain example.{example}"]
         run_cmd(cmd, stream_output=True, env=env)
 
 def clear_artifact_cache():
@@ -97,7 +97,7 @@ class WorkingDirectory(object):
 if __name__ == "__main__":
     """
     Script to run integration tests which are located in the examples directory.
-    call this by running "python run-integration-tests.py"
+    call this by running "python3 run-integration-tests.py"
     additionally the version can be provided as a command line argument.
     """
 

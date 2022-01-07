@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package example;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,9 +48,13 @@ import org.apache.hadoop.fs.Path;
  *
  * To generate your own parquet files for the example, see resources/generateParquet.py
  *
- * To run this example:
- * - cd connectors/examples/standalone-example-convert-to-delta
- * - mvn package exec:java -Dexec.cleanupDaemonThreads=false -Dexec.mainClass=io.delta.standalone.example.ConvertToDelta
+ * To run with Maven:
+ * - cd connectors/examples/convert-to-delta
+ * - mvn package exec:java -Dexec.cleanupDaemonThreads=false -Dexec.mainClass=example.ConvertToDelta
+ *
+ * To run with SBT:
+ * - cd connectors/examples
+ * - build/sbt "convertToDelta/runMain example.ConvertToDelta"
  *
  * Find the converted table in: target/classes/$targetTable
  */
