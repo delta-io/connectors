@@ -124,7 +124,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
         val txn = log.startTransaction()
         val file = AddFile(i.toString, Map.empty, 1, 1, dataChange = true) :: Nil
         val delete: Seq[Action] = if (i > 1) {
-          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+          RemoveFile((i - 1).toString, Some(System.currentTimeMillis()), true) :: Nil
         } else {
           Nil
         }

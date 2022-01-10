@@ -22,9 +22,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.FunSuite
 
-class ImportTest extends AnyFunSuite with BeforeAndAfterAll {
+class ImportTest extends FunSuite with BeforeAndAfterAll {
 
   private def initDataSource (conn: Connection) = {
     conn.prepareStatement("create schema test").executeUpdate()

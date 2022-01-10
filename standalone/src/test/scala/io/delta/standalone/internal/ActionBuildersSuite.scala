@@ -21,12 +21,11 @@ import java.util.{Collections, Optional}
 
 import scala.collection.JavaConverters._
 
-import org.scalatest.FunSuite
-
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ}
 import io.delta.standalone.types.{IntegerType, StructField => StructFieldJ, StructType => StructTypeJ}
 
-class ActionBuildersSuite extends FunSuite {
+
+class ActionBuildersSuite extends org.scalatest.FunSuite {
   test("builder action class constructor for Metadata") {
     val metadataFromBuilderDefaults = MetadataJ.builder().build()
     val metadataFromConstructorDefaults = new MetadataJ(
