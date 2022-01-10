@@ -28,7 +28,7 @@ import scala.language.implicitConversions
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.{DeltaLog, Snapshot}
 import io.delta.standalone.exceptions.DeltaStandaloneException
@@ -46,7 +46,7 @@ import io.delta.standalone.internal.util.GoldenTableUtils._
  * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
  * been generated.
  */
-class DeltaTimeTravelSuite extends FunSuite {
+class DeltaTimeTravelSuite extends AnyFunSuite {
   // scalastyle:on funsuite
 
   // Timezone is fixed to America/Los_Angeles for timezone-sensitive tests

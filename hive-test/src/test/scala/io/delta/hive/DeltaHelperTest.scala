@@ -5,11 +5,11 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.hive.serde2.typeinfo.{StructTypeInfo, TypeInfoFactory}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.types._
 
-class DeltaHelperTest extends FunSuite {
+class DeltaHelperTest extends AnyFunSuite {
 
   test("DeltaHelper checkTableSchema correct") {
     // scalastyle:off

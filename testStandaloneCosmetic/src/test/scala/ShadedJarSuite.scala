@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class ShadedJarSuite extends FunSuite {
+
+class ShadedJarSuite extends AnyFunSuite {
   test("properly shaded jars") {
     // scalastyle:off classforname
     Class.forName("io.delta.standalone.DeltaLog")

@@ -19,7 +19,7 @@ package io.delta.standalone.internal
 import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ}
@@ -30,7 +30,7 @@ import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 import io.delta.standalone.internal.util.TestUtils._
 
-class DeltaScanSuite extends FunSuite {
+class DeltaScanSuite extends AnyFunSuite {
 
   private val op = new Operation(Operation.Name.WRITE)
 

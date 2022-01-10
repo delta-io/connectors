@@ -27,7 +27,7 @@ import scala.collection.mutable.ListBuffer
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.{DeltaLog, Operation, Snapshot}
 import io.delta.standalone.actions.{AddFile => AddFileJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ}
@@ -48,7 +48,7 @@ import io.delta.standalone.internal.util.TestUtils._
  * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
  * been generated.
  */
-abstract class DeltaLogSuiteBase extends FunSuite {
+abstract class DeltaLogSuiteBase extends AnyFunSuite {
 
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
@@ -170,7 +170,7 @@ abstract class DeltaLogSuiteBase extends FunSuite {
         val metadata = if (i == 1) Metadata() :: Nil else Nil
         val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
         val delete: Seq[Action] = if (i > 1) {
-          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+          RemoveFile((i - 1).toString, Some(System.currentTimeMillis()), true) :: Nil
         } else {
           Nil
         }
@@ -186,7 +186,7 @@ abstract class DeltaLogSuiteBase extends FunSuite {
       (6 to 15).foreach { i =>
         val txn = log1.startTransaction()
         val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-        val delete = RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+        val delete = RemoveFile((i - 1).toString, Some(System.currentTimeMillis()), true) :: Nil
 
         val filesToCommit = (delete ++ file).map(ConversionUtils.convertAction)
 

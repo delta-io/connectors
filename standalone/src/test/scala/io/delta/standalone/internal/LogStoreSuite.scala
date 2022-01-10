@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path, RawLocalFileSystem}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.Operation
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
@@ -33,7 +33,7 @@ import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.storage.{AzureLogStore, HDFSLogStore, LocalLogStore, LogStoreProvider, S3SingleDriverLogStore}
 import io.delta.standalone.internal.util.TestUtils._
 
-abstract class LogStoreSuiteBase extends FunSuite with LogStoreProvider {
+abstract class LogStoreSuiteBase extends AnyFunSuite with LogStoreProvider {
 
   def logStoreClassName: Option[String]
 

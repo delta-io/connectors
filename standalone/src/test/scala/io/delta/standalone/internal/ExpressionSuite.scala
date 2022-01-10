@@ -22,7 +22,7 @@ import java.util.{Arrays => ArraysJ, Objects}
 
 import scala.collection.JavaConverters._
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions.{Column, _}
@@ -32,7 +32,7 @@ import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.util.PartitionUtils
 
-class ExpressionSuite extends FunSuite {
+class ExpressionSuite extends AnyFunSuite {
 
   private val partitionSchema = new StructType(Array(
     new StructField("col1", new IntegerType(), true),

@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.{DeltaLog, NAME, Operation, VERSION}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
@@ -36,7 +36,7 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
 import io.delta.standalone.internal.util.TestUtils._
 
-class OptimisticTransactionLegacySuite extends FunSuite {
+class OptimisticTransactionLegacySuite extends AnyFunSuite {
 
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
@@ -124,7 +124,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
         val txn = log.startTransaction()
         val file = AddFile(i.toString, Map.empty, 1, 1, dataChange = true) :: Nil
         val delete: Seq[Action] = if (i > 1) {
-          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
+          RemoveFile((i - 1).toString, Some(System.currentTimeMillis()), true) :: Nil
         } else {
           Nil
         }

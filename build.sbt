@@ -27,7 +27,7 @@ concurrentRestrictions in Global := {
 
 parallelExecution in ThisBuild := false
 scalastyleConfig in ThisBuild := baseDirectory.value / "scalastyle-config.xml"
-crossScalaVersions in ThisBuild := Seq("2.12.8", "2.11.12")
+crossScalaVersions in ThisBuild := Seq("2.13.7", "2.12.15", "2.11.12")
 
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
@@ -36,7 +36,8 @@ val sparkVersion = "2.4.3"
 val hiveDeltaVersion = "0.5.0"
 val parquet4sVersion = "1.2.1"
 val parquetHadoopVersion = "1.10.1"
-val scalaTestVersion = "3.0.5"
+
+val scalaTestVersion = "3.2.10"
 // Versions for Hive 3
 val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
@@ -48,10 +49,10 @@ val tezVersionForHive2 = "0.8.4"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
-  scalaVersion := "2.12.8",
+  scalaVersion := "2.13.7",
   fork := true,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
-  scalacOptions ++= Seq("-target:jvm-1.8", "-Ywarn-unused-import"),
+  scalacOptions ++= Seq("-target:jvm-1.8"),//, "-Ywarn-unused-import"),
   // Configurations to speed up tests and reduce memory footprint
   javaOptions in Test ++= Seq(
     "-Dspark.ui.enabled=false",
@@ -201,7 +202,7 @@ lazy val hiveTest = (project in file("hive-test")) settings (
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
 
@@ -228,7 +229,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hiveTest % "test->test"
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
 
@@ -275,7 +276,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hiveTest % "test->tes
     "org.apache.tez" % "tez-dag" % tezVersion % "test",
     "org.apache.tez" % "tez-tests" % tezVersion % "test" classifier "tests",
     "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
 
@@ -307,7 +308,7 @@ lazy val hive2MR = (project in file("hive2-mr")) settings (
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
 
@@ -358,7 +359,7 @@ lazy val hive2Tez = (project in file("hive2-tez")) settings (
     "org.apache.tez" % "tez-dag" % tezVersionForHive2 % "test",
     "org.apache.tez" % "tez-tests" % tezVersionForHive2 % "test" classifier "tests",
     "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
 )
 
@@ -405,9 +406,15 @@ lazy val testStandaloneCosmetic = project.dependsOn(standaloneCosmetic)
     commonSettings,
     skipReleaseSettings,
     libraryDependencies ++= Seq(
-      "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     )
   )
+
+def scalaCollectionPar(version: String) = version match {
+  case v if v.startsWith("2.13.") =>
+    Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4")
+    case _ => Seq()
+}
 
 lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
@@ -419,7 +426,7 @@ lazy val standalone = (project in file("standalone"))
     unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
     // When updating any dependency here, we should also review `pomPostProcess` in project
     // `standaloneCosmetic` and update it accordingly.
-    libraryDependencies ++= Seq(
+    libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++  Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
@@ -573,13 +580,13 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
     skipReleaseSettings,
     libraryDependencies ++= Seq(
       // Test Dependencies
-      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
-      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test",
-      "io.delta" % "delta-core_2.12" % "1.0.0" % "test",
+      "org.scalatest" %% "scalatest" % "3.2.10" % "test",
+      "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test",
+      "io.delta" % "delta-core_2.13" % "1.1.0" % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % "3.1.1" % "test" classifier "tests",
-      "org.apache.spark" % "spark-core_2.12" % "3.1.1" % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % "3.1.1" % "test" classifier "tests"
+      "org.apache.spark" % "spark-catalyst_2.13" % "3.2.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.13" % "3.2.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test" classifier "tests"
     )
   )
 
@@ -589,13 +596,13 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
   skipReleaseSettings,
   libraryDependencies ++= Seq(
     // Test Dependencies
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
-    "io.delta" % "delta-core_2.12" % "0.8.0" % "test",
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+    "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test",
+    "io.delta" % "delta-core_2.13" % "1.1.0" % "test",
     "commons-io" % "commons-io" % "2.8.0" % "test",
-    "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test" classifier "tests"
+    "org.apache.spark" % "spark-catalyst_2.13" % "3.2.0" % "test" classifier "tests",
+    "org.apache.spark" % "spark-core_2.13" % "3.2.0" % "test" classifier "tests",
+    "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test" classifier "tests"
   )
 )
 
@@ -603,7 +610,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
   .settings (
     name := "sql-delta-import",
     commonSettings,
-    publishArtifact := scalaBinaryVersion.value == "2.12",
+    publishArtifact := scalaBinaryVersion.value == "2.13",
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
       // We config this project to skip the publish step when running
@@ -612,18 +619,18 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
       // `build/sbt "++ 2.11.12 publishLocal"` because Spark 3.0.0 and Delta 0.7.0 don't support
       // 2.11 and don't have the jars for Scala 2.11. In order to make our publish command pass, we
       // define Spark and Delta versions with 2.12 to make dependency resolution pass.
-      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "provided",
-      "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
+      "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "provided",
+      "io.delta" % "delta-core_2.13" % "1.1.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
-      "org.scalatest" %% "scalatest" % "3.1.1" % "test",
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
       "com.h2database" % "h2" % "1.4.200" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % "3.0.0" % "test",
-      "org.apache.spark" % "spark-core_2.12" % "3.0.0" % "test",
-      "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test"
+      "org.apache.spark" % "spark-catalyst_2.13" % "3.2.0" % "test",
+      "org.apache.spark" % "spark-core_2.13" % "3.2.0" % "test",
+      "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test"
     )
   )
   .settings(releaseSettings)
-
+/*
 val flinkVersion = "1.12.0"
 lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
@@ -631,6 +638,8 @@ lazy val flinkConnector = (project in file("flink-connector"))
     commonSettings,
     publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
+    scalaVersion := "2.12.15",
+    crossScalaVersions := Seq("2.12.15", "2.11.12"),
     crossPaths := false,
     libraryDependencies ++= Seq(
       "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided",
@@ -657,3 +666,4 @@ lazy val flinkConnector = (project in file("flink-connector"))
   )
   .settings(skipReleaseSettings)
   .dependsOn(standalone)
+*/

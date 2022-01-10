@@ -17,12 +17,12 @@
 package io.delta.standalone.internal
 
 import org.apache.parquet.schema.MessageTypeParser
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.types._
 import io.delta.standalone.util.ParquetSchemaConverter
 
-class ParquetSchemaConverterSuite extends FunSuite {
+class ParquetSchemaConverterSuite extends AnyFunSuite {
 
   private def testCatalystToParquet(
       testName: String,

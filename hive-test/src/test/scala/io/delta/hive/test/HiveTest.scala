@@ -30,10 +30,13 @@ import org.apache.hadoop.hive.conf.HiveConf
 import org.apache.hadoop.hive.ql.Driver
 import org.apache.hadoop.hive.ql.metadata.Hive
 import org.apache.hadoop.hive.ql.session.SessionState
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.BeforeAndAfterAll
+
 
 // TODO Yarn is using log4j2. Disable its verbose logs.
-trait HiveTest extends FunSuite with BeforeAndAfterAll {
+trait HiveTest extends AnyFunSuite with BeforeAndAfterAll {
   private val tempPath = Files.createTempDirectory(this.getClass.getSimpleName).toFile
 
   private var driver: Driver = _
@@ -101,7 +104,7 @@ trait HiveTest extends FunSuite with BeforeAndAfterAll {
     }
     val result = new java.util.ArrayList[String]()
     if (driver.getResults(result)) {
-      result.asScala
+      result.asScala.toSeq
     } else {
       Nil
     }

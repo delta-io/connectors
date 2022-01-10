@@ -19,13 +19,13 @@ package io.delta.standalone.internal
 import java.util.concurrent.TimeUnit
 
 import org.apache.hadoop.conf.Configuration
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.internal.DeltaConfigs.{isValidIntervalConfigValue, parseCalendarInterval}
 import io.delta.standalone.internal.actions.Metadata
 import io.delta.standalone.internal.util.{CalendarInterval, DateTimeConstants}
 
-class DeltaConfigSuite extends FunSuite {
+class DeltaConfigSuite extends AnyFunSuite {
 
   test("mergeGlobalConfigs") {
 

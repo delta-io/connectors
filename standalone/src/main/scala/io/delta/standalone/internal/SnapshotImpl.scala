@@ -19,6 +19,7 @@ package io.delta.standalone.internal
 import java.net.URI
 
 import scala.collection.JavaConverters._
+import scala.collection.parallel.CollectionConverters._
 
 import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
@@ -35,6 +36,7 @@ import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.scan.{DeltaScanImpl, FilteredDeltaScanImpl}
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
+
 
 /**
  * Scala implementation of Java interface [[Snapshot]].

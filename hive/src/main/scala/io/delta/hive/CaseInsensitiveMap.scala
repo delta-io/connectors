@@ -63,9 +63,12 @@ class CaseInsensitiveMap[T] private (val originalMap: Map[String, T])
 
   override def iterator: Iterator[(String, T)] = keyLowerCasedMap.iterator
 
-  override def -(key: String): Map[String, T] = {
-    new CaseInsensitiveMap(originalMap.filterKeys(!_.equalsIgnoreCase(key)))
-  }
+  override def removed(key: String): Map[String, T] =
+     new CaseInsensitiveMap(originalMap.removed(key.toLowerCase(Locale.ROOT)))
+
+  override def updated[V1 >: T](key: String, value: V1): Map[String, V1] =
+     new CaseInsensitiveMap(originalMap.updated(key.toLowerCase(Locale.ROOT), value))
+
 }
 
 object CaseInsensitiveMap {

@@ -20,7 +20,7 @@ import java.io.File
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.{DeltaLog, Operation, OptimisticTransaction}
 
@@ -28,7 +28,7 @@ import io.delta.standalone.internal.actions.Metadata
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 import io.delta.standalone.internal.util.TestUtils._
 
-trait DeltaRetentionSuiteBase extends FunSuite {
+trait DeltaRetentionSuiteBase extends AnyFunSuite {
 
   protected def hadoopConf: Configuration = {
     val conf = new Configuration()

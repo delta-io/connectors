@@ -18,7 +18,7 @@ package io.delta.standalone.internal
 
 import java.util.Locale
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.types._
@@ -26,7 +26,7 @@ import io.delta.standalone.types._
 import io.delta.standalone.internal.util.SchemaMergingUtils.checkColumnNameDuplication
 import io.delta.standalone.internal.util.SchemaUtils._
 
-class SchemaUtilsSuite extends FunSuite {
+class SchemaUtilsSuite extends AnyFunSuite {
 
   private def expectFailure(shouldContain: String*)(f: => Unit): Unit = {
     val e = intercept[DeltaStandaloneException] {

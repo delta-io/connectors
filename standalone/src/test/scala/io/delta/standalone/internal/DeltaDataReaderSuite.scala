@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 import org.apache.hadoop.conf.Configuration
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import io.delta.standalone.DeltaLog
 import io.delta.standalone.data.{CloseableIterator, RowRecord => JRowRecord}
@@ -45,7 +45,7 @@ import io.delta.standalone.internal.util.GoldenTableUtils._
  * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
  * been generated.
  */
-class DeltaDataReaderSuite extends FunSuite {
+class DeltaDataReaderSuite extends AnyFunSuite {
 
   test("read - primitives") {
     withLogForGoldenTable("data-reader-primitives") { log =>
