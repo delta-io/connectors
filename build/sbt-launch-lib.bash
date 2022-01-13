@@ -37,7 +37,7 @@ dlog () {
 }
 
 acquire_sbt_jar () {
-  SBT_VERSION=$(awk -F "=" '/sbt\.version/ {print $2}' ./project/build.properties)
+  SBT_VERSION=`awk -F "=" '/sbt\.version/ {print $2}' ./project/build.properties`
 
   # Download sbt from mirror URL if the environment variable is provided
   if [[ "${SBT_VERSION}" == "0.13.18" ]] && [[ -n "${SBT_MIRROR_JAR_URL}" ]]; then
