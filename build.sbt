@@ -28,7 +28,6 @@ concurrentRestrictions in Global := {
 inThisBuild(
   Seq(
     parallelExecution := false,
-    //scalastyleConfig := baseDirectory.value / "scalastyle-config.xml",
     crossScalaVersions := Seq("2.12.8", "2.11.12")
   )
 )
