@@ -575,7 +575,15 @@ def getPrevVersion(currentVersion: String): String = {
 
 lazy val mimaSettings = Seq(
   (Test / test) := ((Test / test) dependsOn mimaReportBinaryIssues).value,
-  mimaPreviousArtifacts := Set("io.delta" %% "delta-standalone" %  getPrevVersion(version.value)),
+  mimaPreviousArtifacts := {
+    if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 13))) {
+      // Skip mima check since we don't have a Scala 2.13 release yet.
+      // TODO Update this after releasing 1.1.0.
+      Set.empty
+    } else {
+      Set("io.delta" %% "delta-core" % getPrevVersion(version.value))
+    }
+  },
   mimaBinaryIssueFilters ++= StandaloneMimaExcludes.ignoredABIProblems
 )
 
@@ -644,7 +652,6 @@ val flinkVersion = "1.12.0"
 lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",
-//    crossScalaVersions := Seq("2.12.8"),
     scalaVersion := "2.12.8",
     commonSettings,
     Test / publishArtifact := false,
