@@ -33,7 +33,6 @@ import org.apache.hadoop.hive.ql.session.SessionState
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.FunSuite
 
-
 // TODO Yarn is using log4j2. Disable its verbose logs.
 trait HiveTest extends FunSuite with BeforeAndAfterAll {
   private val tempPath = Files.createTempDirectory(this.getClass.getSimpleName).toFile

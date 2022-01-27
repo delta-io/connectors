@@ -16,7 +16,6 @@
 
 import org.scalatest.FunSuite
 
-
 class ShadedJarSuite extends FunSuite {
   test("properly shaded jars") {
     // scalastyle:off classforname

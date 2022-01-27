@@ -34,7 +34,6 @@ private[internal] class CaseInsensitiveMap[T] private (val originalMap: Map[Stri
   val keyLowerCasedMap = originalMap.map(kv => kv.copy(_1 = kv._1.toLowerCase(Locale.ROOT)))
 
   override def get(k: String): Option[T] = keyLowerCasedMap.get(k.toLowerCase(Locale.ROOT))
-
   override def contains(k: String): Boolean =
     keyLowerCasedMap.contains(k.toLowerCase(Locale.ROOT))
   override def +[B1 >: T](kv: (String, B1)): CaseInsensitiveMap[B1] = {
