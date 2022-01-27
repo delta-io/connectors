@@ -30,7 +30,7 @@ jobs:
         if: matrix.scala != '2.11.12'
       - name: Run Delta Standalone Compatibility tests (Scala 2.12 only)
         run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
-        if: matrix.scala != '2.11.12'
+        if: matrix.scala != '2.13.8'
       - name: Run Delta Standalone tests
         run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
       - name: Run Hive 3 tests
