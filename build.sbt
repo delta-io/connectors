@@ -54,8 +54,7 @@ val hive2Version = "2.3.3"
 val tezVersionForHive2 = "0.8.4"
 
 def scalacWarningUnusedImport(version: String) = version match {
-    case v if v.startsWith("2.13.") =>
-    "-Ywarn-unused:imports"
+    case v if v.startsWith("2.13.") => "-Ywarn-unused:imports"
     case _ => "-Ywarn-unused-import"
 }
 
@@ -166,7 +165,7 @@ lazy val hive = (project in file("hive")) dependsOn(standaloneCosmetic) settings
   // any runtime dependencies.
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.12.2" % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core",
     "org.apache.hive" % "hive-metastore" % hiveVersion % "provided"
   )
@@ -581,7 +580,7 @@ lazy val mimaSettings = Seq(
       // TODO Update this after releasing 1.1.0.
       Set.empty
     } else {
-      Set("io.delta" %% "delta-core" % getPrevVersion(version.value))
+      Set("io.delta" %% "delta-standalone" % getPrevVersion(version.value))
     }
   },
   mimaBinaryIssueFilters ++= StandaloneMimaExcludes.ignoredABIProblems
@@ -683,5 +682,3 @@ lazy val flinkConnector = (project in file("flink-connector"))
   )
   .settings(skipReleaseSettings)
   .dependsOn(standaloneCosmetic % "provided")
-
-  

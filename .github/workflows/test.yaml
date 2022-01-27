@@ -25,8 +25,8 @@ jobs:
           key: build-cache-with-scala_${{ matrix.scala }}
       - name: Run Scala Style tests on test sources
         run: build/sbt "++ ${{ matrix.scala }}" testScalastyle
-      - name: Run sqlDeltaImport tests (Scala 2.12 only)
-        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
+#      - name: Run sqlDeltaImport tests (Scala 2.12 only)
+#        run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
       - name: Run Delta Standalone Compatibility tests (Scala 2.12 only)
         run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
@@ -38,4 +38,5 @@ jobs:
       - name: Run Hive 2 tests
         run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test hive2Tez/test
       - name: Run Flink tests
+        if: matrix.scala != '2.13.8'
         run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
