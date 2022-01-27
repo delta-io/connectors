@@ -595,6 +595,7 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
     skipReleaseSettings,
     libraryDependencies ++= Seq(
       // Test Dependencies
+      "io.netty" % "netty-buffer"  % "4.1.63.Final",
       "org.scalatest" %% "scalatest" % "3.2.10" % "test",
       "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test",
       "io.delta" % "delta-core_2.12" % "1.1.0" % "test",
