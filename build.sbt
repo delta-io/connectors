@@ -35,6 +35,7 @@ inThisBuild(
 crossScalaVersions := Nil
 val scala213 = "2.13.8"
 val scala212 = "2.12.8"
+val scala211 = "2.11.12"
 
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
@@ -61,7 +62,7 @@ def scalacWarningUnusedImport(version: String) = version match {
 lazy val commonSettings = Seq(
   organization := "io.delta",
   scalaVersion := scala213,
-  crossScalaVersions := Seq(scala213, scala212),
+  crossScalaVersions := Seq(scala213, scala212, scala211),
   fork := true,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
   scalacOptions ++= Seq("-target:jvm-1.8", scalacWarningUnusedImport(scalaVersion.value) ),
@@ -398,7 +399,7 @@ lazy val standaloneCosmetic = project
     releaseSettings,
     exportJars := true,
     Compile / packageBin := (standalone / assembly).value,
-    libraryDependencies ++= Seq(
+    libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
@@ -433,7 +434,7 @@ lazy val standalone = (project in file("standalone"))
     mimaSettings,
     // When updating any dependency here, we should also review `pomPostProcess` in project
     // `standaloneCosmetic` and update it accordingly.
-    libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++  Seq(
+    libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
@@ -577,7 +578,7 @@ lazy val mimaSettings = Seq(
   mimaPreviousArtifacts := {
     if (CrossVersion.partialVersion(scalaVersion.value) == Some((2, 13))) {
       // Skip mima check since we don't have a Scala 2.13 release yet.
-      // TODO Update this after releasing 1.1.0.
+      // TODO Update this after releasing 0.4.0.
       Set.empty
     } else {
       Set("io.delta" %% "delta-standalone" % getPrevVersion(version.value))
@@ -595,14 +596,14 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
     skipReleaseSettings,
     libraryDependencies ++= Seq(
       // Test Dependencies
-      "io.netty" % "netty-buffer"  % "4.1.63.Final",
-      "org.scalatest" %% "scalatest" % "3.2.10" % "test",
+      "io.netty" % "netty-buffer"  % "4.1.63.Final" % "test",
+      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
       "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test",
       "io.delta" % "delta-core_2.12" % "1.1.0" % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
       "org.apache.spark" % "spark-catalyst_2.12" % "3.2.0" % "test" classifier "tests",
       "org.apache.spark" % "spark-core_2.12" % "3.2.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test" classifier "tests"
+      "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test" classifier "tests",
     )
   )
 
@@ -612,41 +613,53 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
   skipReleaseSettings,
   libraryDependencies ++= Seq(
     // Test Dependencies
-    "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
-    "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test",
-    "io.delta" % "delta-core_2.13" % "1.1.0" % "test",
+    "org.scalatest" %% "scalatest" % "3.1.0" % "test",
+    "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test",
+    "io.delta" % "delta-core_2.12" % "1.1.0" % "test",
     "commons-io" % "commons-io" % "2.8.0" % "test",
-    "org.apache.spark" % "spark-catalyst_2.13" % "3.2.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-core_2.13" % "3.2.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-sql_2.13" % "3.2.0" % "test" classifier "tests"
+    "org.apache.spark" % "spark-catalyst_2.12" % "3.2.0" % "test" classifier "tests",
+    "org.apache.spark" % "spark-core_2.12" % "3.2.0" % "test" classifier "tests",
+    "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test" classifier "tests"
   )
 )
+
+def sqlDeltaImportScalaVersion(scalaBinaryVersion: String): String = {
+  scalaBinaryVersion match {
+    // sqlDeltaImport doesn't support 2.11. We return 2.12 so that we can resolve the dependencies
+    // but we will not publish sqlDeltaImport with Scala 2.11.
+    case "2.11" => "2.12"
+    case _ => scalaBinaryVersion
+  }
+}
 
 lazy val sqlDeltaImport = (project in file("sql-delta-import"))
   .settings (
     name := "sql-delta-import",
     commonSettings,
+    publishArtifact := scalaBinaryVersion.value != "2.11",
     Test / publishArtifact := false,
     libraryDependencies ++= Seq(
-      // We config this project to skip the publish step when running
-      // `build/sbt "++ 2.11.12 publishLocal"` because it doesn't support Scala 2.11. However,
-      // SBT will still try to resolve dependencies when running
-      // `build/sbt "++ 2.11.12 publishLocal"` because Spark 3.0.0 and Delta 0.7.0 don't support
-      // 2.11 and don't have the jars for Scala 2.11. In order to make our publish command pass, we
-      // define Spark and Delta versions with 2.12 to make dependency resolution pass.
-      "io.netty" % "netty-buffer"  % "4.1.63.Final",
-      "org.apache.spark" %% "spark-sql" % "3.2.0" % "provided",
-      "io.delta" %% "delta-core" % "1.1.0" % "provided",
+      "io.netty" % "netty-buffer"  % "4.1.63.Final" % "test",
+      "org.apache.spark" % ("spark-sql_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "provided",
+      "io.delta" % ("delta-core_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "1.1.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
       "com.h2database" % "h2" % "1.4.200" % "test",
-      "org.apache.spark" %% "spark-catalyst" % "3.2.0" % "test",
-      "org.apache.spark" %% "spark-core" % "3.2.0" % "test",
-      "org.apache.spark" %% "spark-sql" % "3.2.0" % "test"
+      "org.apache.spark" % ("spark-catalyst_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test",
+      "org.apache.spark" % ("spark-core_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test",
+      "org.apache.spark" % ("spark-sql_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test"
     )
   )
   .settings(releaseSettings)
 
+def flinkScalaVersion(scalaBinaryVersion: String): String = {
+  scalaBinaryVersion match {
+    // Flink doesn't support 2.13. We return 2.12 so that we can resolve the dependencies but we
+    // will not publish Flink connector with Scala 2.13.
+    case "2.13" => "2.12"
+    case _ => scalaBinaryVersion
+  }
+}
 
 val flinkVersion = "1.12.0"
 lazy val flinkConnector = (project in file("flink-connector"))
@@ -654,16 +667,17 @@ lazy val flinkConnector = (project in file("flink-connector"))
     name := "flink-connector",
     scalaVersion := "2.12.8",
     commonSettings,
+    publishArtifact := scalaBinaryVersion.value != "2.13",
     Test / publishArtifact := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-parquet_2.12" % flinkVersion % "provided",
+      "org.apache.flink" % ("flink-parquet_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "provided",
       "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
-      "org.apache.flink" % "flink-table-runtime-blink_2.12" % flinkVersion % "test",
+      "org.apache.flink" % ("flink-table-runtime-blink_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
-      "org.apache.flink" % "flink-clients_2.12" % flinkVersion % "test",
+      "org.apache.flink" % ("flink-clients_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
       "com.github.sbt" % "junit-interface" % "0.12" % Test
     ),
     // generating source java class with version number to be passed during commit to the DeltaLog as engine info

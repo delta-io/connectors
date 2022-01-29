@@ -1,4 +1,26 @@
 /*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * This file contains code from the Apache Spark project (original license above).
+ * It contains modifications, which are licensed as follows:
+ */
+
+/*
  * Copyright (2020-present) The Delta Lake Project Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +36,7 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal.util
+package io.delta.hive
 
 import java.util.Locale
 
@@ -23,19 +45,10 @@ import java.util.Locale
  * case-sensitive information is required. The primary constructor is marked private to avoid
  * nested case-insensitive map creation, otherwise the keys in the original map will become
  * case-insensitive in this scenario.
- * Note: CaseInsensitiveMap is serializable. However, after transformation, e.g. `filterKeys()`,
- *       it may become not serializable.
  */
-private[internal] class CaseInsensitiveMap[T] private (val originalMap: Map[String, T])
-  extends Map[String, T] with Serializable {
-
-  override def removed(key: String): Map[String, T] =
-     new CaseInsensitiveMap(originalMap.removed(key.toLowerCase(Locale.ROOT)))
-
-  override def updated[V1 >: T](key: String, value: V1): Map[String, V1] =
-     new CaseInsensitiveMap(originalMap.updated(key.toLowerCase(Locale.ROOT), value))
-
-  //  Note: this class supports Scala 2.12. A parallel source tree has a 2.13 implementation.
+class CaseInsensitiveMap[T] private (val originalMap: Map[String, T])
+    extends Map[String, T]
+    with Serializable {
 
   val keyLowerCasedMap = originalMap.map(kv => kv.copy(_1 = kv._1.toLowerCase(Locale.ROOT)))
 
@@ -44,18 +57,15 @@ private[internal] class CaseInsensitiveMap[T] private (val originalMap: Map[Stri
   override def contains(k: String): Boolean =
     keyLowerCasedMap.contains(k.toLowerCase(Locale.ROOT))
 
-  override def +[B1 >: T](kv: (String, B1)): CaseInsensitiveMap[B1] = {
-    new CaseInsensitiveMap(originalMap.filter(!_._1.equalsIgnoreCase(kv._1)) + kv)
-  }
-
-  def ++(xs: TraversableOnce[(String, T)]): CaseInsensitiveMap[T] = {
-    xs.foldLeft(this)(_ + _)
+  override def +[B1 >: T](kv: (String, B1)): Map[String, B1] = {
+    new CaseInsensitiveMap(originalMap + kv)
   }
 
   override def iterator: Iterator[(String, T)] = keyLowerCasedMap.iterator
 
-
-  def toMap: Map[String, T] = originalMap
+  override def -(key: String): Map[String, T] = {
+    new CaseInsensitiveMap(originalMap.filterKeys(!_.equalsIgnoreCase(key)))
+  }
 }
 
 object CaseInsensitiveMap {

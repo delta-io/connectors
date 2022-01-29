@@ -679,7 +679,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
         setDataChangeFalse(addA_P1.remove :: addB_P1.remove :: addC_P1 :: Nil),
         manualUpdate, engineInfo)
 
-      assert(log.update().getAllFiles.asScala.map(_.getPath) == C_P1 :: E_P3 :: Nil)
+      assert(log.update().getAllFiles.asScala.map(_.getPath).sorted == C_P1 :: E_P3 :: Nil)
     }
   }
 

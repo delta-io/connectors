@@ -29,12 +29,6 @@ import java.util.Locale
 private[internal] class CaseInsensitiveMap[T] private (val originalMap: Map[String, T])
   extends Map[String, T] with Serializable {
 
-  override def removed(key: String): Map[String, T] =
-     new CaseInsensitiveMap(originalMap.removed(key.toLowerCase(Locale.ROOT)))
-
-  override def updated[V1 >: T](key: String, value: V1): Map[String, V1] =
-     new CaseInsensitiveMap(originalMap.updated(key.toLowerCase(Locale.ROOT), value))
-
   //  Note: this class supports Scala 2.12. A parallel source tree has a 2.13 implementation.
 
   val keyLowerCasedMap = originalMap.map(kv => kv.copy(_1 = kv._1.toLowerCase(Locale.ROOT)))
@@ -54,6 +48,9 @@ private[internal] class CaseInsensitiveMap[T] private (val originalMap: Map[Stri
 
   override def iterator: Iterator[(String, T)] = keyLowerCasedMap.iterator
 
+  override def -(key: String): Map[String, T] = {
+    new CaseInsensitiveMap(originalMap.filter(!_._1.equalsIgnoreCase(key)))
+  }
 
   def toMap: Map[String, T] = originalMap
 }
