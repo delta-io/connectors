@@ -61,7 +61,7 @@ def scalacWarningUnusedImport(version: String) = version match {
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
-  scalaVersion := scala213,
+  scalaVersion := scala212,
   crossScalaVersions := Seq(scala213, scala212, scala211),
   fork := true,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
