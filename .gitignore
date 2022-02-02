@@ -102,3 +102,6 @@ spark-warehouse/
 
 # For SBT
 .jvmopts
+
+# For VS
+/.vs
