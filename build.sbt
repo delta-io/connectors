@@ -173,7 +173,7 @@ lazy val hive = (project in file("hive")) dependsOn(standaloneCosmetic) settings
 )
 
 lazy val hiveAssembly = (project in file("hive-assembly")) dependsOn(hive) settings(
-  name := "hive-assembly",
+  name := "delta-hive-assembly",
   Compile / unmanagedJars += (hive / assembly).value,
   commonSettings,
   skipReleaseSettings,
