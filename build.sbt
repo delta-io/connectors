@@ -179,7 +179,7 @@ lazy val hiveAssembly = (project in file("hive-assembly")) dependsOn(hive) setti
   skipReleaseSettings,
 
   assembly / logLevel := Level.Info,
-  assembly / assemblyJarName := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
+  assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}.jar",
   assembly / test := {},
   // Make the 'compile' invoke the 'assembly' task to generate the uber jar.
   Compile / packageBin := assembly.value
