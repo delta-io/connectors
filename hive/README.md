@@ -1,5 +1,5 @@
 # Hive Connector
-This project is a library to make Hive read Delta Lake tables. The project provides a uber JAR `delta-hive-assembly_<scala_version>-0.3.0.jar` to use in Hive. You can use either Scala 2.11 or 2.12. The released JARs are available in the [releases](https://github.com/delta-io/connectors/releases) page. Please download the uber JAR for the corresponding Scala version you would like to use.
+This project is a library to make Hive read Delta tables. The project provides a uber JAR `delta-hive-assembly_<scala_version>-0.3.0.jar` to use in Hive. You can use either Scala 2.11 or 2.12. The released JARs are available in the [releases](https://github.com/delta-io/connectors/releases) page. Please download the uber JAR for the corresponding Scala version you would like to use.
 
 You can also use the following instructions to build it as well.
 
