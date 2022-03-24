@@ -1,4 +1,4 @@
-# Flink Delta Lake Connector
+# Flink/Delta Connector
 
 [![License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg)](https://github.com/delta-io/connectors/blob/master/LICENSE.txt)
 
@@ -6,7 +6,7 @@ Official Delta Lake connector for [Apache Flink](https://flink.apache.org/).
 
 # Introduction
 
-Flink Delta Lake Connector is a JVM library to read and write data from Apache Flink applications to Delta Lake tables
+Flink/Delta Connector is a JVM library to read and write data from Apache Flink applications to Delta Lake tables
 utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#delta-standalone). It includes
 
 - Sink for writing data from Apache Flink to a Delta table
@@ -25,7 +25,7 @@ NOTE:
 
 ### Usage
 
-You can add the Flink Connector library as a dependency using your favorite build tool. Please note
+You can add the Flink/Delta Connector library as a dependency using your favorite build tool. Please note
 that it expects packages:
 
 - `delta-standalone`
