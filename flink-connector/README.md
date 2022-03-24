@@ -21,6 +21,10 @@ utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#
   | connector's version  | Flink's version |
   | :---: | :---: |
   |    0.2.1-SNAPSHOT    |    >= 1.12.0    |
+  
+
+## Java API docs
+See the [Java API docs](https://delta-io.github.io/connectors/latest/flink-connector/api/java/index.html) here.
 
 ## Usage
 
