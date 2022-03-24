@@ -25,7 +25,7 @@ See [Delta Standalone](https://docs.delta.io/latest/delta-standalone.html) for d
 
 # Connectors
 
-## Hive connector
+## Hive Connector
 
 Read Delta tables directly from Apache Hive using the [Hive Connector](/hive/README.md). See the dedicated [README.md](/hive/README.md) for more details.
 
