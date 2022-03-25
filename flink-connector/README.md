@@ -20,7 +20,7 @@ utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#
   
   | connector's version  | Flink's version |
   | :---: | :---: |
-  |    0.2.1-SNAPSHOT    |    >= 1.12.0    |
+  |    0.4.0    |    >= 1.12.0    |
   
 
 ## Java API docs
