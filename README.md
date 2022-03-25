@@ -31,7 +31,7 @@ Read Delta tables directly from Apache Hive using the [Hive Connector](/hive/REA
 
 ## Flink/Delta Connector
 
-Use the [Flink/Delta Connector](flink-connector/README.md) to read and write Delta tables from Apache Flink applications. The connector includes a sink for writing to Delta tables from Apache Flink, and a source for reading Delta tables into Apache Flink (still in progress.) See the dedicated [README.md](/flink-connector/README.md) for more details.
+Use the [Flink/Delta Connector](flink-connector/README.md) to read and write Delta tables from Apache Flink applications. The connector includes a sink for writing to Delta tables from Apache Flink, and a source for reading Delta tables using Apache Flink (still in progress.) See the dedicated [README.md](/flink-connector/README.md) for more details.
 
 ## sql-delta-import
 
