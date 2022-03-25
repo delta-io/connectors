@@ -121,10 +121,8 @@ if __name__ == "__main__":
                 ("hello-world", "HelloWorld")]
 
     for dir, c in examples:
-        run_maven_proj(path.join(root_dir, dir), c, args.version, args.maven_repo, "2.11")
         run_maven_proj(path.join(root_dir, dir), c, args.version, args.maven_repo, "2.12")
         run_maven_proj(path.join(root_dir, dir), c, args.version, args.maven_repo, "2.13")
 
-        run_sbt_proj(root_dir, c, args.version, args.maven_repo, "2.11.12")
         run_sbt_proj(root_dir, c, args.version, args.maven_repo, "2.12.8")
         run_sbt_proj(root_dir, c, args.version, args.maven_repo, "2.13.8")

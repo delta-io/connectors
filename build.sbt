@@ -670,7 +670,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings (
     name := "flink-connector",
-    scalaVersion := "2.12.8",
+    scalaVersion := "2.12.15",
     commonSettings,
     publishArtifact := scalaBinaryVersion.value != "2.13",
     Test / publishArtifact := false,
