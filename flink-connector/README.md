@@ -14,7 +14,6 @@ utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#
 
 #### Note:
 
-- Currently only `DeltaSink` is supported, and thus the connector supports writing to Delta tables, but does not support reading Delta tables.
 - `DeltaSink` provides exactly-once delivery guarantees.
 - Depending on the version of the connector you can use it with following Apache Flink versions:
   
@@ -22,11 +21,16 @@ utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#
   | :---: | :---: |
   |    0.4.0    |    >= 1.12.0    |
   
+#### Known limitations:
+
+- Currently only `DeltaSink` is supported, and thus the connector supports writing to Delta tables, but does not support reading Delta tables.
+- The current version only supports Flink `Datastream` API. Support for Flink Table API / SQL, along with Flink Catalog's implementation for storing Delta table's metadata in an external metastore, are planned to be added in the next releases.
+- The current version only provides Delta Lake's transactional guarantees for tables stored on HDFS and Microsoft Azure Storage.
 
 ## Java API docs
 See the [Java API docs](https://delta-io.github.io/connectors/latest/flink-connector/api/java/index.html) here.
 
-## Usage
+### Usage
 
 You can add the Flink/Delta Connector library as a dependency using your favorite build tool. Please note
 that it expects the following packages to be provided:
