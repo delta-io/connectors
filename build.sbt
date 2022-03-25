@@ -34,15 +34,14 @@ inThisBuild(
 // crossScalaVersions must be set to Nil on the root project
 crossScalaVersions := Nil
 val scala213 = "2.13.8"
-val scala212 = "2.12.8"
-val scala211 = "2.11.12"
+val scala212 = "2.12.15"
 
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
 val sparkVersion = "2.4.3"
 val hiveDeltaVersion = "0.5.0"
-val parquet4sVersion = "1.2.1"
+val parquet4sVersion = "2.3.0"
 val parquetHadoopVersion = "1.10.1"
 val scalaTestVersion = "3.0.8"
 // Versions for Hive 3
@@ -62,7 +61,7 @@ def scalacWarningUnusedImport(version: String) = version match {
 lazy val commonSettings = Seq(
   organization := "io.delta",
   scalaVersion := scala212,
-  crossScalaVersions := Seq(scala213, scala212, scala211),
+  crossScalaVersions := Seq(scala213, scala212),
   fork := true,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
   scalacOptions ++= Seq("-target:jvm-1.8", scalacWarningUnusedImport(scalaVersion.value) ),
@@ -402,6 +401,8 @@ lazy val standaloneCosmetic = project
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0",
+      "com.chuusai" %% "shapeless" % "2.3.3",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
@@ -437,6 +438,8 @@ lazy val standalone = (project in file("standalone"))
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0",
+      "com.chuusai" %% "shapeless" % "2.3.3",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")

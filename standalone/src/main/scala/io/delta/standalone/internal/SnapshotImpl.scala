@@ -21,7 +21,7 @@ import java.net.URI
 import scala.collection.JavaConverters._
 import scala.collection.parallel.immutable.ParVector
 
-import com.github.mjakubowski84.parquet4s.ParquetReader
+import com.github.mjakubowski84.parquet4s.{ParquetReader, Path => Parquet4sPath}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -177,7 +177,7 @@ private[internal] class SnapshotImpl(
           .map { line => JsonUtils.mapper.readValue[SingleAction](line) }
       } else if (path.endsWith("parquet")) {
         val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
-          path,
+          Parquet4sPath(path),
           ParquetReader.Options(
             timeZone = deltaLog.timezone,
             hadoopConf = hadoopConf)

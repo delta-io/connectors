@@ -18,7 +18,7 @@ package io.delta.standalone.internal.actions
 
 import java.util.TimeZone
 
-import com.github.mjakubowski84.parquet4s.{ParquetIterable, ParquetReader}
+import com.github.mjakubowski84.parquet4s.{ParquetIterable, ParquetReader, Path => Parquet4sPath}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -56,7 +56,7 @@ private[internal] class MemoryOptimizedLogReplay(
           Some(new CustomJsonIterator(logStore.read(nextFile, hadoopConf)))
         } else if (nextFile.getName.endsWith(".parquet")) {
           val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
-            nextFile.toString,
+            Parquet4sPath(nextFile.toString),
             ParquetReader.Options(timeZone, hadoopConf)
           )
           Some(new CustomParquetIterator(parquetIterable))

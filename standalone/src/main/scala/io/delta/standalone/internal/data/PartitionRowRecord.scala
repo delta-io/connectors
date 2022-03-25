@@ -19,6 +19,8 @@ package io.delta.standalone.internal.data
 import java.math.{BigDecimal => BigDecimalJ}
 import java.sql.{Date, Timestamp}
 
+import scala.util.Try
+
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.types._
 
@@ -140,7 +142,7 @@ private[internal] class PartitionRowRecord(
     if (!field.getDataType.isInstanceOf[DecimalType]) {
       throw DeltaErrors.fieldTypeMismatch(fieldName, field.getDataType, "decimal")
     }
-    getNonPrimitive(field).map(new BigDecimalJ(_)).orNull
+    Try(new BigDecimalJ(getPrimitive(field))).getOrElse(new BigDecimalJ(0))
   }
 
   override def getTimestamp(fieldName: String): Timestamp = {

@@ -22,7 +22,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
-import com.github.mjakubowski84.parquet4s.ParquetWriter
+import com.github.mjakubowski84.parquet4s.{ParquetWriter, Path => Parquet4sPath}
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 
@@ -250,8 +250,10 @@ private[internal] object Checkpoints extends Logging {
       compressionCodecName = CompressionCodecName.SNAPPY,
       timeZone = deltaLog.timezone
     )
-    val writer = ParquetWriter.writer[SingleAction](writtenPath, writerOptions)
-
+    val writer = ParquetWriter
+                     .of[SingleAction]
+                     .options(writerOptions)
+                     .build(Parquet4sPath(writtenPath))
     try {
       actions.foreach { singleAction =>
         writer.write(singleAction)

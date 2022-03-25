@@ -151,8 +151,10 @@ private[internal] case class CloseableParquetDataIterator(
       }
     }
 
-    ParquetReader.read[RowParquetRecord](
-      nextDataFilePath, Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
+    ParquetReader
+        .generic
+        .options(Options(timeZone = readTimeZone, hadoopConf = hadoopConf))
+        .read(Path(nextDataFilePath))
   }
 
   /**

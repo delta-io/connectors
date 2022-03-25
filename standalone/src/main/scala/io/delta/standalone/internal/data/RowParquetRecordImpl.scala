@@ -154,7 +154,7 @@ private[internal] case class RowParquetRecordImpl(
     }
 
     // Data Field
-    val parquetVal = record.get(fieldName)
+    val parquetVal = record.get(fieldName).getOrElse(null)
 
     if (parquetVal == NullValue && !schemaField.isNullable) {
       throw DeltaErrors.nullValueFoundForNonNullSchemaField(fieldName, schema)
@@ -174,7 +174,8 @@ private[internal] case class RowParquetRecordImpl(
   private def decode(elemType: DataType, parquetVal: Value): Any = {
     val elemTypeName = elemType.getTypeName
     if (primitiveDecodeMap.contains(elemTypeName)) {
-      return primitiveDecodeMap(elemTypeName).decode(parquetVal, codecConf)
+      //  return primitiveDecodeMap(elemTypeName).decode(parquetVal, codecConf)
+      return primitiveDecodeMap(elemTypeName)
     }
 
     if (primitiveNullableDecodeMap.contains(elemTypeName)) {
@@ -279,10 +280,10 @@ private[internal] case class RowParquetRecordImpl(
    *
    * This should only ever be used to decode, not encode.
    */
-  private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
+  private def customSeqCodec[T](elementCodec: ValueDecoder[T])(implicit
       classTag: ClassTag[T],
       factory: Factory[T, Seq[T]]
-  ): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+  ): ValueDecoder[Seq[T]] = new OptionalValueCodec[Seq[T]] {
 
     override def decodeNonNull(
         value: Value,
@@ -305,36 +306,37 @@ private[internal] case class RowParquetRecordImpl(
   }
 
   private val primitiveDecodeMap = Map(
-    new IntegerType().getTypeName -> ValueCodec.intCodec,
-    new LongType().getTypeName -> ValueCodec.longCodec,
-    new ByteType().getTypeName -> ValueCodec.byteCodec,
-    new ShortType().getTypeName -> ValueCodec.shortCodec,
-    new BooleanType().getTypeName -> ValueCodec.booleanCodec,
-    new FloatType().getTypeName -> ValueCodec.floatCodec,
-    new DoubleType().getTypeName -> ValueCodec.doubleCodec
+    new IntegerType().getTypeName -> ValueDecoder.intDecoder,
+    new LongType().getTypeName -> ValueDecoder.longDecoder,
+    new ByteType().getTypeName -> ValueDecoder.byteDecoder,
+    new ShortType().getTypeName -> ValueDecoder.shortDecoder,
+    new BooleanType().getTypeName -> ValueDecoder.booleanDecoder,
+    new FloatType().getTypeName -> ValueDecoder.floatDecoder,
+    new DoubleType().getTypeName -> ValueDecoder.doubleDecoder
   )
 
   private val primitiveNullableDecodeMap = Map(
-    new StringType().getTypeName -> ValueCodec.stringCodec,
-    new BinaryType().getTypeName -> ValueCodec.arrayCodec[Byte, Array],
-    new DecimalType(1, 1).getTypeName -> customDecimalCodec,
-    new TimestampType().getTypeName -> ValueCodec.sqlTimestampCodec,
-    new DateType().getTypeName -> ValueCodec.sqlDateCodec
+    new StringType().getTypeName -> ValueDecoder.stringDecoder,
+    new BinaryType().getTypeName -> ValueDecoder.arrayDecoder[Byte, Array],
+    new DecimalType(1, 1).getTypeName -> ValueDecoder.decimalDecoder,
+    new TimestampType().getTypeName -> ValueDecoder.sqlTimestampDecoder,
+    new DateType().getTypeName -> ValueDecoder.sqlDateDecoder
   )
 
   private val seqDecodeMap = Map(
-    new IntegerType().getTypeName -> customSeqCodec[Int](ValueCodec.intCodec),
-    new LongType().getTypeName -> customSeqCodec[Long](ValueCodec.longCodec),
-    new ByteType().getTypeName -> customSeqCodec[Byte](ValueCodec.byteCodec),
-    new ShortType().getTypeName -> customSeqCodec[Short](ValueCodec.shortCodec),
-    new BooleanType().getTypeName -> customSeqCodec[Boolean](ValueCodec.booleanCodec),
-    new FloatType().getTypeName -> customSeqCodec[Float](ValueCodec.floatCodec),
-    new DoubleType().getTypeName -> customSeqCodec[Double](ValueCodec.doubleCodec),
-    new StringType().getTypeName -> customSeqCodec[String](ValueCodec.stringCodec),
-    new BinaryType().getTypeName -> customSeqCodec[Array[Byte]](ValueCodec.arrayCodec[Byte, Array]),
+    new IntegerType().getTypeName -> customSeqCodec[Int](ValueDecoder.intDecoder),
+    new LongType().getTypeName -> customSeqCodec[Long](ValueDecoder.longDecoder),
+    new ByteType().getTypeName -> customSeqCodec[Byte](ValueDecoder.byteDecoder),
+    new ShortType().getTypeName -> customSeqCodec[Short](ValueDecoder.shortDecoder),
+    new BooleanType().getTypeName -> customSeqCodec[Boolean](ValueDecoder.booleanDecoder),
+    new FloatType().getTypeName -> customSeqCodec[Float](ValueDecoder.floatDecoder),
+    new DoubleType().getTypeName -> customSeqCodec[Double](ValueDecoder.doubleDecoder),
+    new StringType().getTypeName -> customSeqCodec[String](ValueDecoder.stringDecoder),
+    new BinaryType().getTypeName ->
+        customSeqCodec[Array[Byte]](ValueDecoder.arrayDecoder[Byte, Array]),
     new DecimalType(1, 1).getTypeName ->
-      customSeqCodec[java.math.BigDecimal](customDecimalCodec),
-    new TimestampType().getTypeName -> customSeqCodec[Timestamp](ValueCodec.sqlTimestampCodec),
-    new DateType().getTypeName -> customSeqCodec[Date](ValueCodec.sqlDateCodec)
+        customSeqCodec[scala.math.BigDecimal](ValueDecoder.decimalDecoder),
+    new TimestampType().getTypeName -> customSeqCodec[Timestamp](ValueDecoder.sqlTimestampDecoder),
+    new DateType().getTypeName -> customSeqCodec[Date](ValueDecoder.sqlDateDecoder)
   )
 }
