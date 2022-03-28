@@ -13,7 +13,7 @@ This is the repository for Delta Lake Connectors. It includes
 
 Please refer to the main [Delta Lake](https://github.com/delta-io/delta) repository if you want to learn more about the Delta Lake project.
 
-# Documentation
+# API documentation
 
 - Delta Standalone [Java API docs](https://delta-io.github.io/connectors/latest/delta-standalone/api/java/index.html)
 - Flink/Delta Connector [Java API docs](https://delta-io.github.io/connectors/latest/flink-connector/api/java/index.html)
