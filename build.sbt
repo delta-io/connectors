@@ -39,32 +39,35 @@ val scala212 = "2.12.15"
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 
-val sparkVersion = "2.4.3"
+val sparkVersion = "3.2.1"
 val hiveDeltaVersion = "0.5.0"
 val parquet4sVersion = "2.3.0"
-val parquetHadoopVersion = "1.10.1"
-val scalaTestVersion = "3.0.8"
+val parquetHadoopVersion = "1.12.2"
+val scalaCollectionCompatVersion = "2.7.0"
+val scalaTestVersion = "3.1.0"
 // Versions for Hive 3
-val hadoopVersion = "3.1.0"
+val hadoopVersion = "3.3.1"
 val hiveVersion = "3.1.2"
-val tezVersion = "0.9.2"
-// Versions for Hive 2
-val hadoopVersionForHive2 = "2.7.2"
-val hive2Version = "2.3.3"
-val tezVersionForHive2 = "0.8.4"
+val tezVersion = "0.10.1"
+val shapelessVersion = "2.3.8"
+// Logging version
+val slf4jVersion = "1.7.36"
+val slf4jLog4j12Version = "1.7.36"
 
 def scalacWarningUnusedImport(version: String) = version match {
     case v if v.startsWith("2.13.") => "-Ywarn-unused:imports"
     case _ => "-Ywarn-unused-import"
 }
 
+//  javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
+//  scalacOptions ++= Seq("-target:jvm-1.8", scalacWarningUnusedImport(scalaVersion.value), "-deprecation"),
 lazy val commonSettings = Seq(
   organization := "io.delta",
   scalaVersion := scala212,
   crossScalaVersions := Seq(scala213, scala212),
   fork := true,
-  javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
-  scalacOptions ++= Seq("-target:jvm-1.8", scalacWarningUnusedImport(scalaVersion.value) ),
+  javacOptions ++= Seq("-Xlint:unchecked"),
+  scalacOptions ++= Seq(scalacWarningUnusedImport(scalaVersion.value)),
   // Configurations to speed up tests and reduce memory footprint
   Test / javaOptions ++= Seq(
     "-Dspark.ui.enabled=false",
@@ -165,7 +168,7 @@ lazy val hive = (project in file("hive")) dependsOn(standaloneCosmetic) settings
   // any runtime dependencies.
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core",
     "org.apache.hive" % "hive-metastore" % hiveVersion % "provided"
   )
@@ -193,7 +196,7 @@ lazy val hiveTest = (project in file("hive-test")) settings (
   skipReleaseSettings,
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
@@ -252,7 +255,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hiveTest % "test->tes
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
       ),
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+    "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion excludeAll(
       ExclusionRule("org.apache.hadoop", "hadoop-client")
       ),
     "com.google.protobuf" % "protobuf-java" % "2.5.0",
@@ -300,17 +303,17 @@ lazy val hive2MR = (project in file("hive2-mr")) settings (
     (hiveTest / Test / packageBin / packageBin).value
   ),
   libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersionForHive2 % "provided",
-    "org.apache.hive" % "hive-exec" % hive2Version % "provided" excludeAll(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm")
     ),
-    "org.apache.hadoop" % "hadoop-common" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersionForHive2 % "test",
-    "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hadoop" % "hadoop-yarn-server-tests" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hive" % "hive-cli" % hive2Version % "test" excludeAll(
+    "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersion % "test",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-yarn-server-tests" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("com.google.guava", "guava"),
@@ -330,30 +333,30 @@ lazy val hive2Tez = (project in file("hive2-tez")) settings (
     (hiveTest / Test / packageBin / packageBin).value
   ),
   libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersionForHive2 % "provided" excludeAll (
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
       ),
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+    "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion excludeAll(
       ExclusionRule("org.apache.hadoop", "hadoop-client")
       ),
     "com.google.protobuf" % "protobuf-java" % "2.5.0",
-    "org.apache.hive" % "hive-exec" % hive2Version % "provided" classifier "core" excludeAll(
+    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.jodd" % "jodd-core" % "3.5.2",
-    "org.apache.hive" % "hive-metastore" % hive2Version % "provided" excludeAll(
+    "org.apache.hive" % "hive-metastore" % hiveVersion % "provided" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule("org.apache.hive", "hive-exec")
     ),
-    "org.apache.hadoop" % "hadoop-common" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersionForHive2 % "test",
-    "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hadoop" % "hadoop-yarn-server-tests" % hadoopVersionForHive2 % "test" classifier "tests",
-    "org.apache.hive" % "hive-cli" % hive2Version % "test" excludeAll(
+    "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-hs" % hadoopVersion % "test",
+    "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-yarn-server-tests" % hadoopVersion % "test" classifier "tests",
+    "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.parquet"),
       ExclusionRule("ch.qos.logback", "logback-classic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
@@ -361,11 +364,11 @@ lazy val hive2Tez = (project in file("hive2-tez")) settings (
       ExclusionRule(organization = "org.eclipse.jetty"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
-    "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersionForHive2 % "test",
-    "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersionForHive2 % "test",
-    "org.apache.tez" % "tez-mapreduce" % tezVersionForHive2 % "test",
-    "org.apache.tez" % "tez-dag" % tezVersionForHive2 % "test",
-    "org.apache.tez" % "tez-tests" % tezVersionForHive2 % "test" classifier "tests",
+    "org.apache.hadoop" % "hadoop-yarn-common" % hadoopVersion % "test",
+    "org.apache.hadoop" % "hadoop-yarn-api" % hadoopVersion % "test",
+    "org.apache.tez" % "tez-mapreduce" % tezVersion % "test",
+    "org.apache.tez" % "tez-dag" % tezVersion % "test",
+    "org.apache.tez" % "tez-tests" % tezVersion % "test" classifier "tests",
     "com.esotericsoftware" % "kryo-shaded" % "4.0.2" % "test",
     "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   )
@@ -401,8 +404,8 @@ lazy val standaloneCosmetic = project
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0",
-      "com.chuusai" %% "shapeless" % "2.3.3",
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion,
+      "com.chuusai" %% "shapeless" % shapelessVersion,
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
@@ -438,8 +441,8 @@ lazy val standalone = (project in file("standalone"))
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0",
-      "com.chuusai" %% "shapeless" % "2.3.3",
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion,
+      "com.chuusai" %% "shapeless" % shapelessVersion,
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
@@ -450,8 +453,8 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("com.fasterxml.jackson.module")
       ),
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
-      "org.slf4j" % "slf4j-api" % "1.7.25",
-      "org.slf4j" % "slf4j-log4j12" % "1.7.25",
+      "org.slf4j" % "slf4j-api" % slf4jVersion,
+      "org.slf4j" % "slf4j-log4j12" % slf4jLog4j12Version,
 
       // Compiler plugins
       // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
@@ -600,13 +603,13 @@ lazy val compatibility = (project in file("oss-compatibility-tests"))
     libraryDependencies ++= Seq(
       // Test Dependencies
       "io.netty" % "netty-buffer"  % "4.1.63.Final" % "test",
-      "org.scalatest" %% "scalatest" % "3.1.0" % "test",
-      "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test",
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+      "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test",
       "io.delta" % "delta-core_2.12" % "1.1.0" % "test",
       "commons-io" % "commons-io" % "2.8.0" % "test",
-      "org.apache.spark" % "spark-catalyst_2.12" % "3.2.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-core_2.12" % "3.2.0" % "test" classifier "tests",
-      "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test" classifier "tests",
+      "org.apache.spark" % "spark-catalyst_2.12" % sparkVersion % "test" classifier "tests",
+      "org.apache.spark" % "spark-core_2.12" % sparkVersion % "test" classifier "tests",
+      "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test" classifier "tests",
     )
   )
 
@@ -616,13 +619,13 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
   skipReleaseSettings,
   libraryDependencies ++= Seq(
     // Test Dependencies
-    "org.scalatest" %% "scalatest" % "3.1.0" % "test",
-    "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test",
+    "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+    "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test",
     "io.delta" % "delta-core_2.12" % "1.1.0" % "test",
     "commons-io" % "commons-io" % "2.8.0" % "test",
-    "org.apache.spark" % "spark-catalyst_2.12" % "3.2.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-core_2.12" % "3.2.0" % "test" classifier "tests",
-    "org.apache.spark" % "spark-sql_2.12" % "3.2.0" % "test" classifier "tests"
+    "org.apache.spark" % "spark-catalyst_2.12" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" % "spark-core_2.12" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" % "spark-sql_2.12" % sparkVersion % "test" classifier "tests"
   )
 )
 
@@ -648,9 +651,9 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
       "com.h2database" % "h2" % "1.4.200" % "test",
-      "org.apache.spark" % ("spark-catalyst_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test",
-      "org.apache.spark" % ("spark-core_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test",
-      "org.apache.spark" % ("spark-sql_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % "3.2.0" % "test"
+      "org.apache.spark" % ("spark-catalyst_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % sparkVersion % "test",
+      "org.apache.spark" % ("spark-core_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % sparkVersion % "test",
+      "org.apache.spark" % ("spark-sql_" + sqlDeltaImportScalaVersion(scalaBinaryVersion.value)) % sparkVersion % "test"
     )
   )
   .settings(releaseSettings)
@@ -670,7 +673,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings (
     name := "flink-connector",
-    scalaVersion := "2.12.15",
+    scalaVersion := scala212,
     commonSettings,
     publishArtifact := scalaBinaryVersion.value != "2.13",
     Test / publishArtifact := false,

@@ -56,7 +56,7 @@ private[internal] class MemoryOptimizedLogReplay(
           Some(new CustomJsonIterator(logStore.read(nextFile, hadoopConf)))
         } else if (nextFile.getName.endsWith(".parquet")) {
           val parquetIterable = ParquetReader.read[Parquet4sSingleActionWrapper](
-            Parquet4sPath(nextFile.toString),
+            Parquet4sPath(nextFile),
             ParquetReader.Options(timeZone, hadoopConf)
           )
           Some(new CustomParquetIterator(parquetIterable))

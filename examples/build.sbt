@@ -21,12 +21,15 @@ organizationName := "examples"
 scalaVersion := "2.12.15"
 version := "0.1.0"
 
+val hadoopVersion = "3.3.1"
+val parquetHadoopVersion = "1.12.2"
+
 lazy val commonSettings = Seq(
   crossScalaVersions := Seq("2.13.8", "2.12.15"),
   libraryDependencies ++= Seq(
     "io.delta" %% "delta-standalone" % getStandaloneVersion(),
-    "org.apache.hadoop" % "hadoop-client" % "3.1.0",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1"
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+    "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion
   )
 )
 
@@ -61,7 +64,7 @@ lazy val helloWorld = (project in file("hello-world")) settings (
 
 val flinkVersion = "1.12.0"
 val flinkScalaVersion = "2.12"
-val flinkHadoopVersion = "3.1.0"
+val flinkHadoopVersion = "3.3.1"
 val flinkConnectorVersion = "0.4.0-SNAPSHOT"
 lazy val flinkExample = (project in file("flink-example")) settings (
   name := "flink",

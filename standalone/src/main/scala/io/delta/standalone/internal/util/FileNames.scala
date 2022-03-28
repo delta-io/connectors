@@ -87,10 +87,7 @@ private[internal] object FileNames {
     } else if (isDeltaFile(path)) {
       deltaVersion(path)
     } else {
-      // scalastyle:off throwerror
-      throw new AssertionError(
-        s"Unexpected file type found in transaction log: $path")
-      // scalastyle:on throwerror
+      throw new RuntimeException(s"Unsupported file type found in transaction log: $path")
     }
   }
 

@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal.util
 
+import java.util.Locale
+
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.types.{ArrayType, DataType, MapType, StructType}
 
@@ -77,7 +79,7 @@ private[internal] object SchemaMergingUtils {
   def checkColumnNameDuplication(schema: StructType, colType: String): Unit = {
     val columnNames = explodeNestedFieldNames(schema)
     // scalastyle:off caselocale
-    val names = columnNames.map(_.toLowerCase)
+    val names = columnNames.map(_.toLowerCase(Locale.ROOT))
     // scalastyle:on caselocale
     if (names.distinct.length != names.length) {
       val duplicateColumns = names.groupBy(identity).collect {

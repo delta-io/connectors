@@ -195,13 +195,11 @@ private[internal] class SnapshotImpl(
     val logPathURI = path.toUri
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
-    // assert that the log belongs to table
+    // verify that the log belongs to table
     files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
-        // scalastyle:off throwerror
-        throw new AssertionError(
+        throw new RuntimeException(
           s"File (${f.toString}) doesn't belong in the transaction log at $logPathURI.")
-        // scalastyle:on throwerror
       }
     }
 

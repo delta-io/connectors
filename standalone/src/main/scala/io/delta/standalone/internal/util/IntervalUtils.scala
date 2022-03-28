@@ -17,6 +17,7 @@
 package io.delta.standalone.internal.util
 
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 private[internal] object IntervalUtils {
 
@@ -89,9 +90,7 @@ private[internal] object IntervalUtils {
     if (input == null) {
       throwIAE("interval string cannot be null")
     }
-    // scalastyle:off caselocale .toLowerCase
-    val s = input.trim().toLowerCase
-    // scalastyle:on
+    val s = input.trim().toLowerCase(Locale.ROOT)
     val bytes = s.getBytes(StandardCharsets.UTF_8)
     if (bytes.isEmpty) {
       throwIAE("interval string cannot be empty")

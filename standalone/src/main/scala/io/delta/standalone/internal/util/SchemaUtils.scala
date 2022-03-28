@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal.util
 
+import java.util.Locale
+
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.types.{ArrayType, DataType, MapType, StructField, StructType}
 
@@ -107,14 +109,12 @@ private[standalone] object SchemaUtils {
 
     def isStructWriteCompatible(_existingSchema: StructType, _newSchema: StructType): Boolean = {
       val existing = toFieldMap(_existingSchema.getFields)
-      // scalastyle:off caselocale
-      val existingFieldNames = _existingSchema.getFieldNames.map(_.toLowerCase).toSet
+      val existingFieldNames = _existingSchema.getFieldNames.map(_.toLowerCase(Locale.ROOT)).toSet
       assert(existingFieldNames.size == _existingSchema.length,
         "Delta tables don't allow field names that only differ by case")
-      val newFields = _newSchema.getFieldNames.map(_.toLowerCase).toSet
+      val newFields = _newSchema.getFieldNames.map(_.toLowerCase(Locale.ROOT)).toSet
       assert(newFields.size == _newSchema.length,
         "Delta tables don't allow field names that only differ by case")
-      // scalastyle:on caselocale
 
       if (!existingFieldNames.subsetOf(newFields)) {
         // Dropped a column that was present in the DataFrame schema
