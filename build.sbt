@@ -669,7 +669,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
     name := "flink-connector",
     commonSettings,
     releaseSettings,
-    publishArtifact := scalaBinaryVersion.value == "2.12",
+    publishArtifact := scalaBinaryVersion.value == "2.12", // only publish once
     autoScalaLibrary := false, // exclude scala-library from dependencies
     Test / publishArtifact := false,
     pomExtra :=
