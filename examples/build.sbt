@@ -66,7 +66,6 @@ lazy val flinkExample = (project in file("flink-example")) settings (
   name := "flink",
   scalaVersion := "2.12.8",
   commonSettings,
-  crossScalaVersions := Seq("2.12.8", "2.11.12"),
   extraMavenRepo,
   resolvers += Resolver.mavenLocal,
   libraryDependencies ++= Seq(
