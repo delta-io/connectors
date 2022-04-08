@@ -41,3 +41,5 @@ jobs:
       - name: Run Flink tests (Scala 2.11 and 2.12 only)
         run: build/sbt "++ ${{ matrix.scala }}" flink/test
         if: ${{ !startsWith(matrix.scala, '2.13.') }}
+      - name: Run Pulsar tests
+        run: build/sbt "++ ${{ matrix.scala }}" pulsar/test

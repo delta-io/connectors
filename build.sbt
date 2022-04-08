@@ -17,6 +17,7 @@
 // scalastyle:off line.size.limit
 
 import ReleaseTransformations._
+
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 import scala.xml.transform._
 
@@ -739,3 +740,30 @@ lazy val flink = (project in file("flink"))
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
   )
+
+val pulsarVersion = "2.9.1"
+val lombokVersion = "1.16.22"
+val testngVersion = "7.3.0"
+val mockitoVersion = "3.12.4"
+
+lazy val pulsar = (project in file("pulsar"))
+  .settings (
+    name := "delta-pulsar",
+    commonSettings,
+    publishArtifact := scalaBinaryVersion.value == "2.12",
+    publishArtifact in Test := false,
+    crossPaths := false,
+    libraryDependencies ++= Seq(
+      "org.apache.pulsar" % "pulsar-io-core" % pulsarVersion,
+      "org.apache.pulsar" % "pulsar-client-api" % pulsarVersion,
+      "org.apache.pulsar" % "pulsar-client-original" % pulsarVersion,
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion,
+      "org.projectlombok" % "lombok" % lombokVersion,
+      "org.testng" % "testng" % testngVersion % Test,
+      "org.mockito" % "mockito-core" % mockitoVersion % Test
+    )
+  )
+  .settings(skipReleaseSettings)
+  .dependsOn(standalone)
