@@ -17,6 +17,8 @@
 // scalastyle:off line.size.limit
 
 import ReleaseTransformations._
+import sbt.file
+
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 import scala.xml.transform._
 
@@ -740,3 +742,114 @@ lazy val flink = (project in file("flink"))
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
   )
+
+/*
+val pulsarVersion = "2.9.1"
+val lombokVersion = "1.16.22"
+lazy val pulsar = (project in file("pulsar"))
+  .dependsOn(standaloneCosmetic % "provided")
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
+  .settings (
+    name := "delta-pulsar",
+    commonSettings,
+    releaseSettings,
+    publishArtifact := scalaBinaryVersion.value == "2.12", // only publish once
+    autoScalaLibrary := false, // exclude scala-library from dependencies
+    Test / publishArtifact := false,
+    pomExtra :=
+      <url>https://github.com/delta-io/connectors</url>
+        <scm>
+          <url>git@github.com:delta-io/connectors.git</url>
+          <connection>scm:git:git@github.com:delta-io/connectors.git</connection>
+        </scm>
+        <developers>
+          <developer>
+            <id>hangc0276</id>
+            <name>Hang Chen</name>
+            <url>https://github.com/hangc0276</url>
+          </developer>
+        </developers>,
+    crossPaths := false,
+    libraryDependencies ++= Seq(
+      "org.apache.pulsar" % "pulsar-io-core" % pulsarVersion % "provided",
+      "org.apache.pulsar" % "pulsar-client-api" % pulsarVersion % "provided",
+      "org.apache.pulsar" % "pulsar-client-original" % pulsarVersion % "provided",
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+      "org.apache.hadoop" % "hadoop-aws" % hadoopVersion % "provided",
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
+      "org.projectlombok" % "lombok" % lombokVersion % "provided",
+      "com.github.sbt" % "junit-interface" % "0.12" % Test,
+
+      // Compiler plugins
+      // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
+      compilerPlugin("com.typesafe.genjavadoc" %% "genjavadoc-plugin" % "0.18" cross CrossVersion.full)
+    ),
+    // generating source java class with version number to be passed during commit to the DeltaLog as engine info
+    // (part of transaction's metadata)
+    /*
+    Compile / sourceGenerators += Def.task {
+      val file = (Compile / sourceManaged).value / "meta" / "Meta.java"
+      IO.write(file,
+        s"""package io.delta.flink.sink.internal.committer;
+           |
+           |final class Meta {
+           |  public static final String FLINK_VERSION = "${flinkVersion}";
+           |  public static final String CONNECTOR_VERSION = "${version.value}";
+           |}
+           |""".stripMargin)
+      Seq(file)
+    },
+     */
+    /**
+     * Unidoc settings
+     * Generate javadoc with `unidoc` command, outputs to `pulsar/target/javaunidoc`
+     * e.g. build/sbt pulsar/unidoc
+     */
+    JavaUnidoc / unidoc / javacOptions := Seq(
+      "-public",
+      "-windowtitle", "Pulsar/Delta Connector " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
+      "-noqualifier", "java.lang",
+      "-tag", "implNote:a:Implementation Note:",
+      "-Xdoclint:all"
+    ),
+    Compile / doc / javacOptions := (JavaUnidoc / unidoc / javacOptions).value,
+    JavaUnidoc / unidoc /  unidocAllSources := {
+      (JavaUnidoc / unidoc / unidocAllSources).value
+        // include only relevant delta-flink classes
+        .map(_.filter(_.getCanonicalPath.contains("/pulsar/")))
+        // exclude internal classes
+        .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+        // exclude flink package
+        .map(_.filterNot(_.getCanonicalPath.contains("org/apache/pulsar/")))
+    },
+    // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
+    (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
+  )
+
+ */
+
+val pulsarVersion = "2.9.1"
+val lombokVersion = "1.16.22"
+
+lazy val pulsar = (project in file("pulsar"))
+  .settings (
+    name := "delta-pulsar",
+    commonSettings,
+    publishArtifact := scalaBinaryVersion.value == "2.12",
+    publishArtifact in Test := false,
+    crossPaths := false,
+    libraryDependencies ++= Seq(
+      "org.apache.pulsar" % "pulsar-io-core" % pulsarVersion,
+      "org.apache.pulsar" % "pulsar-client-api" % pulsarVersion,
+      "org.apache.pulsar" % "pulsar-client-original" % pulsarVersion,
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion,
+      "org.projectlombok" % "lombok" % lombokVersion,
+      "com.github.sbt" % "junit-interface" % "0.12" % Test,
+      "org.testng" % "testng" % "7.3.0" % Test,
+      "org.mockito" % "mockito-core" % "3.12.4" % Test
+)
+)
+  .settings(skipReleaseSettings)
+  .dependsOn(standalone)
