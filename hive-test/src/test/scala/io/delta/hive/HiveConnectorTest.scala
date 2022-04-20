@@ -462,9 +462,9 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
             "dummy_col array<string>"
           } else {
             s"""
-               |c1 tinyint, c2 binary, c3 boolean, c4 int, c5 bigint, c6 string, c7 float, c8 double,
-               |c9 smallint, c10 date, c11 timestamp, c12 decimal(38, 18), c13 array<string>,
-               |c14 map<string, bigint>, c15 struct<f1: string, f2: bigint>
+               |c1 tinyint, c2 binary, c3 boolean, c4 int, c5 bigint, c6 string, c7 float,
+               |c8 double, c9 smallint, c10 date, c11 timestamp, c12 decimal(38, 18),
+               |c13 array<string>, c14 map<string, bigint>, c15 struct<f1: string, f2: bigint>
                |""".stripMargin
           }
           runQuery(
