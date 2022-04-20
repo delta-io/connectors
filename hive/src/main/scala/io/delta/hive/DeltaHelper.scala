@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 import com.google.common.cache.{Cache, CacheBuilder}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
-import org.apache.hadoop.hive.metastore.api.MetaException
+import org.apache.hadoop.hive.metastore.api.{FieldSchema, MetaException}
 import org.apache.hadoop.hive.ql.exec.{ExprNodeEvaluatorFactory, SerializationUtilities}
 import org.apache.hadoop.hive.ql.plan.{ExprNodeGenericFuncDesc, TableScanDesc}
 import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspector, ObjectInspectorConverters, ObjectInspectorFactory, PrimitiveObjectInspector}
@@ -43,6 +43,8 @@ import io.delta.standalone.types._
 object DeltaHelper {
 
   private val LOG = LoggerFactory.getLogger(getClass.getName)
+
+  private val CHAR_VARCHAR_TYPE_STRING_METADATA_KEY = "__CHAR_VARCHAR_TYPE_STRING"
 
   def listDeltaFiles(
       nonNormalizedPath: Path,
@@ -269,6 +271,29 @@ object DeltaHelper {
         //  - UnionType
         //  - Others?
         throw new UnsupportedOperationException(s"Hive type $hiveType is not supported")
+    }
+  }
+
+  /** Converts the native StructField to Hive's FieldSchema. */
+  def toHiveColumn(c: StructField): FieldSchema = {
+    // For Hive Serde, we still need to to restore the raw type for char and varchar type.
+    // When reading data in parquet, orc, or avro file format with string type for char,
+    // the tailing spaces may lost if we are not going to pad it.
+    val typeString =
+      getRawTypeString(c.getMetadata).getOrElse(c.getDataType.getCatalogString)
+    val comment = if (c.getMetadata.contains("comment")) {
+      String.valueOf(c.getMetadata.get("comment"))
+    } else {
+      null
+    }
+    new FieldSchema(c.getName, typeString, comment)
+  }
+
+  def getRawTypeString(metadata: FieldMetadata): Option[String] = {
+    if (metadata.contains(CHAR_VARCHAR_TYPE_STRING_METADATA_KEY)) {
+      Some(String.valueOf(metadata.get(CHAR_VARCHAR_TYPE_STRING_METADATA_KEY)))
+    } else {
+      None
     }
   }
 

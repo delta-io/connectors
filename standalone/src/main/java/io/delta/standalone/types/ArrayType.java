@@ -56,6 +56,11 @@ public final class ArrayType extends DataType {
         this.containsNull = containsNull;
     }
 
+    @Override
+    public String getCatalogString() {
+        return String.format("array<%s>", elementType.getCatalogString());
+    }
+
     /**
      * @return the type of array elements
      */

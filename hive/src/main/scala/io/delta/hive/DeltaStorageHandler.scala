@@ -23,8 +23,7 @@ import scala.collection.mutable
 
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hive.metastore.HiveMetaHook
-import org.apache.hadoop.hive.metastore.api.MetaException
-import org.apache.hadoop.hive.metastore.api.Table
+import org.apache.hadoop.hive.metastore.api.{FieldSchema, MetaException, Table}
 import org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_LOCATION
 import org.apache.hadoop.hive.ql.exec.FunctionRegistry
 import org.apache.hadoop.hive.ql.index.IndexSearchCondition
@@ -217,17 +216,36 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Extract the table schema in Hive to compare it with the latest table schema in Delta logs,
     // and fail the query if it was changed.
     val cols = tbl.getSd.getCols
-    val columnNames = new JArrayList[String](cols.size)
-    val columnTypes = new JArrayList[TypeInfo](cols.size)
-    cols.asScala.foreach { col =>
-      columnNames.add(col.getName)
-      columnTypes.add(TypeInfoUtils.getTypeInfoFromTypeString(col.getType))
+    if (!needExtractSchemaFromDelta(cols.asScala)) {
+      val cols = tbl.getSd.getCols
+      val columnNames = new JArrayList[String](cols.size)
+      val columnTypes = new JArrayList[TypeInfo](cols.size)
+      cols.asScala.foreach { col =>
+        columnNames.add(col.getName)
+        columnTypes.add(TypeInfoUtils.getTypeInfoFromTypeString(col.getType))
+      }
+      val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
+        .asInstanceOf[StructTypeInfo]
+      DeltaHelper.checkTableSchema(snapshot.getMetadata.getSchema, hiveSchema)
+    } else {
+      val hiveCols = snapshot.getMetadata.getSchema.getFields.map(DeltaHelper.toHiveColumn _)
+      tbl.getSd.setCols(hiveCols.toList.asJava)
     }
-    val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
-      .asInstanceOf[StructTypeInfo]
-    DeltaHelper.checkTableSchema(snapshot.getMetadata.getSchema, hiveSchema)
     tbl.getParameters.put("spark.sql.sources.provider", "DELTA")
     tbl.getSd.getSerdeInfo.getParameters.put("path", deltaRootString)
+  }
+
+  private def needExtractSchemaFromDelta(cols: Seq[FieldSchema]): Boolean = {
+    if (cols.size == 1) {
+      val col = cols.head
+      if (col.getName == "dummy_col" && col.getType == "array<string>") {
+        true
+      } else {
+        false
+      }
+    } else {
+      false
+    }
   }
 
   override def rollbackCreateTable(table: Table): Unit = {

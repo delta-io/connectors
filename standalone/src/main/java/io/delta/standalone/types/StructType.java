@@ -64,6 +64,23 @@ public final class StructType extends DataType {
         Arrays.stream(fields).forEach(field -> nameToField.put(field.getName(), field));
     }
 
+    @Override
+    public String getCatalogString() {
+        StringBuilder sb = new StringBuilder();
+        int len = fields.length;
+        sb.append("struct<");
+        int i = 0;
+        while (i < len) {
+            sb.append(fields[i].getName())
+                .append(":")
+                .append(fields[i].getDataType().getCatalogString());
+            i += 1;
+            if (i < len) sb.append(",");
+        }
+        sb.append(">");
+        return sb.toString();
+    }
+
     /**
      * Creates a new {@link StructType} by adding a new field.
      *

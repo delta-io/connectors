@@ -455,36 +455,44 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
   }
 
   test("map Spark types to Hive types correctly") {
-    withTable("deltaTbl") {
-      withHiveGoldenTable("deltatbl-map-types-correctly") { tablePath =>
-        runQuery(
-          s"""
-             |create external table deltaTbl(
-             |c1 tinyint, c2 binary, c3 boolean, c4 int, c5 bigint, c6 string, c7 float, c8 double,
-             |c9 smallint, c10 date, c11 timestamp, c12 decimal(38, 18), c13 array<string>,
-             |c14 map<string, bigint>, c15 struct<f1: string, f2: bigint>)
-             |stored by 'io.delta.hive.DeltaStorageHandler' location '${tablePath}'
+    Seq(true, false).foreach{ withoutAllColumns =>
+      withTable("deltaTbl") {
+        withHiveGoldenTable("deltatbl-map-types-correctly") { tablePath =>
+          val columns = if (withoutAllColumns) {
+            "dummy_col array<string>"
+          } else {
+            s"""
+               |c1 tinyint, c2 binary, c3 boolean, c4 int, c5 bigint, c6 string, c7 float, c8 double,
+               |c9 smallint, c10 date, c11 timestamp, c12 decimal(38, 18), c13 array<string>,
+               |c14 map<string, bigint>, c15 struct<f1: string, f2: bigint>
+               |""".stripMargin
+          }
+          runQuery(
+            s"""
+               |create external table deltaTbl($columns)
+               |stored by 'io.delta.hive.DeltaStorageHandler' location '${tablePath}'
          """.stripMargin
-        )
+          )
 
-        val expected = (
-          "97",
-          "bc",
-          "true",
-          "4",
-          "5",
-          "foo",
-          "6.0",
-          "7.0",
-          "8",
-          "1970-01-01",
-          "1970-01-01 08:40:00",
-          "12345.678900000000794535",
-          """["foo","bar"]""",
-          """{"foo":123}""",
-          """{"f1":"foo","f2":456}"""
-        )
-        checkAnswer("select * from deltaTbl", Seq(expected))
+          val expected = (
+            "97",
+            "bc",
+            "true",
+            "4",
+            "5",
+            "foo",
+            "6.0",
+            "7.0",
+            "8",
+            "1970-01-01",
+            "1970-01-01 08:40:00",
+            "12345.678900000000794535",
+            """["foo","bar"]""",
+            """{"foo":123}""",
+            """{"f1":"foo","f2":456}"""
+          )
+          checkAnswer("select * from deltaTbl", Seq(expected))
+        }
       }
     }
   }

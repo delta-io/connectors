@@ -73,6 +73,12 @@ public final class MapType extends DataType {
         return valueType;
     }
 
+    @Override
+    public String getCatalogString() {
+        return String.format("map<%s,%s>",
+            keyType.getCatalogString(), valueType.getCatalogString());
+    }
+
     /**
      * @return {@code true} if this map has null values, else {@code false}
      */
