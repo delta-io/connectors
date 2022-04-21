@@ -216,7 +216,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Extract the table schema in Hive to compare it with the latest table schema in Delta logs,
     // and fail the query if it was changed.
     val cols = tbl.getSd.getCols
-    if (!needExtractSchemaFromDelta(cols.asScala)) {
+    if (!needExtractSchemaFromDelta(cols.asScala.toSeq)) {
       val cols = tbl.getSd.getCols
       val columnNames = new JArrayList[String](cols.size)
       val columnTypes = new JArrayList[TypeInfo](cols.size)
