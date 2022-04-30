@@ -39,8 +39,7 @@ public class DeltaSourceConfigTest {
         map.put("startSnapshotVersion", 1);
         map.put("fetchHistoryData", true);
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
-        map.put("parquetParseParallelism", 3);
+        map.put("parquetParseThreads", 3);
         map.put("maxReadBytesSizeOneRound", 1024 * 1024);
         map.put("maxReadRowCountOneRound", 1000);
         map.put("checkpointInterval", 30);
@@ -50,8 +49,7 @@ public class DeltaSourceConfigTest {
             assertEquals(1, config.getStartSnapshotVersion().longValue());
             assertTrue(config.getFetchHistoryData());
             assertEquals("/tmp/test.conf", config.getTablePath());
-            assertEquals("filesystem", config.getFileSystemType());
-            assertEquals(3, config.getParquetParseParallelism());
+            assertEquals(3, config.getParquetParseThreads());
             assertEquals(1024 * 1024, config.getMaxReadBytesSizeOneRound());
             assertEquals(1000, config.getMaxReadRowCountOneRound());
         } catch (Exception e) {
@@ -78,7 +76,6 @@ public class DeltaSourceConfigTest {
     public void testDefaultValue() {
         Map<String, Object> map = new HashMap<>();
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
 
         try {
             DeltaSourceConfig config = DeltaSourceConfig.load(map);
@@ -87,9 +84,8 @@ public class DeltaSourceConfigTest {
             assertEquals(DeltaSourceConfig.LATEST, config.getStartSnapshotVersion().longValue());
             assertFalse(config.getFetchHistoryData());
             assertEquals("/tmp/test.conf", config.getTablePath());
-            assertEquals("filesystem", config.getFileSystemType());
             assertEquals(Runtime.getRuntime().availableProcessors(),
-                config.getParquetParseParallelism());
+                config.getParquetParseThreads());
             assertEquals(DeltaSourceConfig.DEFAULT_MAX_READ_BYTES_SIZE_ONE_ROUND,
                 config.getMaxReadBytesSizeOneRound());
             assertEquals(DeltaSourceConfig.DEFAULT_MAX_READ_ROW_COUNT_ONE_ROUND,
@@ -105,7 +101,6 @@ public class DeltaSourceConfigTest {
     public void testValidateStartSnapshotVersion() {
         Map<String, Object> map = new HashMap<>();
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
         map.put("startSnapshotVersion", 1);
         map.put("startTimestamp", 11111);
 
@@ -121,50 +116,16 @@ public class DeltaSourceConfigTest {
     }
 
     @Test
-    public void testInvalidFileSystemType() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "gcs");
-
-        try {
-            DeltaSourceConfig config = DeltaSourceConfig.load(map);
-            config.validate();
-            fail();
-        } catch (Exception e) {
-            assertEquals("fileSystemType: gcs is not support yet. "
-                    + "Current support type: fileSystem and s3",
-                e.getMessage());
-        }
-    }
-
-    @Test
-    public void testInvalidS3Parameters() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "s3");
-
-        try {
-            DeltaSourceConfig config = DeltaSourceConfig.load(map);
-            config.validate();
-            fail();
-        } catch (Exception e) {
-            assertEquals("s3aAccesskey or s3aSecretkey should be configured for s3",
-                e.getMessage());
-        }
-    }
-
-    @Test
     public void testInvalidParquetParseParallelism() {
         Map<String, Object> map = new HashMap<>();
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
         map.put("parquetParseParallelism", 1024);
 
         try {
             DeltaSourceConfig config = DeltaSourceConfig.load(map);
             config.validate();
-            assertEquals(DeltaSourceConfig.DEFAULT_PARQUET_PARSE_PARALLELISM,
-                config.getParquetParseParallelism());
+            assertEquals(DeltaSourceConfig.DEFAULT_PARQUET_PARSE_THREADS,
+                config.getParquetParseThreads());
         } catch (Exception e) {
             fail();
         }
@@ -174,7 +135,6 @@ public class DeltaSourceConfigTest {
     public void testInvalidMaxReadBytesSizeOneRound() {
         Map<String, Object> map = new HashMap<>();
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
         map.put("maxReadBytesSizeOneRound", -1);
 
         try {
@@ -191,14 +151,13 @@ public class DeltaSourceConfigTest {
     public void testInvalidSourceConnectorQueueSize() {
         Map<String, Object> map = new HashMap<>();
         map.put("tablePath", "/tmp/test.conf");
-        map.put("fileSystemType", "filesystem");
         map.put("sourceConnectorQueueSize", -1);
 
         try {
             DeltaSourceConfig config = DeltaSourceConfig.load(map);
             config.validate();
-            assertEquals(DeltaSourceConfig.DEFAULT_SOURCE_CONNECTOR_QUEUE_SIZE,
-                config.getSourceConnectorQueueSize());
+            assertEquals(DeltaSourceConfig.DEFAULT_QUEUE_SIZE,
+                config.getQueueSize());
         } catch (Exception e) {
             fail();
         }

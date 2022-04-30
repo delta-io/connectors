@@ -81,13 +81,13 @@ public class DeltaSource implements Source<GenericRecord> {
         log.info("Delta Lake connector config: {}", config);
         config.validate();
 
-        queue = new LinkedBlockingQueue<>(config.getSourceConnectorQueueSize());
+        queue = new LinkedBlockingQueue<>(config.getQueueSize());
 
         // init executors
         snapshotExecutor =
             Executors.newSingleThreadScheduledExecutor(
                 new DefaultThreadFactory("snapshot-io"));
-        parquetParseExecutor = Executors.newFixedThreadPool(config.getParquetParseParallelism(),
+        parquetParseExecutor = Executors.newFixedThreadPool(config.getParquetParseThreads(),
             new DefaultThreadFactory("parquet-parse-io"));
         fetchRecordExecutor = Executors.newSingleThreadExecutor(
             new DefaultThreadFactory("fetch-record-io"));
