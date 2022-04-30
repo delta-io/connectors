@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -56,7 +57,7 @@ import io.delta.standalone.types.StructType;
  *
  */
 @Slf4j
-public class DeltaReaderThread extends Thread {
+public class DeltaReaderThread implements Runnable {
     private volatile boolean running;
     private final ExecutorService parquetParseExecutor;
     private final AtomicInteger processingException;
@@ -136,11 +137,7 @@ public class DeltaReaderThread extends Thread {
                         log.debug("Read from version: {} not find any delta actions,"
                                 + " wait to get actions next round",
                                 startVersion);
-                        try {
-                            Thread.sleep(10_000);
-                        } catch (InterruptedException e) {
-                            //
-                        }
+                        Thread.sleep(10_000);
                     }
                     continue;
                 }
@@ -195,14 +192,10 @@ public class DeltaReaderThread extends Thread {
                                 receivedTasks++;
                                 totalSize += recordData.size();
                                 recordData.forEach(this::enqueue);
-                            } catch (Exception e) {
+                            } catch (InterruptedException | ExecutionException e) {
                                 log.error("Failed to get records from parquet file", e);
-                                errors = true;
+                                throw e;
                             }
-                        }
-
-                        if (errors) {
-                            // TODO deal with exception
                         }
 
                         if (log.isDebugEnabled()) {
@@ -228,7 +221,6 @@ public class DeltaReaderThread extends Thread {
                             log.error("readPartParquetFileAsync encounter exception, "
                                 + "will skip read");
                             throw new IOException("readPartParquetFileAsync failed");
-                            // TODO define exception
                         }
                         sourceContext.recordMetric(FETCH_ADN_PARSE_FILE_LATENCY,
                             System.currentTimeMillis() - startFetchAndParse);
@@ -312,8 +304,6 @@ public class DeltaReaderThread extends Thread {
             } else if (pulsarSchema != null) {
                 queue.put(new DeltaRecord(rowRecordData, topic, null, pulsarSchema,
                     processingException));
-            } else {
-                // TODO
             }
         } catch (IOException ex) {
             log.error("delta message enqueue failed for ", ex);

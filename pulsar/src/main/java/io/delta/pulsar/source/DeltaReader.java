@@ -470,11 +470,6 @@ public class DeltaReader {
 
     private void open() throws Exception {
         conf = new Configuration();
-        if (config.fileSystemType.equals(DeltaSourceConfig.S3)) {
-            conf.set("fs.s3a.access.key", config.s3aAccesskey);
-            conf.set("fs.s3a.secret.key", config.s3aSecretKey);
-            conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
-        }
         deltaLog = DeltaLog.forTable(conf, this.config.tablePath);
     }
 }

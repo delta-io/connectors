@@ -98,17 +98,17 @@ public class DeltaSource implements Source<GenericRecord> {
         }
 
         this.sourceContext = sourceContext;
-        this.outputTopic = sourceContext.getOutputTopic();
-        this.topicPartitionNum =
+        outputTopic = sourceContext.getOutputTopic();
+        topicPartitionNum =
             sourceContext.getPulsarClient().getPartitionsForTopic(outputTopic).get().size();
 
         // load the configuration and validate it
-        this.config = DeltaSourceConfig.load(configMap);
+        config = DeltaSourceConfig.load(configMap);
         log.info("Delta Lake connector config: {}", config);
         config.validate();
 
-        queue = new LinkedBlockingQueue<>(config.getSourceConnectorQueueSize());
-        this.reader = new DeltaReader(config, topicPartitionNum);
+        queue = new LinkedBlockingQueue<>(config.getQueueSize());
+        reader = new DeltaReader(config, topicPartitionNum);
 
         // TODO check restore configuration, from config or from checkpoint
         Triple<Map<Integer, DeltaCheckpoint>, StructType, GenericSchema<GenericRecord>>
@@ -136,7 +136,7 @@ public class DeltaSource implements Source<GenericRecord> {
         snapshotExecutor =
             Executors.newSingleThreadScheduledExecutor(
                 new DefaultThreadFactory("snapshot-io"));
-        parquetParseExecutor = Executors.newFixedThreadPool(config.getParquetParseParallelism(),
+        parquetParseExecutor = Executors.newFixedThreadPool(config.getParquetParseThreads(),
             new DefaultThreadFactory("parquet-parse-io"));
         fetchRecordExecutor = Executors.newSingleThreadExecutor(
             new DefaultThreadFactory("fetch-record-io"));
@@ -188,8 +188,7 @@ public class DeltaSource implements Source<GenericRecord> {
                 + "and connector will exit");
             throw new Exception("processing exception in processing delta record");
         }
-        Record<GenericRecord> record = queue.take();
-        return record;
+        return  queue.take();
     }
 
     @Override
@@ -244,10 +243,11 @@ public class DeltaSource implements Source<GenericRecord> {
             .boxed()
             .collect(Collectors.toList());
 
-        if (partitions.size() <= 0) {
+        if (partitions.isEmpty()) {
             return null;
         }
 
+        // for each partition, get checkpoint from pulsar source context state store.
         for (int partitionId : partitions) {
             ByteBuffer byteBuffer =
                 sourceContext.getState(DeltaCheckpoint.getStatekey(partitionId));
@@ -256,7 +256,6 @@ public class DeltaSource implements Source<GenericRecord> {
             }
 
             String jsonString = StandardCharsets.UTF_8.decode(byteBuffer).toString();
-            byteBuffer.rewind();
             ObjectMapper mapper = ObjectMapperFactory.getThreadLocal();
             DeltaCheckpoint checkpoint;
             try {
@@ -284,20 +283,19 @@ public class DeltaSource implements Source<GenericRecord> {
                     reader.getSnapShotVersionFromTimeStamp(config.getStartTimestamp());
             }
 
-            Long startVersion = DeltaSourceConfig.LATEST;
-            if (versionResponse != null) {
-                startVersion = versionResponse.getVersion();
-            }
-
+            long startVersion = versionResponse != null
+                ? versionResponse.getVersion() : DeltaSourceConfig.LATEST;
             DeltaCheckpoint.StateType copyMode = DeltaCheckpoint.StateType.INCREMENTAL_COPY;
             if (versionResponse != null
                 && !versionResponse.getIsOutOfRange()
                 && config.getFetchHistoryData()) {
                 copyMode = DeltaCheckpoint.StateType.FULL_COPY;
             }
+            // create minCheckpoint according to given start version
             minCheckpoint = new DeltaCheckpoint(copyMode, startVersion);
             checkpointMap.put(MIN_CHECKPOINT_KEY, minCheckpoint);
 
+            // get deltaSchema, if failed, get pulsar schema.
             try {
                 deltaSchema = reader.getSnapShot(startVersion).getMetadata().getSchema();
             } catch (Exception e) {
@@ -305,15 +303,17 @@ public class DeltaSource implements Source<GenericRecord> {
                 pulsarSchema = handleGetDeltaSchemaFailed(sourceContext);
             }
 
+            //use minCheckpoint to init each partition's checkpoint map.
             for (int id : partitions) {
                 log.info("checkpointMap not including partition: {}, will start from version: {}",
                     id, startVersion);
                 checkpointMap.put(id, minCheckpoint);
             }
-        } else if (minCheckpoint != null) {
-            DeltaReader.VersionResponse versionResponse =
-                    reader.getAndValidateSnapShotVersion(minCheckpoint.getSnapShotVersion());
-            Long startVersion = versionResponse.getVersion();
+        } else if (minCheckpoint != null) { // if restored checkpoint from state store.
+            // validate the minCheckpoint snapshot version
+            long startVersion =
+                    reader.getAndValidateSnapShotVersion(minCheckpoint.getSnapShotVersion())
+                        .getVersion();
             if (startVersion > minCheckpoint.getSnapShotVersion()) {
                 log.error("checkpoint version: {} not exist, current version {}",
                         minCheckpoint.getSnapShotVersion(), startVersion);

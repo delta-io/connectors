@@ -836,16 +836,30 @@ lazy val pulsar = (project in file("pulsar"))
     name := "delta-pulsar",
     commonSettings,
     publishArtifact := scalaBinaryVersion.value == "2.12",
-    publishArtifact in Test := false,
+    autoScalaLibrary := false, // exclude scala-library from dependencies
+    Test / publishArtifact := false,
+    pomExtra :=
+      <url>https://github.com/delta-io/connectors</url>
+        <scm>
+          <url>git@github.com:delta-io/connectors.git</url>
+          <connection>scm:git:git@github.com:delta-io/connectors.git</connection>
+        </scm>
+        <developers>
+          <developer>
+            <id>hangc0276</id>
+            <name>Hang Chen</name>
+            <url>https://github.com/hangc0276</url>
+          </developer>
+        </developers>,
     crossPaths := false,
     libraryDependencies ++= Seq(
       "org.apache.pulsar" % "pulsar-io-core" % pulsarVersion,
-      "org.apache.pulsar" % "pulsar-client-api" % pulsarVersion,
-      "org.apache.pulsar" % "pulsar-client-original" % pulsarVersion,
-      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
-      "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
-      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion,
-      "org.projectlombok" % "lombok" % lombokVersion,
+      "org.apache.pulsar" % "pulsar-client-api" % pulsarVersion  % "provided",
+      "org.apache.pulsar" % "pulsar-client-original" % pulsarVersion  % "provided",
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion  % "provided",
+      "org.apache.hadoop" % "hadoop-aws" % hadoopVersion  % "provided",
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion  % "provided",
+      "org.projectlombok" % "lombok" % lombokVersion  % "provided",
       "com.github.sbt" % "junit-interface" % "0.12" % Test,
       "org.testng" % "testng" % "7.3.0" % Test,
       "org.mockito" % "mockito-core" % "3.12.4" % Test

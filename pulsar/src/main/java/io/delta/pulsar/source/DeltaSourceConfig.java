@@ -21,7 +21,6 @@ package io.delta.pulsar.source;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Locale;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -30,8 +29,6 @@ import io.delta.pulsar.common.Category;
 import io.delta.pulsar.common.FieldContext;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.parquet.Strings;
 import org.apache.pulsar.common.util.ObjectMapperFactory;
 
 /**
@@ -46,14 +43,14 @@ public class DeltaSourceConfig implements Serializable {
     public static final long DEFAULT_MAX_READ_BYTES_SIZE_ONE_ROUND =
         Double.valueOf(Runtime.getRuntime().totalMemory() * 0.2).longValue();
     public static final int DEFAULT_MAX_READ_ROW_COUNT_ONE_ROUND = 100_000;
-    public static final int DEFAULT_PARQUET_PARSE_PARALLELISM =
+    public static final int DEFAULT_PARQUET_PARSE_THREADS =
         Runtime.getRuntime().availableProcessors();
     public static final int DEFAULT_CHECKPOINT_INTERVAL = 30;
     public static final String FILE_SYSTEM = "filesystem";
     public static final String S3 = "s3";
     public static final long LATEST = -1;
     public static final long EARLIEST = -2;
-    public static final int DEFAULT_SOURCE_CONNECTOR_QUEUE_SIZE = 100_000;
+    public static final int DEFAULT_QUEUE_SIZE = 100_000;
 
     @Category
     private static final String CATEGORY_SOURCE = "Source";
@@ -87,28 +84,9 @@ public class DeltaSourceConfig implements Serializable {
 
     @FieldContext(
         category = CATEGORY_SOURCE,
-        required = true,
-        doc = "The file system type of store delta lake table. Values are filesystem or s3"
+        doc = "The parallelism of parsing parquet file. Default is the number of cpus"
     )
-    String fileSystemType;
-
-    @FieldContext(
-        category = CATEGORY_SOURCE,
-        doc = "If the file system type is s3, the access key should be set."
-    )
-    String s3aAccesskey;
-
-    @FieldContext(
-        category = CATEGORY_SOURCE,
-        doc = "If the file system type is s3, the secret key should be set."
-    )
-    String s3aSecretKey;
-
-    @FieldContext(
-        category = CATEGORY_SOURCE,
-        doc = "The parallelism of parsing parquet file. Default is 8"
-    )
-    int parquetParseParallelism = DEFAULT_PARQUET_PARSE_PARALLELISM;
+    int parquetParseThreads = DEFAULT_PARQUET_PARSE_THREADS;
 
     @FieldContext(
         category = CATEGORY_SOURCE,
@@ -133,13 +111,13 @@ public class DeltaSourceConfig implements Serializable {
         doc = "source connector queue size, used for store record before send to pulsar topic. "
             + "Default is 100_000"
     )
-    int sourceConnectorQueueSize = DEFAULT_SOURCE_CONNECTOR_QUEUE_SIZE;
+    int queueSize = DEFAULT_QUEUE_SIZE;
 
 
     /**
      * Validate if the configuration is valid.
      */
-    public void validate() throws IOException {
+    public void validate() throws IllegalArgumentException {
         if (startSnapshotVersion != null && startTimestamp != null) {
             log.error("startSnapshotVersion: {} and startTimeStamp: {} "
                     + "should not be set at the same time.",
@@ -150,39 +128,11 @@ public class DeltaSourceConfig implements Serializable {
             startSnapshotVersion = LATEST;
         }
 
-        if (StringUtils.isBlank(tablePath)
-            || StringUtils.isBlank(fileSystemType)) {
-            log.error("tablePath: {} or fileSystemType: {} should be set.",
-                tablePath, fileSystemType);
-            throw new IllegalArgumentException("tablePath: " + tablePath + " or fileSystemType: "
-                + fileSystemType + " should be set.");
-        }
-
-        fileSystemType = fileSystemType.toLowerCase(Locale.ROOT);
-
-        switch (fileSystemType) {
-            case S3:
-                if (Strings.isNullOrEmpty(s3aAccesskey) || Strings.isNullOrEmpty(s3aSecretKey)) {
-                    log.error("s3aAccesskey or s3aSecretkey should be configured for s3");
-                    throw new IllegalArgumentException("s3aAccesskey or s3aSecretkey "
-                        + "should be configured for s3");
-                }
-                break;
-            case FILE_SYSTEM:
-                break;
-            default:
-                log.error("fileSystemType: {} is not support yet. Current support type: "
-                        + "fileSystem and s3",
-                    fileSystemType);
-                throw new IOException("fileSystemType: " + fileSystemType
-                    + " is not support yet. Current support type: fileSystem and s3");
-        }
-
-        if (parquetParseParallelism > DEFAULT_PARQUET_PARSE_PARALLELISM
-            || parquetParseParallelism <= 0) {
-            log.warn("parquetParseParallelism: {} is out of limit, using default 2 * cpus: {}",
-                parquetParseParallelism, DEFAULT_PARQUET_PARSE_PARALLELISM);
-            parquetParseParallelism = DEFAULT_PARQUET_PARSE_PARALLELISM;
+        if (parquetParseThreads > 2 * DEFAULT_PARQUET_PARSE_THREADS
+            || parquetParseThreads <= 0) {
+            log.warn("parquetParseParallelism: {} is out of limit, using default cpus: {}",
+                parquetParseThreads, DEFAULT_PARQUET_PARSE_THREADS);
+            parquetParseThreads = DEFAULT_PARQUET_PARSE_THREADS;
         }
 
         if (maxReadBytesSizeOneRound <= 0) {
@@ -197,10 +147,10 @@ public class DeltaSourceConfig implements Serializable {
             maxReadRowCountOneRound = DEFAULT_MAX_READ_ROW_COUNT_ONE_ROUND;
         }
 
-        if (sourceConnectorQueueSize <= 0) {
+        if (queueSize <= 0) {
             log.warn("sourceConnectorQueueSize: {} should be >0, using default: {}",
-                sourceConnectorQueueSize, DEFAULT_SOURCE_CONNECTOR_QUEUE_SIZE);
-            sourceConnectorQueueSize = DEFAULT_SOURCE_CONNECTOR_QUEUE_SIZE;
+                queueSize, DEFAULT_QUEUE_SIZE);
+            queueSize = DEFAULT_QUEUE_SIZE;
         }
     }
 
