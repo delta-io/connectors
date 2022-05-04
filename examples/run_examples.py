@@ -96,7 +96,8 @@ class WorkingDirectory(object):
 if __name__ == "__main__":
     """
     Script to run integration tests which are located in the examples directory.
-    Call this by running "python3 run-examples.py".
+    Call this by running "python3 run-examples.py --version <version>", where <version> is the
+    Delta Connectors repo version to use.
     
     There are two version 'modes' you should use to run this file.
     1. using published or staged jar: explicitly pass in the --version argument.
