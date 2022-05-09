@@ -16,36 +16,60 @@
 
 package io.delta.standalone.internal.storage
 
+import scala.collection.JavaConverters._
+
 import org.apache.hadoop.conf.Configuration
 
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.storage.LogStore
 
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 
 private[internal] object LogStoreProvider extends LogStoreProvider
 
 private[internal] trait LogStoreProvider {
 
-  val defaultLogStoreClassName: String = classOf[HDFSLogStore].getName
+  val logStoreClassConfKey: String = StandaloneHadoopConf.LOG_STORE_CLASS_KEY
+  val defaultLogStoreClass: String = classOf[DelegatingLogStore].getName
+
+  // TODO: is this the key we want?
+  // The conf key for setting the LogStore implementation for `scheme`.
+  def logStoreSchemeConfKey(scheme: String): String = s"io.delta.standalone.logStore.${scheme}.impl"
 
   def createLogStore(hadoopConf: Configuration): LogStore = {
-    val logStoreClassName =
-      hadoopConf.get(StandaloneHadoopConf.LOG_STORE_CLASS_KEY, defaultLogStoreClassName)
+    checkLogStoreConfConflicts(hadoopConf)
+    val logStoreClassName = hadoopConf.get(logStoreClassConfKey, defaultLogStoreClass)
+    createLogStoreWithClassName(logStoreClassName, hadoopConf)
+  }
 
-    // scalastyle:off classforname
-    val logStoreClass =
-      Class.forName(logStoreClassName, true, Thread.currentThread().getContextClassLoader)
-    // scalastyle:on classforname
-
-    if (classOf[LogStore].isAssignableFrom(logStoreClass)) {
-      logStoreClass
-        .getConstructor(classOf[Configuration])
-        .newInstance(hadoopConf)
-        .asInstanceOf[LogStore]
+  def createLogStoreWithClassName(className: String, hadoopConf: Configuration): LogStore = {
+    if (className == classOf[DelegatingLogStore].getName) {
+      new DelegatingLogStore(hadoopConf)
     } else {
-      throw new DeltaStandaloneException(s"Can't instantiate a LogStore with classname " +
-        s"$logStoreClassName.")
+      // scalastyle:off classforname
+      val logStoreClass =
+        Class.forName(className, true, Thread.currentThread().getContextClassLoader)
+      // scalastyle:on classforname
+
+      if (classOf[LogStore].isAssignableFrom(logStoreClass)) {
+        logStoreClass
+          .getConstructor(classOf[Configuration])
+          .newInstance(hadoopConf)
+          .asInstanceOf[LogStore]
+      } else {
+        throw new DeltaStandaloneException(s"Can't instantiate a LogStore with classname " +
+          s"$className.")
+      }
+    }
+  }
+
+  def checkLogStoreConfConflicts(hadoopConf: Configuration): Unit = {
+    val classConf = Option(hadoopConf.get(logStoreClassConfKey))
+    val schemeConf = hadoopConf.getValByRegex("""io\.delta\.standalone\.logStore\.\w+\.impl""")
+
+    if (classConf.nonEmpty && !schemeConf.isEmpty()) {
+      throw DeltaErrors.logStoreConfConflicts(schemeConf.keySet().asScala.toSeq)
     }
   }
 }
