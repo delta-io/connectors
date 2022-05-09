@@ -16,10 +16,9 @@
 
 package io.delta.standalone.internal
 
-import org.scalatest.FunSuite
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.scalatest.FunSuite
 
 import io.delta.standalone.internal.storage.{DelegatingLogStore, LogStoreProvider}
 
