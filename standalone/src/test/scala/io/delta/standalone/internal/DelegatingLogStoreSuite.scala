@@ -73,7 +73,7 @@ class DelegatingLogStoreSuite extends FunSuite {
         DelegatingLogStore.defaultHDFSLogStoreClassName,
         customLogStoreClassName
       )) {
-        // we set spark.delta.logStore.${scheme}.impl -> $store
+        // we set io.delta.standalone.logStore.${scheme}.impl -> $store
         testDelegatingLogStore(scheme, Some(store), store)
       }
     }

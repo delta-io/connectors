@@ -17,6 +17,7 @@
 package io.delta.standalone.internal.storage
 
 import java.util.Locale
+
 import scala.collection.mutable
 
 import org.apache.hadoop.conf.Configuration
