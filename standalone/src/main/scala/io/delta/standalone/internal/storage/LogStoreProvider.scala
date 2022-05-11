@@ -33,7 +33,6 @@ private[internal] trait LogStoreProvider {
   val logStoreClassConfKey: String = StandaloneHadoopConf.LOG_STORE_CLASS_KEY
   val defaultLogStoreClass: String = classOf[DelegatingLogStore].getName
 
-  // TODO: is this the key we want?
   // The conf key for setting the LogStore implementation for `scheme`.
   def logStoreSchemeConfKey(scheme: String): String = s"io.delta.standalone.logStore.${scheme}.impl"
 
