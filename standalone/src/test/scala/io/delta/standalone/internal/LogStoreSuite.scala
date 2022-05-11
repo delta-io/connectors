@@ -196,6 +196,36 @@ class DefaultLogStoreSuite extends LogStoreSuiteBase {
   override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
 }
 
+class PublicHDFSLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[io.delta.storage.HDFSLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
+}
+
+class PublicS3SingleDriverLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[io.delta.storage.S3SingleDriverLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = false
+}
+
+class PublicAzureLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[io.delta.storage.AzureLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
+}
+
+class PublicLocalLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[io.delta.storage.LocalLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = true
+}
+
+class PublicGCSLogStoreSuite extends LogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[io.delta.storage.GCSLogStore].getName)
+  override protected def shouldUseRenameToWriteCheckpoint: Boolean = false
+}
+
 /**
  * Test having the user provide their own LogStore.
  */
