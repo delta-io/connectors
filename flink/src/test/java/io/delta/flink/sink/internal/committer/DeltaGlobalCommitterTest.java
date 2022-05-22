@@ -36,6 +36,9 @@ import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileSystemTestHelper;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -390,6 +393,42 @@ public class DeltaGlobalCommitterTest {
         assertTrue(deserialized.getDeltaCommittables().isEmpty());
     }
 
+    @Test
+    public void testUseFullPathForDeltaLog() throws Exception {
+        //GIVEN
+        int numAddedFiles = 3;
+
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
+        DeltaLog deltaLog = DeltaLog.forTable(
+                DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
+        assertEquals(deltaLog.snapshot().getVersion(), 0);
+        int initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
+
+        List<DeltaGlobalCommittable> globalCommittables =
+                DeltaSinkTestUtils.getListOfDeltaGlobalCommittables(
+                        numAddedFiles, DeltaSinkTestUtils.getTestPartitionSpec());
+        Configuration hadoopConfig = DeltaSinkTestUtils.getHadoopConf();
+        // set up a simple hdfs mock as default filesystem
+        hadoopConfig.set("fs.defaultFS", "mockfs:///");
+        hadoopConfig.setClass("fs.mockfs.impl",
+                FileSystemTestHelper.MockFileSystem.class, FileSystem.class);
+
+        DeltaGlobalCommitter globalCommitter =
+                getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE, hadoopConfig);
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+        deltaLog.update();
+
+        // THEN
+        // should have created the deltaLog files in the specified path regardless
+        // of the configured default filesystem
+        assertEquals(deltaLog.snapshot().getVersion(), 1);
+        assertEquals(
+                initialTableFilesCount + numAddedFiles,
+                deltaLog.snapshot().getAllFiles().size());
+    }
+
     ///////////////////////////////////////////////////
     // test method utils
     ///////////////////////////////////////////////////
@@ -400,6 +439,16 @@ public class DeltaGlobalCommitterTest {
             tablePath,
             schema,
             false // mergeSchema
+        );
+    }
+
+    private DeltaGlobalCommitter getTestGlobalCommitter(RowType schema,
+                                                        Configuration hadoopConfig) {
+        return new DeltaGlobalCommitter(
+                hadoopConfig,
+                tablePath,
+                schema,
+                false // mergeSchema
         );
     }
 
