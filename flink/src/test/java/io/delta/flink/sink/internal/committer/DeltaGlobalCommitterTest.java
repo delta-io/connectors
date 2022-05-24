@@ -413,8 +413,12 @@ public class DeltaGlobalCommitterTest {
         hadoopConfig.setClass("fs.mockfs.impl",
                 FileSystemTestHelper.MockFileSystem.class, FileSystem.class);
 
-        DeltaGlobalCommitter globalCommitter =
-                getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE, hadoopConfig);
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+                hadoopConfig,
+                tablePath,
+                DeltaSinkTestUtils.TEST_ROW_TYPE,
+                false // mergeSchema
+        );
 
         // WHEN
         globalCommitter.commit(globalCommittables);
@@ -439,16 +443,6 @@ public class DeltaGlobalCommitterTest {
             tablePath,
             schema,
             false // mergeSchema
-        );
-    }
-
-    private DeltaGlobalCommitter getTestGlobalCommitter(RowType schema,
-                                                        Configuration hadoopConfig) {
-        return new DeltaGlobalCommitter(
-                hadoopConfig,
-                tablePath,
-                schema,
-                false // mergeSchema
         );
     }
 
