@@ -34,7 +34,7 @@ private[internal] trait LogStoreProvider {
   val defaultLogStoreClass: String = classOf[DelegatingLogStore].getName
 
   // The conf key for setting the LogStore implementation for `scheme`.
-  def logStoreSchemeConfKey(scheme: String): String = s"io.delta.standalone.logStore.${scheme}.impl"
+  def logStoreSchemeConfKey(scheme: String): String = s"delta.logStore.${scheme}.impl"
 
   def createLogStore(hadoopConf: Configuration): LogStore = {
     checkLogStoreConfConflicts(hadoopConf)
@@ -65,7 +65,7 @@ private[internal] trait LogStoreProvider {
 
   def checkLogStoreConfConflicts(hadoopConf: Configuration): Unit = {
     val classConf = Option(hadoopConf.get(logStoreClassConfKey))
-    val schemeConf = hadoopConf.getValByRegex("""io\.delta\.standalone\.logStore\.\w+\.impl""")
+    val schemeConf = hadoopConf.getValByRegex("""delta\.logStore\.\w+\.impl""")
 
     if (classConf.nonEmpty && !schemeConf.isEmpty()) {
       throw DeltaErrors.logStoreConfConflicts(schemeConf.keySet().asScala.toSeq)
