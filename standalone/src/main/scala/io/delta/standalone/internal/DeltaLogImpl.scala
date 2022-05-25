@@ -25,8 +25,10 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+
 import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
+
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
