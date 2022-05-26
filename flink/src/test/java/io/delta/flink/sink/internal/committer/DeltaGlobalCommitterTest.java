@@ -398,6 +398,7 @@ public class DeltaGlobalCommitterTest {
         //GIVEN
         int numAddedFiles = 3;
 
+        assertEquals(tablePath.toUri().getScheme(), "file");
         DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
                 DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
