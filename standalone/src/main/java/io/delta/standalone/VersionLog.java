@@ -16,8 +16,12 @@
 
 package io.delta.standalone;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
+
+import io.delta.standalone.data.CloseableIterator;
 import javax.annotation.Nonnull;
 
 import io.delta.standalone.actions.Action;
@@ -29,12 +33,21 @@ import io.delta.standalone.actions.Action;
 public final class VersionLog {
     private final long version;
 
-    @Nonnull
     private final List<Action> actions;
 
+    final CloseableIterator<Action> actionsIter;
+
+    @Deprecated
     public VersionLog(long version, @Nonnull List<Action> actions) {
         this.version = version;
         this.actions = actions;
+        this.actionsIter = null; // TODO: make some sort of iter wrapper using this.actions + index
+    }
+
+    public VersionLog(long version, @Nonnull CloseableIterator<Action> actionsIter) {
+        this.version = version;
+        this.actions = null;
+        this.actionsIter = actionsIter;
     }
 
     /**
@@ -44,11 +57,38 @@ public final class VersionLog {
         return version;
     }
 
+    public boolean hasNext() {
+        if (actionsIter != null) {
+            return actionsIter.hasNext();
+        } else {
+            // TODO use the iter wrapping from the List<Action> constructor
+        }
+    }
+
+    public Action next() throws NoSuchElementException {
+        if (actionsIter != null) {
+            return actionsIter.next();
+        } else {
+            // TODO use the iter wrapping from the List<Action> constructor
+        }
+    }
+
+    public void close() throws IOException {
+        if (actionsIter != null) {
+            actionsIter.close();
+        }
+    }
+
     /**
      * @return an unmodifiable {@code List} of the actions for this table version
      */
+    @Deprecated
     @Nonnull
     public List<Action> getActions() {
-        return Collections.unmodifiableList(actions);
+        if (actionsIter != null) {
+            // build list using actionsIter
+        } else {
+            return Collections.unmodifiableList(actions);
+        }
     }
 }
