@@ -408,11 +408,19 @@ public class DeltaGlobalCommitterTest {
                 DeltaSinkTestUtils.getListOfDeltaGlobalCommittables(
                         numAddedFiles, DeltaSinkTestUtils.getTestPartitionSpec());
         Configuration hadoopConfig = DeltaSinkTestUtils.getHadoopConf();
-        // set up a simple hdfs mock as default filesystem
+
+        // set up a simple hdfs mock as default filesystem. This FS should not be
+        // used by the global committer below, as the path we are passing is from
+        // a local filesystem
         hadoopConfig.set("fs.defaultFS", "mockfs:///");
         hadoopConfig.setClass("fs.mockfs.impl",
                 FileSystemTestHelper.MockFileSystem.class, FileSystem.class);
 
+        // create a globalCommitter that points to a local FS path (file:/// scheme). If
+        // the path were to use the default filesystem (mockfs:///), it would return
+        // a null DeltaLog to write to, which will make operations in the global committer
+        // to fail. If it uses the full path correctly, it will open the already prepared
+        // delta log
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
                 hadoopConfig,
                 tablePath,
