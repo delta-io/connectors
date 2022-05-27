@@ -34,17 +34,11 @@ public class VersionLog implements VersionLogInterface {
         this.actions = actions;
     }
 
-    /**
-     * @return the table version at which these actions occurred
-     */
     @Override
     public long getVersion() {
         return version;
     }
 
-    /**
-     * @return an unmodifiable {@code List} of the actions for this table version
-     */
     @Nonnull @Override
     public List<Action> getActions() {
         return Collections.unmodifiableList(actions);

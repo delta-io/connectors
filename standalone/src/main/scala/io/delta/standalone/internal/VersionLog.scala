@@ -22,6 +22,6 @@ final class VersionLog(
   }
 
   override def getActions: java.util.List[Action] = {
-    null // TODO: load all elements in the list
+    actions // TODO: load all elements in the list
   }
 }

@@ -12,9 +12,18 @@ import java.util.List;
 
 public interface VersionLogInterface {
 
-    public long getVersion();
+    /**
+     * @return the table version at which these actions occurred
+     */
+    long getVersion();
 
-    public List<Action> getActions();
+    /**
+     * @return an unmodifiable {@code List} of the actions for this table version
+     */
+    List<Action> getActions();
 
-    ActionCloseableIterator getActionIterator();
+    /**
+     * @return an {@code Iterator} of the list of actions for this table version
+     */
+    ActionCloseableIterator getActionIterator(); // TODO: find suitable access descriptors
 }
