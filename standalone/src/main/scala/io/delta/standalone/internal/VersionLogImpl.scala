@@ -2,7 +2,7 @@ package io.delta.standalone.internal
 
 import io.delta.standalone.VersionLog
 import io.delta.standalone.actions.Action
-import io.delta.standalone.data.{ActionCloseableIterator, CloseableIterator}
+import io.delta.standalone.data.CloseableIterator
 
 import io.delta.standalone.internal.data.ActionCloseableIterator
 
