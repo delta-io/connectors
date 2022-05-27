@@ -126,7 +126,7 @@ private[internal] class DeltaLogImpl private(
       new VersionLogImpl(
         version,
         () => store.read(p, hadoopConf),
-        List.empty)
+        java.util.List[io.delta.standalone.actions.Action]())
     }.asJava
   }
 
