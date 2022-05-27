@@ -46,6 +46,6 @@ public class VersionLog implements VersionLogInterface {
 
     @Override
     public ActionCloseableIterator getActionIterator() {
-        return null;
+        return null; // TODO: find suitable returning
     }
 }

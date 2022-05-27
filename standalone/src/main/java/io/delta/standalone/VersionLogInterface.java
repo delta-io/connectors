@@ -25,5 +25,5 @@ public interface VersionLogInterface {
     /**
      * @return an {@code Iterator} of the list of actions for this table version
      */
-    ActionCloseableIterator getActionIterator(); // TODO: find suitable access descriptors
+    ActionCloseableIterator getActionIterator();
 }
