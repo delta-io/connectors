@@ -21,9 +21,8 @@ import java.util.List;
 import javax.annotation.Nonnull;
 
 import io.delta.standalone.actions.Action;
-import io.delta.standalone.internal.data.ActionCloseableIterator;
 
-public class VersionLog implements VersionLogInterface {
+public class VersionLog {
     private final long version;
 
     @Nonnull
@@ -34,18 +33,12 @@ public class VersionLog implements VersionLogInterface {
         this.actions = actions;
     }
 
-    @Override
     public long getVersion() {
         return version;
     }
 
-    @Nonnull @Override
+    @Nonnull
     public List<Action> getActions() {
         return Collections.unmodifiableList(actions);
-    }
-
-    @Override
-    public ActionCloseableIterator getActionIterator() {
-        return null; // TODO: find suitable returning
     }
 }

@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
+import io.delta.standalone.{DeltaLog, OptimisticTransaction}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
@@ -125,8 +125,7 @@ private[internal] class DeltaLogImpl private(
 
       new VersionLog(
         version,
-        () => store.read(p, hadoopConf),
-        java.util.List[io.delta.standalone.actions.Action]) // correct?
+        () => store.read(p, hadoopConf))
     }.asJava
   }
 

@@ -1,27 +1,52 @@
 package io.delta.standalone.internal
 
-import io.delta.standalone.VersionLogInterface
-import io.delta.standalone.actions.Action
+import scala.jdk.CollectionConverters.seqAsJavaListConverter
+
+import io.delta.standalone.actions.{Action => ActionJ}
 import io.delta.standalone.data.CloseableIterator
 
-import io.delta.standalone.internal.data.ActionCloseableIterator
+import io.delta.standalone.internal.actions.Action
+import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.internal.util.Implicits.CloseableIteratorOps
 
 final class VersionLog(
     version: Long,
     supplier: () => CloseableIterator[String],
-    actions: java.util.List[Action])
-  extends VersionLogInterface(version, actions) {
-  // use empty list initialize this object
+    actions: java.util.List[ActionJ])
+  extends io.delta.standalone.VersionLog(version, actions) {
 
-  override def getVersion: Long = {
-    version
+  // Simpler constructor
+  def this(version: Long, supplier: () => CloseableIterator[String]) = {
+    this(version, supplier, List().asJava)
   }
 
-  def getActionIterator: ActionCloseableIterator = {
-    data.ActionCloseableIterator(supplier())
+  private def getNewActionIterator(stringIterator: CloseableIterator[String]) =
+    new CloseableIterator[ActionJ]() {
+
+      override def next(): ActionJ = {
+        ConversionUtils.convertAction(
+          io.delta.standalone.internal.actions.Action.fromJson(stringIterator.next))
+      }
+
+      @throws[java.io.IOException] // Not sure how to handle Java exceptions in Scala
+      override def close(): Unit = {
+        stringIterator.close()
+      }
+
+      override def hasNext: Boolean = {
+        stringIterator.hasNext
+      }
+    }
+
+  def getActionIterator: CloseableIterator[ActionJ] = {
+    getNewActionIterator(supplier())
   }
 
-  override def getActions: java.util.List[Action] = {
-    actions // TODO: load all elements in the list
+  override def getActions: java.util.List[ActionJ] = {
+    supplier()
+      .toArray
+      .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+      .toList
+      .asJava
   }
 }
