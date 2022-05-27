@@ -123,13 +123,10 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionLog(
+      new VersionLogImpl(
         version,
-        store.read(p, hadoopConf)
-          .toArray
-          .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
-          .toList
-          .asJava)
+        () => store.read(p, hadoopConf),
+        List.empty)
     }.asJava
   }
 
