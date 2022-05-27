@@ -21,12 +21,9 @@ import java.util.List;
 import javax.annotation.Nonnull;
 
 import io.delta.standalone.actions.Action;
+import io.delta.standalone.internal.data.ActionCloseableIterator;
 
-/**
- * {@link VersionLog} is the representation of all actions (changes) to the Delta Table
- * at a specific table version.
- */
-public class VersionLog {
+public class VersionLog implements VersionLogInterface {
     private final long version;
 
     @Nonnull
@@ -40,6 +37,7 @@ public class VersionLog {
     /**
      * @return the table version at which these actions occurred
      */
+    @Override
     public long getVersion() {
         return version;
     }
@@ -47,8 +45,13 @@ public class VersionLog {
     /**
      * @return an unmodifiable {@code List} of the actions for this table version
      */
-    @Nonnull
+    @Nonnull @Override
     public List<Action> getActions() {
         return Collections.unmodifiableList(actions);
+    }
+
+    @Override
+    public ActionCloseableIterator getActionIterator() {
+        return null;
     }
 }

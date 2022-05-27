@@ -123,10 +123,10 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionLogImpl(
+      new VersionLog(
         version,
         () => store.read(p, hadoopConf),
-        java.util.List[io.delta.standalone.actions.Action]())
+        java.util.List[io.delta.standalone.actions.Action]) // correct?
     }.asJava
   }
 

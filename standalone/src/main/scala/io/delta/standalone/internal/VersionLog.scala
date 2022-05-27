@@ -1,16 +1,16 @@
 package io.delta.standalone.internal
 
-import io.delta.standalone.VersionLog
+import io.delta.standalone.VersionLogInterface
 import io.delta.standalone.actions.Action
 import io.delta.standalone.data.CloseableIterator
 
 import io.delta.standalone.internal.data.ActionCloseableIterator
 
-final class VersionLogImpl(
+final class VersionLog(
     version: Long,
     supplier: () => CloseableIterator[String],
     actions: java.util.List[Action])
-  extends VersionLog(version, actions) {
+  extends VersionLogInterface(version, actions) {
   // use empty list initialize this object
 
   override def getVersion: Long = {
@@ -19,5 +19,9 @@ final class VersionLogImpl(
 
   def getActionIterator: ActionCloseableIterator = {
     data.ActionCloseableIterator(supplier())
+  }
+
+  override def getActions: java.util.List[Action] = {
+    null // TODO: load all elements in the list
   }
 }
