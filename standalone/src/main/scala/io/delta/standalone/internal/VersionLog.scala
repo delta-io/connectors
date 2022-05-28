@@ -9,7 +9,7 @@ import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.Implicits.CloseableIteratorOps
 
-final class VersionLog(
+private[internal] class VersionLog(
     version: Long,
     supplier: () => CloseableIterator[String],
     actions: java.util.List[ActionJ])
