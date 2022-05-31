@@ -9,16 +9,10 @@ import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.Implicits.CloseableIteratorOps
 
-private[internal] class VersionLog(
+private[internal] class MemoryOptimizedVersionLog(
     version: Long,
-    supplier: () => CloseableIterator[String],
-    actions: java.util.List[ActionJ])
-  extends io.delta.standalone.VersionLog(version, actions) {
-
-  // Simpler constructor
-  def this(version: Long, supplier: () => CloseableIterator[String]) = {
-    this(version, supplier, List().asJava)
-  }
+    supplier: () => CloseableIterator[String])
+  extends io.delta.standalone.VersionLog(version, java.util.List[ActionJ]) {
 
   private def getNewActionIterator(stringIterator: CloseableIterator[String]) =
     new CloseableIterator[ActionJ]() {
@@ -28,7 +22,7 @@ private[internal] class VersionLog(
           io.delta.standalone.internal.actions.Action.fromJson(stringIterator.next))
       }
 
-      @throws[java.io.IOException] // Not sure how to handle Java exceptions in Scala
+      @throws[java.io.IOException]
       override def close(): Unit = {
         stringIterator.close()
       }
@@ -38,7 +32,7 @@ private[internal] class VersionLog(
       }
     }
 
-  override def getActionIterator: CloseableIterator[ActionJ] = {
+  override def getActionsIterator: CloseableIterator[ActionJ] = {
     getNewActionIterator(supplier())
   }
 

@@ -61,15 +61,14 @@ public class VersionLog {
      * @return an {@code CloseableIterator} of the actions for this table version
      */
     @Nonnull
-    public CloseableIterator<Action> getActionIterator() {
+    public CloseableIterator<Action> getActionsIterator() {
 
         // reset the iterator
         actionIterator = actions.iterator();
 
         return new CloseableIterator<Action>() {
             @Override
-            public void close() throws IOException {
-            }
+            public void close() throws IOException {}
 
             @Override
             public boolean hasNext() {

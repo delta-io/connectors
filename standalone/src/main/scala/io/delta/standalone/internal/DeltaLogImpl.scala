@@ -104,7 +104,7 @@ private[internal] class DeltaLogImpl private(
 
   override def getChanges(
       startVersion: Long,
-      failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
+      failOnDataLoss: Boolean): java.util.Iterator[MemoryOptimizedVersionLog] = {
     import io.delta.standalone.internal.util.Implicits._
 
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
@@ -123,7 +123,7 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionLog(
+      new MemoryOptimizedVersionLog(
         version,
         () => store.read(p, hadoopConf))
     }.asJava
