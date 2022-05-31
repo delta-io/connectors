@@ -38,7 +38,7 @@ private[internal] class VersionLog(
       }
     }
 
-  def getActionIterator: CloseableIterator[ActionJ] = {
+  override def getActionIterator: CloseableIterator[ActionJ] = {
     getNewActionIterator(supplier())
   }
 
