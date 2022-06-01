@@ -17,7 +17,6 @@
 package io.delta.standalone.internal
 
 import org.scalatest.FunSuite
-
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
 import io.delta.standalone.VersionLog
@@ -39,7 +38,7 @@ class VersionLogSuite extends FunSuite {
     .toList
     .asJava
 
-  private val stringIterator = stringList.iterator
+  private var stringIterator = stringList.iterator
   private val actionCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
 
     override def next(): String = {
@@ -59,7 +58,7 @@ class VersionLogSuite extends FunSuite {
     val newActionList = newVersionLog.getActions
 
     assert(newVersionLog.getVersion == defaultVersionNumber,
-      s"versionLog.getVersion() should be ${defaultVersionNumber} other than " +
+      s"versionLog.getVersion() should be $defaultVersionNumber other than " +
         s"${newVersionLog.getVersion}")
     assert(newActionList.size() == actionList.size())
     assert(newActionList
@@ -88,7 +87,8 @@ class VersionLogSuite extends FunSuite {
   }
 
   test("CloseableIterator should not be instantiated when supplier is not used ") {
-    val newFunction1: () => CloseableIterator[String] =
+    stringIterator = stringList.iterator
+    val supplierWithCounter: () => CloseableIterator[String] =
       new (() => CloseableIterator[String]) {
         var applyCounter: Int = 0
 
@@ -104,11 +104,11 @@ class VersionLogSuite extends FunSuite {
 
     val versionLogWithIterator = new MemoryOptimizedVersionLog(
       defaultVersionNumber,
-      newFunction1
+      supplierWithCounter
     )
 
     assert(versionLogWithIterator.getVersion == defaultVersionNumber,
-      s"versionLog.getVersion() should be ${defaultVersionNumber} other than " +
+      s"versionLog.getVersion() should be $defaultVersionNumber other than " +
         s"${versionLogWithIterator.getVersion}")
 
     val newActionList = versionLogWithIterator.getActions

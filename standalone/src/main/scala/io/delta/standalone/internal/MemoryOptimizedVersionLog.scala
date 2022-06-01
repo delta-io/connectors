@@ -18,9 +18,9 @@ package io.delta.standalone.internal
 
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
+import io.delta.standalone.VersionLog
 import io.delta.standalone.actions.{Action => ActionJ}
 import io.delta.standalone.data.CloseableIterator
-import io.delta.standalone.VersionLog
 
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils

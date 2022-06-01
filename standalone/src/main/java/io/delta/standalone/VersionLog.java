@@ -16,13 +16,11 @@
 
 package io.delta.standalone;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.delta.standalone.actions.Action;
 import io.delta.standalone.data.CloseableIterator;
 
@@ -70,7 +68,7 @@ public class VersionLog {
             final Iterator<Action> actionIterator = actions.iterator();
 
             @Override
-            public void close() throws IOException {}
+            public void close() {}
 
             @Override
             public boolean hasNext() {
