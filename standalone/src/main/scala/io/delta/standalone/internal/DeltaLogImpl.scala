@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-import io.delta.standalone.{DeltaLog, OptimisticTransaction}
+import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
@@ -104,8 +104,7 @@ private[internal] class DeltaLogImpl private(
 
   override def getChanges(
       startVersion: Long,
-      failOnDataLoss: Boolean): java.util.Iterator[MemoryOptimizedVersionLog] = {
-    import io.delta.standalone.internal.util.Implicits._
+      failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
 
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
 
@@ -125,7 +124,7 @@ private[internal] class DeltaLogImpl private(
 
       new MemoryOptimizedVersionLog(
         version,
-        () => store.read(p, hadoopConf))
+        () => store.read(p, hadoopConf)).asInstanceOf[VersionLog]
     }.asJava
   }
 
