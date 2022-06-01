@@ -39,7 +39,7 @@ To run example in-memory Flink job writing data a non-partitioned Delta table ru
 - with SBT:
 ```
 > cd examples/
-> export STANDALONE_VERSION=0.4.1-SNAPSHOT  # update to desired version
+> export STANDALONE_VERSION=x.y.z  # update to desired version
 > export EXTRA_MAVEN_REPO={staged_repo}  # include staged repo if desired
 >
 > build/sbt "flinkExample/runMain example.DeltaSinkPartitionedTableExample"
