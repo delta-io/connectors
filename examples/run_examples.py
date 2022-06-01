@@ -106,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--version",
         required=False,
-        default="0.3.0",
+        default="0.4.1",
         help="Delta Standalone version to use to run the integration tests")
     parser.add_argument(
         "--maven-repo",
