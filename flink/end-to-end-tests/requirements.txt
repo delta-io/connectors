@@ -1,0 +1,2 @@
+python-terraform==0.10.1
+boto3==1.23.10
