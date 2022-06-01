@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.delta.standalone.actions.Action;
 import io.delta.standalone.data.CloseableIterator;
 
@@ -34,12 +35,9 @@ public class VersionLog {
 
     private final List<Action> actions;
 
-    private Iterator<Action> actionIterator;
-
     public VersionLog(long version, @Nonnull List<Action> actions) {
         this.version = version;
         this.actions = actions;
-        this.actionIterator = actions.iterator();
     }
 
     /**
@@ -63,10 +61,14 @@ public class VersionLog {
     @Nonnull
     public CloseableIterator<Action> getActionsIterator() {
 
-        // reset the iterator
-        actionIterator = actions.iterator();
-
         return new CloseableIterator<Action>() {
+            /**
+             * A wrapper class transforming {@code CloseableIterator<String>}
+             * to {@code CloseableIterator<Action>}
+             */
+
+            final Iterator<Action> actionIterator = actions.iterator();
+
             @Override
             public void close() throws IOException {}
 

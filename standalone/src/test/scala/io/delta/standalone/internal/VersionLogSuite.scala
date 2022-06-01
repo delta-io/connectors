@@ -94,8 +94,11 @@ class VersionLogSuite extends FunSuite {
 
         override def apply(): CloseableIterator[String] = {
           applyCounter += 1
-          print("newFunction1 called")
           actionCloseableIterator
+        }
+
+        def getApplyCounter: Int = { // TODO: make this function public
+          applyCounter
         }
       }
 
