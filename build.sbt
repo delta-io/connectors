@@ -45,6 +45,7 @@ val hiveDeltaVersion = "0.5.0"
 val parquet4sVersion = "1.2.1"
 val parquetHadoopVersion = "1.10.1"
 val scalaTestVersion = "3.0.8"
+val deltaStorageVersion = "1.2.1"
 // Versions for Hive 3
 val hadoopVersion = "3.1.0"
 val hiveVersion = "3.1.2"
@@ -405,7 +406,8 @@ lazy val standaloneCosmetic = project
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
         ExclusionRule("org.slf4j", "slf4j-api"),
         ExclusionRule("org.apache.parquet", "parquet-hadoop")
-      )
+      ),
+      "io.delta" % "delta-storage" % deltaStorageVersion
     )
   )
 
@@ -449,6 +451,7 @@ lazy val standalone = (project in file("standalone"))
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
       "org.slf4j" % "slf4j-api" % "1.7.25",
       "org.slf4j" % "slf4j-log4j12" % "1.7.25",
+      "io.delta" % "delta-storage" % deltaStorageVersion,
 
       // Compiler plugins
       // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
@@ -700,6 +703,7 @@ lazy val flink = (project in file("flink"))
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
       "org.apache.flink" % ("flink-clients_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
       "org.apache.flink" % ("flink-test-utils_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
+      "org.apache.hadoop" % "hadoop-common" % hadoopVersion % "test" classifier "tests",
       "org.mockito" % "mockito-inline" % "3.8.0" % "test",
       "net.aichler" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
       "org.junit.vintage" % "junit-vintage-engine" % "5.8.2" % "test",

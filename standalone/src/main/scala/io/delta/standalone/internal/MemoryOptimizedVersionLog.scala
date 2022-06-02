@@ -16,24 +16,24 @@
 
 package io.delta.standalone.internal
 
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.collection.JavaConverters._
 
-import io.delta.standalone.VersionLog
+import io.delta.storage.CloseableIterator
+
 import io.delta.standalone.actions.{Action => ActionJ}
-import io.delta.standalone.data.CloseableIterator
 
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
-import io.delta.standalone.internal.util.Implicits.CloseableIteratorOps
 
 /**
- * Scala implementation of Java class [[VersionLog]].
+ * Scala implementation of Java class VersionLog.
  * To save memory, full action list is loaded only when calling [[getActions]]
  */
 private[internal] class MemoryOptimizedVersionLog(
     version: Long,
     supplier: () => CloseableIterator[String])
   extends io.delta.standalone.VersionLog(version, new java.util.ArrayList[ActionJ]()) {
+  import io.delta.standalone.internal.util.Implicits._
 
   /** @return an [[CloseableIterator]] of [[Action]] for this table version */
   override def getActionsIterator: CloseableIterator[ActionJ] = new CloseableIterator[ActionJ]() {

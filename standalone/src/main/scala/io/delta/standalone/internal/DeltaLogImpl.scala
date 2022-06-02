@@ -124,7 +124,8 @@ private[internal] class DeltaLogImpl private(
 
       new MemoryOptimizedVersionLog(
         version,
-        () => store.read(p, hadoopConf)).asInstanceOf[VersionLog]
+        () => store.read(p, hadoopConf))
+        .asInstanceOf[VersionLog]
     }.asJava
   }
 

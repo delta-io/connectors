@@ -16,12 +16,12 @@
 
 package io.delta.standalone.internal
 
+import io.delta.storage.CloseableIterator
 import org.scalatest.FunSuite
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.collection.JavaConverters._
 
 import io.delta.standalone.VersionLog
 import io.delta.standalone.actions.{Action => ActionJ}
-import io.delta.standalone.data.CloseableIterator
 
 import io.delta.standalone.internal.actions.{Action, AddFile}
 import io.delta.standalone.internal.util.ConversionUtils
@@ -88,18 +88,11 @@ class VersionLogSuite extends FunSuite {
 
   test("CloseableIterator should not be instantiated when supplier is not used ") {
     stringIterator = stringList.iterator
+    var applyCounter: Int = 0
     val supplierWithCounter: () => CloseableIterator[String] =
-      new (() => CloseableIterator[String]) {
-        var applyCounter: Int = 0
-
-        override def apply(): CloseableIterator[String] = {
-          applyCounter += 1
-          actionCloseableIterator
-        }
-
-        def getApplyCounter: Int = { // TODO: make this function public
-          applyCounter
-        }
+      () => {
+        applyCounter += 1
+        actionCloseableIterator
       }
 
     val versionLogWithIterator = new MemoryOptimizedVersionLog(
@@ -111,7 +104,10 @@ class VersionLogSuite extends FunSuite {
       s"versionLog.getVersion() should be $defaultVersionNumber other than " +
         s"${versionLogWithIterator.getVersion}")
 
-    val newActionList = versionLogWithIterator.getActions
-    assert(newActionList.size() == actionList.size())
+    assert(applyCounter == 0)
+    versionLogWithIterator.getActions
+    assert(applyCounter == 1)
+    versionLogWithIterator.getActionsIterator
+    assert(applyCounter == 2)
   }
 }

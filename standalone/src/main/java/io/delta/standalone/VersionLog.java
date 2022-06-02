@@ -21,8 +21,9 @@ import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
+import io.delta.storage.CloseableIterator;
+
 import io.delta.standalone.actions.Action;
-import io.delta.standalone.data.CloseableIterator;
 
 /**
  * {@link VersionLog} is the representation of all actions (changes) to the Delta Table

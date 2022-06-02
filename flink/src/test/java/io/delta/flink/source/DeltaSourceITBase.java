@@ -29,7 +29,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
-import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.CharType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -50,20 +49,23 @@ public abstract class DeltaSourceITBase extends TestLogger {
     protected static final Set<String> SMALL_TABLE_EXPECTED_VALUES =
         Stream.of("Kowalski", "Duda").collect(Collectors.toSet());
 
+    // TODO PR 11 -> make this not to have all columns from Delta table. Needed to change the
+    //  test setup.
     protected static final String[] SMALL_TABLE_COLUMN_NAMES = {"name", "surname", "age"};
 
     protected static final int SMALL_TABLE_COUNT = 2;
 
+    // TODO PR 11 -> make this not to have all columns from Delta table. Needed to change the
+    //  test setup.
     protected static final String[] LARGE_TABLE_COLUMN_NAMES = {"col1", "col2", "col3"};
-
-    protected static final LogicalType[] LARGE_TABLE_COLUMN_TYPES =
-        {new BigIntType(), new BigIntType(), new CharType()};
 
     protected static final int LARGE_TABLE_RECORD_COUNT = 1100;
 
     protected static final int PARALLELISM = 4;
 
-    private static final ExecutorService WORKER_EXECUTOR = Executors.newSingleThreadExecutor();
+    protected static final ExecutorService SINGLE_THREAD_EXECUTOR =
+        Executors.newSingleThreadExecutor();
+
     @Rule
     public final MiniClusterWithClientResource miniClusterResource = buildCluster();
 
@@ -109,7 +111,7 @@ public abstract class DeltaSourceITBase extends TestLogger {
             nonPartitionedLargeTablePath = TMP_FOLDER.newFolder().getAbsolutePath();
 
             // TODO Move this from DeltaSinkTestUtils to DeltaTestUtils
-            // TODO PR 8 Add Partitioned table
+            // TODO PR 11 Add Partitioned table
             DeltaSinkTestUtils.initTestForNonPartitionedTable(nonPartitionedTablePath);
             DeltaSinkTestUtils.initTestForNonPartitionedLargeTable(
                 nonPartitionedLargeTablePath);
@@ -319,19 +321,9 @@ public abstract class DeltaSourceITBase extends TestLogger {
         FailCheck failCheck)
         throws Exception {
 
-        if (source.getBoundedness() != Boundedness.CONTINUOUS_UNBOUNDED) {
-            throw new RuntimeException(
-                "Not using using Continuous source in Continuous test setup. This will not work "
-                    + "properly.");
-        }
+        StreamExecutionEnvironment env = prepareStreamingEnvironment(source);
 
         DeltaTableUpdater tableUpdater = new DeltaTableUpdater(source.getTablePath().toString());
-
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(PARALLELISM);
-        env.setRuntimeMode(RuntimeExecutionMode.AUTOMATIC);
-        env.enableCheckpointing(200L);
-        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, 1000));
 
         DataStream<T> stream =
             env.fromSource(source, WatermarkStrategy.noWatermarks(), "delta-source");
@@ -369,17 +361,17 @@ public abstract class DeltaSourceITBase extends TestLogger {
         return totalResults;
     }
 
-    private <T> Future<List<T>> startInitialResultsFetcherThread(
+    protected <T> Future<List<T>> startInitialResultsFetcherThread(
         ContinuousTestDescriptor testDescriptor,
         ClientAndIterator<T> client) {
-        return WORKER_EXECUTOR.submit(
+        return SINGLE_THREAD_EXECUTOR.submit(
             () -> (DataStreamUtils.collectRecordsFromUnboundedStream(client,
                 testDescriptor.getInitialDataSize())));
     }
 
     private <T> Future<List<T>> startTableUpdaterThread(ContinuousTestDescriptor testDescriptor,
         DeltaTableUpdater tableUpdater, ClientAndIterator<T> client) {
-        return WORKER_EXECUTOR.submit(
+        return SINGLE_THREAD_EXECUTOR.submit(
             () ->
             {
                 List<T> results = new LinkedList<>();
@@ -392,6 +384,27 @@ public abstract class DeltaSourceITBase extends TestLogger {
                 });
                 return results;
             });
+    }
+
+    protected <T> StreamExecutionEnvironment prepareStreamingEnvironment(DeltaSource<T> source) {
+        return prepareStreamingEnvironment(source, PARALLELISM);
+    }
+
+    protected <T> StreamExecutionEnvironment prepareStreamingEnvironment(
+            DeltaSource<T> source,
+            int parallelismLevel) {
+        if (source.getBoundedness() != Boundedness.CONTINUOUS_UNBOUNDED) {
+            throw new RuntimeException(
+                "Not using using Continuous source in Continuous test setup. This will not work "
+                    + "properly.");
+        }
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(parallelismLevel);
+        env.setRuntimeMode(RuntimeExecutionMode.AUTOMATIC);
+        env.enableCheckpointing(200L);
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, 1000));
+        return env;
     }
 
     public enum FailoverType {
