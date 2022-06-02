@@ -39,7 +39,7 @@ class VersionLogSuite extends FunSuite {
     .asJava
 
   private var stringIterator = stringList.iterator
-  private val actionCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
+  private val stringCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
 
     override def next(): String = {
       stringIterator.next
@@ -53,8 +53,34 @@ class VersionLogSuite extends FunSuite {
     }
   }
 
+  private var anotherStringIterator = stringList.iterator
+  private val actionCloseableIterator = new CloseableIterator[ActionJ]() {
+    override def next(): ActionJ = {
+      ConversionUtils.convertAction(Action.fromJson(anotherStringIterator.next))
+    }
+
+    @throws[java.io.IOException]
+    override def close(): Unit = {}
+
+    override def hasNext: Boolean = {
+      anotherStringIterator.hasNext
+    }
+  }
+
+  var applyCounter: Int = 0
+  val supplierWithCounter: () => CloseableIterator[String] =
+    () => {
+      applyCounter += 1
+      stringCloseableIterator
+    }
+
+  /**
+   * The method compares newVersionLog with default [[VersionLog]] property objects
+   * @param newVersionLog the new VersionLog object generated in tests
+   */
   private def checkVersionLog(newVersionLog: VersionLog): Unit = {
 
+    stringIterator = stringList.iterator
     val newActionList = newVersionLog.getActions
 
     assert(newVersionLog.getVersion == defaultVersionNumber,
@@ -65,35 +91,34 @@ class VersionLogSuite extends FunSuite {
       .toArray()
       .zip(actionList.toArray())
       .count(x => x._1 == x._2) == newActionList.size())
+
+    stringIterator = stringList.iterator
+    anotherStringIterator = stringList.iterator
+    val newActionIterator = newVersionLog.getActionsIterator
+
+    (1 to listLength).foreach( _ => {
+      assert(newActionIterator.hasNext && actionCloseableIterator.hasNext)
+      assert(newActionIterator.next() == actionCloseableIterator.next())
+    })
   }
 
   test("basic operation for VersionLog.java") {
 
-    val versionLogWithList = new VersionLog(
+    checkVersionLog(new VersionLog(
       defaultVersionNumber,
       actionList
-    )
-
-    checkVersionLog(versionLogWithList)
+    ))
   }
 
   test("basic operation for MemoryOptimizedVersionLog.scala") {
 
-    val versionLogWithIterator = new MemoryOptimizedVersionLog(
+    checkVersionLog(new MemoryOptimizedVersionLog(
       defaultVersionNumber,
-      () => actionCloseableIterator
-    )
-    checkVersionLog(versionLogWithIterator)
+      () => stringCloseableIterator
+    ))
   }
 
   test("CloseableIterator should not be instantiated when supplier is not used ") {
-    stringIterator = stringList.iterator
-    var applyCounter: Int = 0
-    val supplierWithCounter: () => CloseableIterator[String] =
-      () => {
-        applyCounter += 1
-        actionCloseableIterator
-      }
 
     val versionLogWithIterator = new MemoryOptimizedVersionLog(
       defaultVersionNumber,
@@ -104,6 +129,11 @@ class VersionLogSuite extends FunSuite {
       s"versionLog.getVersion() should be $defaultVersionNumber other than " +
         s"${versionLogWithIterator.getVersion}")
 
+    /**
+     * Calling counter increased only when a new [[CloseableIterator]] is instantiated. i.e.
+     * [[MemoryOptimizedVersionLog.getActions]] or [[MemoryOptimizedVersionLog.getActionsIterator]]
+     * is called. See [[supplierWithCounter]] for details.
+     */
     assert(applyCounter == 0)
     versionLogWithIterator.getActions
     assert(applyCounter == 1)

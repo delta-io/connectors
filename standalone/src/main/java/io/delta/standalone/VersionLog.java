@@ -32,6 +32,7 @@ import io.delta.standalone.actions.Action;
 public class VersionLog {
     private final long version;
 
+    @Nonnull
     private final List<Action> actions;
 
     public VersionLog(long version, @Nonnull List<Action> actions) {
@@ -66,7 +67,7 @@ public class VersionLog {
              * to {@code CloseableIterator<Action>}
              */
 
-            final Iterator<Action> actionIterator = actions.iterator();
+            private final Iterator<Action> actionIterator = actions.iterator();
 
             @Override
             public void close() {}

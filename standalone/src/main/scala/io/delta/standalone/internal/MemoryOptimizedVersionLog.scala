@@ -33,7 +33,6 @@ private[internal] class MemoryOptimizedVersionLog(
     version: Long,
     supplier: () => CloseableIterator[String])
   extends io.delta.standalone.VersionLog(version, new java.util.ArrayList[ActionJ]()) {
-  import io.delta.standalone.internal.util.Implicits._
 
   /** @return an [[CloseableIterator]] of [[Action]] for this table version */
   override def getActionsIterator: CloseableIterator[ActionJ] = new CloseableIterator[ActionJ]() {
@@ -42,7 +41,7 @@ private[internal] class MemoryOptimizedVersionLog(
      * to [[CloseableIterator]] of [[Action]]
      */
 
-    private val stringIterator: CloseableIterator[String] = supplier()
+    private val stringIterator: CloseableIterator[String] = supplier.apply()
 
     override def next(): ActionJ = {
       ConversionUtils.convertAction(Action.fromJson(stringIterator.next))
@@ -59,9 +58,16 @@ private[internal] class MemoryOptimizedVersionLog(
   }
 
   /** @return an [[List]] of [[Action]] for this table version */
-  override def getActions: java.util.List[ActionJ] = supplier()
-    .toArray
-    .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
-    .toList
-    .asJava
+  override def getActions: java.util.List[ActionJ] = {
+    import io.delta.standalone.internal.util.Implicits._
+
+    /** The [[CloseableIterator]] is automatically closed by
+     * [[io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray]]
+     */
+    supplier()
+      .toArray
+      .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+      .toList
+      .asJava
+  }
 }
