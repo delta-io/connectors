@@ -105,7 +105,6 @@ private[internal] class DeltaLogImpl private(
   override def getChanges(
       startVersion: Long,
       failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
-    import io.delta.standalone.internal.util.Implicits._
 
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
 
@@ -125,11 +124,7 @@ private[internal] class DeltaLogImpl private(
 
       new VersionLog(
         version,
-        store.read(p, hadoopConf)
-          .toArray
-          .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
-          .toList
-          .asJava)
+        () => store.read(p, hadoopConf))
     }.asJava
   }
 

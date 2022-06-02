@@ -16,11 +16,19 @@
 
 package io.delta.standalone;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 
+import io.delta.storage.CloseableIterator;
+
 import io.delta.standalone.actions.Action;
+import io.delta.standalone.internal.util.ConversionUtils;
 
 /**
  * {@link VersionLog} is the representation of all actions (changes) to the Delta Table
@@ -29,11 +37,19 @@ import io.delta.standalone.actions.Action;
 public final class VersionLog {
     private final long version;
 
-    @Nonnull
-    private final List<Action> actions;
+    private List<Action> actions;
+
+    private final Supplier<CloseableIterator<String>> actionsSupplier;
+
+    public VersionLog(long version, @Nonnull Supplier<CloseableIterator<String>> actionsSupplier) {
+        this.version = version;
+        this.actionsSupplier = actionsSupplier;
+        this.actions = null;
+    }
 
     public VersionLog(long version, @Nonnull List<Action> actions) {
         this.version = version;
+        this.actionsSupplier = null;
         this.actions = actions;
     }
 
@@ -49,6 +65,68 @@ public final class VersionLog {
      */
     @Nonnull
     public List<Action> getActions() {
+        synchronized(this) {
+            if (actions == null) {
+                List<Action> localActions = new ArrayList<>();
+                try(CloseableIterator<Action> actionIterator = getActionsIterator()) {
+                    while (actionIterator.hasNext()) {
+                        localActions.add(actionIterator.next());
+                    }
+                    actions = localActions;
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
         return Collections.unmodifiableList(actions);
+    }
+
+    /**
+     * @return an {@code CloseableIterator} of the actions for this table version
+     */
+    @Nonnull
+    public CloseableIterator<Action> getActionsIterator() {
+        synchronized (this) {
+            if (actionsSupplier != null) {
+                // create a `CloseableIterator<Action>` from `CloseableIterator<String>`
+                return new CloseableIterator<Action>() {
+                    private final CloseableIterator<String> stringIterator = actionsSupplier.get();
+
+                    @Override
+                    public boolean hasNext() {
+                        return stringIterator.hasNext();
+                    }
+
+                    @Override
+                    public Action next() {
+                        return ConversionUtils.convertAction(
+                                io.delta.standalone.internal.actions.Action.fromJson(
+                                        stringIterator.next()));
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        stringIterator.close();
+                    }
+                };
+            } else {
+                // create a `CloseableIterator` from `actions`
+                return new CloseableIterator<Action>() {
+                    final Iterator<Action> actionIterator = actions.iterator();
+                    @Override
+                    public void close() {}
+
+                    @Override
+                    public boolean hasNext() {
+                        return actionIterator.hasNext();
+                    }
+
+                    @Override
+                    public Action next() {
+                        return actionIterator.next();
+                    }
+                };
+            }
+        }
     }
 }
