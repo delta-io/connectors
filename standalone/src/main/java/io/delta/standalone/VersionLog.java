@@ -60,12 +60,7 @@ public class VersionLog {
      */
     @Nonnull
     public CloseableIterator<Action> getActionsIterator() {
-
         return new CloseableIterator<Action>() {
-            /**
-             * A wrapper class transforming {@code CloseableIterator<String>}
-             * to {@code CloseableIterator<Action>}
-             */
 
             private final Iterator<Action> actionIterator = actions.iterator();
 

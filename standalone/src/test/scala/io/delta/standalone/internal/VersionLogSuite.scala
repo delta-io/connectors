@@ -67,13 +67,6 @@ class VersionLogSuite extends FunSuite {
     }
   }
 
-  var applyCounter: Int = 0
-  val supplierWithCounter: () => CloseableIterator[String] =
-    () => {
-      applyCounter += 1
-      stringCloseableIterator
-    }
-
   /**
    * The method compares newVersionLog with default [[VersionLog]] property objects
    * @param newVersionLog the new VersionLog object generated in tests
@@ -118,22 +111,24 @@ class VersionLogSuite extends FunSuite {
     ))
   }
 
-  test("CloseableIterator should not be instantiated when supplier is not used ") {
+  test("CloseableIterator should not be instantiated when supplier is not used") {
 
+    var applyCounter: Int = 0
+    val supplierWithCounter: () => CloseableIterator[String] =
+      () => {
+        applyCounter += 1
+        stringCloseableIterator
+      }
     val versionLogWithIterator = new MemoryOptimizedVersionLog(
       defaultVersionNumber,
       supplierWithCounter
     )
 
-    assert(versionLogWithIterator.getVersion == defaultVersionNumber,
-      s"versionLog.getVersion() should be $defaultVersionNumber other than " +
-        s"${versionLogWithIterator.getVersion}")
+    assert(versionLogWithIterator.getVersion == defaultVersionNumber)
 
-    /**
-     * Calling counter increased only when a new [[CloseableIterator]] is instantiated. i.e.
-     * [[MemoryOptimizedVersionLog.getActions]] or [[MemoryOptimizedVersionLog.getActionsIterator]]
-     * is called. See [[supplierWithCounter]] for details.
-     */
+    // Calling counter increased only when a new CloseableIterator is instantiated.
+    // i.e. MemoryOptimizedVersionLog.getActions() or MemoryOptimizedVersionLog.getActionsIterator()
+    // is called. See supplierWithCounter for details.
     assert(applyCounter == 0)
     versionLogWithIterator.getActions
     assert(applyCounter == 1)
