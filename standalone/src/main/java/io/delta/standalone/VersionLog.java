@@ -60,22 +60,25 @@ public class VersionLog {
      */
     @Nonnull
     public CloseableIterator<Action> getActionsIterator() {
-        return new CloseableIterator<Action>() {
+        synchronized (this) {
+            return new CloseableIterator<Action>() {
 
-            private final Iterator<Action> actionIterator = actions.iterator();
+                private final Iterator<Action> actionIterator = actions.iterator();
 
-            @Override
-            public void close() {}
+                @Override
+                public void close() {
+                }
 
-            @Override
-            public boolean hasNext() {
-                return actionIterator.hasNext();
-            }
+                @Override
+                public boolean hasNext() {
+                    return actionIterator.hasNext();
+                }
 
-            @Override
-            public Action next() {
-                return actionIterator.next();
-            }
-        };
+                @Override
+                public Action next() {
+                    return actionIterator.next();
+                }
+            };
+        }
     }
 }

@@ -105,7 +105,7 @@ public interface DeltaLog {
      * @throws IllegalArgumentException if {@code startVersion} is negative
      * @throws IllegalStateException if data loss detected and {@code failOnDataLoss} is true
      */
-    Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
+    Iterator<? extends VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
 
     /**
      * @return Whether a Delta table exists at this directory.

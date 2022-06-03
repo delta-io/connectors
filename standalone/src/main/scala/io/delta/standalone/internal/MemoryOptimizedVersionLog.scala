@@ -16,9 +16,11 @@
 
 package io.delta.standalone.internal
 
+import java.io.UncheckedIOException
 import java.util.Collections
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 import io.delta.storage.CloseableIterator
 
@@ -27,6 +29,7 @@ import io.delta.standalone.actions.{Action => ActionJ}
 
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
+
 
 /**
  * Scala implementation of Java class [[VersionLog]].
@@ -44,42 +47,47 @@ private[internal] class MemoryOptimizedVersionLog(
     supplier: () => CloseableIterator[String])
   extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
 
-  private var _private_action_list: java.util.List[ActionJ] = null
+  private var _private_action_list: Option[java.util.List[ActionJ]] = None
 
   /** @return an [[CloseableIterator]] of [[Action]] for this table version */
-  override def getActionsIterator: CloseableIterator[ActionJ] = new CloseableIterator[ActionJ]() {
-    // A wrapper class transforming CloseableIterator[String] to CloseableIterator[Action]
+  override def getActionsIterator: CloseableIterator[ActionJ] = this.synchronized {
+    new CloseableIterator[ActionJ]() {
+      // A wrapper class transforming CloseableIterator[String] to CloseableIterator[Action]
 
-    private val stringIterator = supplier.apply()
+      private val stringIterator = supplier.apply()
 
-    override def next(): ActionJ = {
-      ConversionUtils.convertAction(Action.fromJson(stringIterator.next))
-    }
+      @throws[java.io.IOException]
+      override def next(): ActionJ = {
+        Try(ConversionUtils.convertAction(Action.fromJson(stringIterator.next))).recover {
+          case e: java.io.IOException => throw new UncheckedIOException(e)
+        }.get
+      }
 
-    @throws[java.io.IOException]
-    override def close(): Unit = {
-      stringIterator.close()
-    }
+      @throws[java.io.IOException]
+      override def close(): Unit = {
+        stringIterator.close()
+      }
 
-    override def hasNext: Boolean = {
-      stringIterator.hasNext
+      override def hasNext: Boolean = {
+        stringIterator.hasNext
+      }
     }
   }
 
   /** @return an unmodifiable [[List]] of [[Action]] for this table version */
-  override def getActions: java.util.List[ActionJ] = {
+  override def getActions: java.util.List[ActionJ] = this.synchronized {
     import io.delta.standalone.internal.util.Implicits._
     // CloseableIterator is automatically closed by
     // io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray
 
-    if (_private_action_list == null) {
-      _private_action_list = supplier()
+    if (_private_action_list.isEmpty) {
+      _private_action_list = Some(supplier()
         .toArray
         .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
         .toList
-        .asJava
+        .asJava)
     }
 
-    Collections.unmodifiableList(_private_action_list)
+    Collections.unmodifiableList(_private_action_list.get)
   }
 }
