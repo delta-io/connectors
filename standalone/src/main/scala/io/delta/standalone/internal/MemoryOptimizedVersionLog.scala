@@ -48,7 +48,7 @@ private[internal] class MemoryOptimizedVersionLog(
   extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
   import io.delta.standalone.internal.util.Implicits._
 
-  private lazy val _private_action_list: java.util.List[ActionJ] = {
+  private lazy val cachedActions: java.util.List[ActionJ] = {
     supplier()
       .toArray
       .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
@@ -85,6 +85,6 @@ private[internal] class MemoryOptimizedVersionLog(
   override def getActions: java.util.List[ActionJ] = this.synchronized {
     // CloseableIterator is automatically closed by
     // io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray
-    Collections.unmodifiableList(_private_action_list)
+    Collections.unmodifiableList(cachedActions)
   }
 }

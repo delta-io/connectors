@@ -38,33 +38,37 @@ class VersionLogSuite extends FunSuite {
     .toList
     .asJava
 
-  private var stringIterator = stringList.iterator
-  private val stringCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
+  private val stringIterator = () => stringList.iterator
+
+  private def stringCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
+    val newStringIterator: Iterator[String] = stringIterator()
 
     override def next(): String = {
-      stringIterator.next
+      newStringIterator.next
     }
 
     @throws[java.io.IOException]
     override def close(): Unit = {}
 
     override def hasNext: Boolean = {
-      stringIterator.hasNext
+      newStringIterator.hasNext
     }
   }
 
-  private var anotherStringIterator = stringList.iterator
-  private val actionCloseableIterator = new CloseableIterator[ActionJ]() {
-    override def next(): ActionJ = {
-      ConversionUtils.convertAction(Action.fromJson(anotherStringIterator.next))
-    }
+  private def actionCloseableIterator: CloseableIterator[ActionJ] =
+    new CloseableIterator[ActionJ]() {
+      val newStringIterator: Iterator[String] = stringIterator()
 
-    @throws[java.io.IOException]
-    override def close(): Unit = {}
+      override def next(): ActionJ = {
+        ConversionUtils.convertAction(Action.fromJson(newStringIterator.next))
+      }
 
-    override def hasNext: Boolean = {
-      anotherStringIterator.hasNext
-    }
+      @throws[java.io.IOException]
+      override def close(): Unit = {}
+
+      override def hasNext: Boolean = {
+        newStringIterator.hasNext
+      }
   }
 
   /**
@@ -73,7 +77,6 @@ class VersionLogSuite extends FunSuite {
    */
   private def checkVersionLog(newVersionLog: VersionLog): Unit = {
 
-    stringIterator = stringList.iterator
     val newActionList = newVersionLog.getActions
 
     assert(newVersionLog.getVersion == defaultVersionNumber,
@@ -85,8 +88,6 @@ class VersionLogSuite extends FunSuite {
       .zip(actionList.toArray())
       .count(x => x._1 == x._2) == newActionList.size())
 
-    stringIterator = stringList.iterator
-    anotherStringIterator = stringList.iterator
     val newActionIterator = newVersionLog.getActionsIterator
 
     (1 to listLength).foreach( _ => {
