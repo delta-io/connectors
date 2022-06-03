@@ -114,7 +114,7 @@ private[internal] class DeltaLogImpl private(
 
     // Subtract 1 to ensure that we have the same check for the inclusive startVersion
     var lastSeenVersion = startVersion - 1
-    deltaPaths.map { status =>
+    deltaPaths.map[VersionLog] { status =>
       val p = status.getPath
       val version = FileNames.deltaVersion(p)
       if (failOnDataLoss && version > lastSeenVersion + 1) {
@@ -125,7 +125,6 @@ private[internal] class DeltaLogImpl private(
       new MemoryOptimizedVersionLog(
         version,
         () => store.read(p, hadoopConf))
-        .asInstanceOf[VersionLog]
     }.asJava
   }
 
