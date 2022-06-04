@@ -56,21 +56,16 @@ private[internal] class MemoryOptimizedVersionLog(
       .asJava
   }
 
-  /** @return an [[CloseableIterator]] of [[Action]] for this table version */
-  override def getActionsIterator: CloseableIterator[ActionJ] = this.synchronized {
+  override def getActionsIterator: CloseableIterator[ActionJ] = {
     new CloseableIterator[ActionJ]() {
       // A wrapper class transforming CloseableIterator[String] to CloseableIterator[Action]
 
-      private val stringIterator = supplier.apply()
+      private val stringIterator = supplier()
 
-      @throws[java.io.IOException]
       override def next(): ActionJ = {
-        Try(ConversionUtils.convertAction(Action.fromJson(stringIterator.next))).recover {
-          case e: java.io.IOException => throw new UncheckedIOException(e)
-        }.get
+        ConversionUtils.convertAction(Action.fromJson(stringIterator.next))
       }
 
-      @throws[java.io.IOException]
       override def close(): Unit = {
         stringIterator.close()
       }
@@ -81,10 +76,7 @@ private[internal] class MemoryOptimizedVersionLog(
     }
   }
 
-  /** @return an unmodifiable [[List]] of [[Action]] for this table version */
-  override def getActions: java.util.List[ActionJ] = this.synchronized {
-    // CloseableIterator is automatically closed by
-    // io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray
+  override def getActions: java.util.List[ActionJ] = {
     Collections.unmodifiableList(cachedActions)
   }
 }
