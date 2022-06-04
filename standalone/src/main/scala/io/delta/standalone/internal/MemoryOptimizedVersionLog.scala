@@ -16,11 +16,9 @@
 
 package io.delta.standalone.internal
 
-import java.io.UncheckedIOException
 import java.util.Collections
 
 import scala.collection.JavaConverters._
-import scala.util.Try
 
 import io.delta.storage.CloseableIterator
 

@@ -47,7 +47,6 @@ class VersionLogSuite extends FunSuite {
       newStringIterator.next
     }
 
-    @throws[java.io.IOException]
     override def close(): Unit = {}
 
     override def hasNext: Boolean = {
@@ -63,7 +62,6 @@ class VersionLogSuite extends FunSuite {
         ConversionUtils.convertAction(Action.fromJson(newStringIterator.next))
       }
 
-      @throws[java.io.IOException]
       override def close(): Unit = {}
 
       override def hasNext: Boolean = {
