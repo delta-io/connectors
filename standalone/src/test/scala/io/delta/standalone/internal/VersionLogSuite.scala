@@ -39,7 +39,8 @@ class VersionLogSuite extends FunSuite {
       )
       .asJava
   )
-  private val actionList: java.util.List[ActionJ] = stringList.toArray
+  private val actionList: java.util.List[ActionJ] = stringList
+    .toArray
     .map(x => ConversionUtils.convertAction(Action.fromJson(x.toString)))
     .toList
     .asJava
@@ -76,9 +77,10 @@ class VersionLogSuite extends FunSuite {
       }
     }
 
-  /** The method compares newVersionLog with default [[VersionLog]] property objects
-    * @param newVersionLog the new VersionLog object generated in tests
-    */
+  /**
+   * The method compares newVersionLog with default [[VersionLog]] property objects
+   * @param newVersionLog the new VersionLog object generated in tests
+   */
   private def checkVersionLog(
       newVersionLog: VersionLog,
       defaultActionIterator: CloseableIterator[ActionJ]
@@ -122,9 +124,7 @@ class VersionLogSuite extends FunSuite {
     )
   }
 
-  test(
-    "CloseableIterator should not be instantiated when supplier is not used"
-  ) {
+  test("CloseableIterator should not be instantiated when supplier is not used") {
     var applyCounter: Int = 0
     val supplierWithCounter: () => CloseableIterator[String] =
       () => {

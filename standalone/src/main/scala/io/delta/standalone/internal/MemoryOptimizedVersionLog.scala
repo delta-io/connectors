@@ -36,21 +36,22 @@ import io.delta.standalone.internal.util.ConversionUtils
  * [[CloseableIterator]] of actions, instead of [[List]] of actions, is passed into the class and
  * the full action list is only instantiated when calling [[getActions]]. The memory occupied by
  * action list is saved here when action list is long.
- *na
+ *
  * @param version the table version at which these actions occurred
  * @param supplier provide [[CloseableIterator]] of actions for fetching information inside all
  *                 [[Action]] stored in this table version
  */
 private[internal] class MemoryOptimizedVersionLog(
     version: Long,
-    supplier: () => CloseableIterator[String]
-) extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
+    supplier: () => CloseableIterator[String])
+  extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
   import io.delta.standalone.internal.util.Implicits._
 
   private lazy val cachedActions: java.util.List[ActionJ] = {
     // CloseableIterator is automatically closed by
     // io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray
-    supplier().toArray
+    supplier()
+      .toArray
       .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
       .toList
       .asJava
