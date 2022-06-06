@@ -29,12 +29,10 @@ import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
 
 /**
- * Scala implementation of Java class [[VersionLog]], provides a way to iterate through actions
- * without loading the entire actions into memory when [[getActionsIterator]] is used.
+ * Scala implementation of Java class [[VersionLog]] provides a way to iterate through actions
+ * without loading the entire action list into memory when using [[getActionsIterator]].
  *
- * [[MemoryOptimizedVersionLog]] is constructed by [[CloseableIterator]] of [[Action]]. The full
- * [[List]] of [[Action]] is not instantiated until [[getActions]] is called, which uses less
- * memory than [[VersionLog]] with disabled [[getActions]].
+ * This implementation only loads all actions into a list at the first call to [[getActions]].
  *
  * @param version the table version at which these actions occurred
  * @param supplier provide [[CloseableIterator]] of actions for fetching information inside all
