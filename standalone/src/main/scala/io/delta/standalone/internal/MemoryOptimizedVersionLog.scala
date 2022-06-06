@@ -32,7 +32,6 @@ import io.delta.standalone.internal.util.ConversionUtils
  * Scala implementation of Java class [[VersionLog]], provides a way to iterate through actions
  * without loading the entire actions into memory when [[getActionsIterator]] is used.
  *
- * To save memory, full action list is loaded only when calling [[getActions]].
  * [[CloseableIterator]] of actions, instead of [[List]] of actions, is passed into the class and
  * the full action list is only instantiated when calling [[getActions]]. The memory occupied by
  * action list is saved here when action list is long.

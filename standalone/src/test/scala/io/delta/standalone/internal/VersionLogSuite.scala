@@ -33,11 +33,9 @@ class VersionLogSuite extends FunSuite {
   private val defaultVersionNumber = 33
   private val listLength = 10
   private val stringList: java.util.List[String] = Collections.unmodifiableList(
-    List
-      .tabulate(listLength)(x =>
-        AddFile(x.toString, Map.empty, 1, 1, dataChange = true).json
-      )
-      .asJava
+    (0 until listLength).map{
+      x => AddFile(x.toString, Map.empty, 1, 1, dataChange = true).json
+    }.asJava
   )
   private val actionList: java.util.List[ActionJ] = stringList
     .toArray
@@ -98,7 +96,7 @@ class VersionLogSuite extends FunSuite {
 
     val newActionIterator = newVersionLog.getActionsIterator
 
-    (1 to listLength).foreach(_ => {
+    (0 until listLength).foreach(_ => {
       assert(newActionIterator.hasNext && defaultActionIterator.hasNext)
       assert(
         newActionIterator.next().asInstanceOf[AddFileJ].getPath ==
