@@ -77,9 +77,7 @@ class VersionLogSuite extends FunSuite {
 
     val newActionList = newVersionLog.getActions
 
-    assert(newVersionLog.getVersion == defaultVersionNumber,
-      s"versionLog.getVersion() should be $defaultVersionNumber other than " +
-        s"${newVersionLog.getVersion}")
+    assert(newVersionLog.getVersion == defaultVersionNumber)
     assert(newActionList.size() == actionList.size())
     assert(newActionList
       .toArray()
