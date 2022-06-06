@@ -16,100 +16,115 @@
 
 package io.delta.standalone.internal
 
-import io.delta.storage.CloseableIterator
-import org.scalatest.FunSuite
+import java.util.Collections
+
 import scala.collection.JavaConverters._
 
+import io.delta.storage.CloseableIterator
+import org.scalatest.FunSuite
+
 import io.delta.standalone.VersionLog
-import io.delta.standalone.actions.{Action => ActionJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
 
 import io.delta.standalone.internal.actions.{Action, AddFile}
 import io.delta.standalone.internal.util.ConversionUtils
 
 class VersionLogSuite extends FunSuite {
-
   private val defaultVersionNumber = 33
-  private val listLength = 300
-  private val stringList: List[String] = List.fill(listLength)(
-    AddFile(1.toString, Map.empty, 1, 1, dataChange = true).json)
-  private val actionList: java.util.List[ActionJ] = stringList
-    .toArray
-    .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
+  private val listLength = 10
+  private val stringList: java.util.List[String] = Collections.unmodifiableList(
+    List
+      .tabulate(listLength)(x =>
+        AddFile(x.toString, Map.empty, 1, 1, dataChange = true).json
+      )
+      .asJava
+  )
+  private val actionList: java.util.List[ActionJ] = stringList.toArray
+    .map(x => ConversionUtils.convertAction(Action.fromJson(x.toString)))
     .toList
     .asJava
 
   private val stringIterator = () => stringList.iterator
 
-  private def stringCloseableIterator: CloseableIterator[String] = new CloseableIterator[String]() {
-    val newStringIterator: Iterator[String] = stringIterator()
+  private def stringCloseableIterator: CloseableIterator[String] =
+    new CloseableIterator[String]() {
+      val wrap: Iterator[String] = stringIterator().asScala
 
-    override def next(): String = {
-      newStringIterator.next
-    }
-
-    override def close(): Unit = {}
-
-    override def hasNext: Boolean = {
-      newStringIterator.hasNext
-    }
-  }
-
-  private def actionCloseableIterator: CloseableIterator[ActionJ] =
-    new CloseableIterator[ActionJ]() {
-      val newStringIterator: Iterator[String] = stringIterator()
-
-      override def next(): ActionJ = {
-        ConversionUtils.convertAction(Action.fromJson(newStringIterator.next))
+      override def next(): String = {
+        wrap.next
       }
 
       override def close(): Unit = {}
 
       override def hasNext: Boolean = {
-        newStringIterator.hasNext
+        wrap.hasNext
       }
-  }
+    }
 
-  /**
-   * The method compares newVersionLog with default [[VersionLog]] property objects
-   * @param newVersionLog the new VersionLog object generated in tests
-   */
-  private def checkVersionLog(newVersionLog: VersionLog): Unit = {
+  private def actionCloseableIterator: CloseableIterator[ActionJ] =
+    new CloseableIterator[ActionJ]() {
+      val wrap: Iterator[String] = stringIterator().asScala
 
+      override def next(): ActionJ = {
+        ConversionUtils.convertAction(Action.fromJson(wrap.next))
+      }
+
+      override def close(): Unit = {}
+
+      override def hasNext: Boolean = {
+        wrap.hasNext
+      }
+    }
+
+  /** The method compares newVersionLog with default [[VersionLog]] property objects
+    * @param newVersionLog the new VersionLog object generated in tests
+    */
+  private def checkVersionLog(
+      newVersionLog: VersionLog,
+      defaultActionIterator: CloseableIterator[ActionJ]
+  ): Unit = {
     val newActionList = newVersionLog.getActions
 
     assert(newVersionLog.getVersion == defaultVersionNumber)
     assert(newActionList.size() == actionList.size())
-    assert(newActionList
-      .toArray()
-      .zip(actionList.toArray())
-      .count(x => x._1 == x._2) == newActionList.size())
+    assert(
+      newActionList
+        .toArray()
+        .zip(actionList.toArray())
+        .count(x => x._1 == x._2) == newActionList.size()
+    )
 
     val newActionIterator = newVersionLog.getActionsIterator
 
-    (1 to listLength).foreach( _ => {
-      assert(newActionIterator.hasNext && actionCloseableIterator.hasNext)
-      assert(newActionIterator.next() == actionCloseableIterator.next())
+    (1 to listLength).foreach(_ => {
+      assert(newActionIterator.hasNext && defaultActionIterator.hasNext)
+      assert(
+        newActionIterator.next().asInstanceOf[AddFileJ].getPath ==
+          defaultActionIterator.next().asInstanceOf[AddFileJ].getPath
+      )
     })
   }
 
   test("basic operation for VersionLog.java") {
-
-    checkVersionLog(new VersionLog(
-      defaultVersionNumber,
-      actionList
-    ))
+    checkVersionLog(
+      new VersionLog(defaultVersionNumber, actionList),
+      actionCloseableIterator
+    )
   }
 
   test("basic operation for MemoryOptimizedVersionLog.scala") {
-
-    checkVersionLog(new MemoryOptimizedVersionLog(
-      defaultVersionNumber,
-      () => stringCloseableIterator
-    ))
+    checkVersionLog(
+      new MemoryOptimizedVersionLog(
+        defaultVersionNumber,
+        () => stringCloseableIterator
+      ),
+      actionCloseableIterator
+    )
   }
 
-  test("CloseableIterator should not be instantiated when supplier is not used") {
-
+  test(
+    "CloseableIterator should not be instantiated when supplier is not used"
+  ) {
     var applyCounter: Int = 0
     val supplierWithCounter: () => CloseableIterator[String] =
       () => {

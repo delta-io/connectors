@@ -56,14 +56,15 @@ public class VersionLog {
     }
 
     /**
-     * @return an {@code CloseableIterator} of the actions for this table version
+     * @return an {@code CloseableIterator} of the actions for this table version. This method is
+     * preferred for memory efficient iteration through the action list.
      */
     @Nonnull
     public CloseableIterator<Action> getActionsIterator() {
         synchronized (this) {
             return new CloseableIterator<Action>() {
 
-                private final Iterator<Action> actionIterator = actions.iterator();
+                private final Iterator<Action> wrap = actions.iterator();
 
                 @Override
                 public void close() {
@@ -71,12 +72,12 @@ public class VersionLog {
 
                 @Override
                 public boolean hasNext() {
-                    return actionIterator.hasNext();
+                    return wrap.hasNext();
                 }
 
                 @Override
                 public Action next() {
-                    return actionIterator.next();
+                    return wrap.next();
                 }
             };
         }

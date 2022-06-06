@@ -28,27 +28,29 @@ import io.delta.standalone.actions.{Action => ActionJ}
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.util.ConversionUtils
 
-
 /**
- * Scala implementation of Java class [[VersionLog]].
- * To save memory, full action list is loaded only when calling [[getActions]].
- * [[CloseableIterator]] of actions, instead of [[List]], is passed into the class and the full
- * action list is only instantiated when calling [[getActions]]. When action list is long, this
- * helps saving the memory wasted by action list.
+ * Scala implementation of Java class [[VersionLog]], provides a way to iterate through actions
+ * without loading the entire actions into memory when [[getActionsIterator]] is used.
  *
+ * To save memory, full action list is loaded only when calling [[getActions]].
+ * [[CloseableIterator]] of actions, instead of [[List]] of actions, is passed into the class and
+ * the full action list is only instantiated when calling [[getActions]]. The memory occupied by
+ * action list is saved here when action list is long.
+ *na
  * @param version the table version at which these actions occurred
  * @param supplier provide [[CloseableIterator]] of actions for fetching information inside all
  *                 [[Action]] stored in this table version
  */
 private[internal] class MemoryOptimizedVersionLog(
     version: Long,
-    supplier: () => CloseableIterator[String])
-  extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
+    supplier: () => CloseableIterator[String]
+) extends VersionLog(version, new java.util.ArrayList[ActionJ]()) {
   import io.delta.standalone.internal.util.Implicits._
 
   private lazy val cachedActions: java.util.List[ActionJ] = {
-    supplier()
-      .toArray
+    // CloseableIterator is automatically closed by
+    // io.delta.standalone.internal.util.Implicits.CloseableIteratorOps.toArray
+    supplier().toArray
       .map(x => ConversionUtils.convertAction(Action.fromJson(x)))
       .toList
       .asJava
@@ -56,20 +58,19 @@ private[internal] class MemoryOptimizedVersionLog(
 
   override def getActionsIterator: CloseableIterator[ActionJ] = {
     new CloseableIterator[ActionJ]() {
-      // A wrapper class transforming CloseableIterator[String] to CloseableIterator[Action]
-
-      private val stringIterator = supplier()
+      // A wrapper class casting CloseableIterator[String] to CloseableIterator[Action]
+      private val wrap = supplier()
 
       override def next(): ActionJ = {
-        ConversionUtils.convertAction(Action.fromJson(stringIterator.next))
+        ConversionUtils.convertAction(Action.fromJson(wrap.next))
       }
 
       override def close(): Unit = {
-        stringIterator.close()
+        wrap.close()
       }
 
       override def hasNext: Boolean = {
-        stringIterator.hasNext
+        wrap.hasNext
       }
     }
   }
