@@ -37,9 +37,9 @@ object StandaloneMimaExcludes {
     ProblemFilters.exclude[Problem]("shadedelta.*"),
 
     // Public API changes in 0.4.0 -> 0.5.0
-    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionBeforeOrAtTime"),
-    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionAtOrAfterTime")
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionBeforeOrAtTimestamp"),
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionAtOrAfterTimestamp")
 
-  // scalastyle:on line.size.limit
+    // scalastyle:on line.size.limit
   )
 }

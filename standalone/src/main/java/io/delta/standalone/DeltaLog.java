@@ -108,7 +108,7 @@ public interface DeltaLog {
     Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
 
     /**
-     * Returns the latest commit that happened before or at {@code timestamp}.
+     * Returns the latest version that was committed before or at {@code timestamp}.
      *
      * Specifically:
      * <ul>
@@ -124,10 +124,10 @@ public interface DeltaLog {
      * @throws IllegalArgumentException if the timestamp is less than the timestamp of any committed
      *                                  version
      */
-    long getVersionBeforeOrAtTime(long timestamp);
+    long getVersionBeforeOrAtTimestamp(long timestamp);
 
     /**
-     * Returns the latest commit that happened at or after {@code timestamp}.
+     * Returns the latest version that was committed at or after {@code timestamp}.
      *
      * Specifically:
      * <ul>
@@ -143,7 +143,7 @@ public interface DeltaLog {
      * @throws IllegalArgumentException if the timestamp is more than the timestamp of any committed
      *                                  version
      */
-    long getVersionAtOrAfterTime(long timestamp);
+    long getVersionAtOrAfterTimestamp(long timestamp);
 
     /**
      * @return Whether a Delta table exists at this directory.

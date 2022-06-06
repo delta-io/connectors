@@ -486,49 +486,49 @@ abstract class DeltaLogSuiteBase extends FunSuite {
       val logPath = new Path(dir.getCanonicalPath, "_delta_log")
       val logDir = new File(dir.getCanonicalPath, "_delta_log")
       // local file system truncates to seconds
-      val nowEpochMillis = System.currentTimeMillis() / 1000 * 1000
+      val nowEpochMs = System.currentTimeMillis() / 1000 * 1000
 
       val delta0 = FileNames.deltaFile(logPath, 0)
       val delta1 = FileNames.deltaFile(logPath, 1)
       val delta2 = FileNames.deltaFile(logPath, 2)
 
-      new File(logDir, delta0.getName).setLastModified(nowEpochMillis)
-      new File(logDir, delta1.getName).setLastModified(nowEpochMillis + 1.minutes)
-      new File(logDir, delta2.getName).setLastModified(nowEpochMillis + 2.minutes)
+      new File(logDir, delta0.getName).setLastModified(nowEpochMs)
+      new File(logDir, delta1.getName).setLastModified(nowEpochMs + 1.minutes)
+      new File(logDir, delta2.getName).setLastModified(nowEpochMs + 2.minutes)
 
       // ========== case 1: before first commit ==========
       // case 1a
       val e1 = intercept[IllegalArgumentException] {
-        log.getVersionBeforeOrAtTime(nowEpochMillis - 1.minutes)
+        log.getVersionBeforeOrAtTimestamp(nowEpochMs - 1.minutes)
       }.getMessage
       assert(e1.contains("is before the earliest version"))
       // case 1b
-      assert(log.getVersionAtOrAfterTime(nowEpochMillis - 1.minutes) == 0)
+      assert(log.getVersionAtOrAfterTimestamp(nowEpochMs - 1.minutes) == 0)
 
       // ========== case 2: at first commit ==========
       // case 2a
-      assert(log.getVersionBeforeOrAtTime(nowEpochMillis) == 0)
+      assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs) == 0)
       // case 2b
-      assert(log.getVersionAtOrAfterTime(nowEpochMillis) == 0)
+      assert(log.getVersionAtOrAfterTimestamp(nowEpochMs) == 0)
 
       // ========== case 3: between two normal commits ==========
       // case 3a
-      assert(log.getVersionBeforeOrAtTime(nowEpochMillis + 30.seconds) == 0) // round down to v0
+      assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + 30.seconds) == 0) // round down to v0
       // case 3b
-      assert(log.getVersionAtOrAfterTime(nowEpochMillis + 30.seconds) == 1) // round up to v1
+      assert(log.getVersionAtOrAfterTimestamp(nowEpochMs + 30.seconds) == 1) // round up to v1
 
       // ========== case 4: at last commit ==========
       // case 4a
-      assert(log.getVersionBeforeOrAtTime(nowEpochMillis + 2.minutes) == 2)
+      assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + 2.minutes) == 2)
       // case 4b
-      assert(log.getVersionAtOrAfterTime(nowEpochMillis + 2.minutes) == 2)
+      assert(log.getVersionAtOrAfterTimestamp(nowEpochMs + 2.minutes) == 2)
 
       // ========== case 5: after last commit ==========
       // case 5a
-      assert(log.getVersionBeforeOrAtTime(nowEpochMillis + 3.minutes) == 2)
+      assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + 3.minutes) == 2)
       // case 5b
       val e2 = intercept[IllegalArgumentException] {
-        log.getVersionAtOrAfterTime(nowEpochMillis + 3.minutes)
+        log.getVersionAtOrAfterTimestamp(nowEpochMs + 3.minutes)
       }.getMessage
       assert(e2.contains("is after the latest version"))
     }

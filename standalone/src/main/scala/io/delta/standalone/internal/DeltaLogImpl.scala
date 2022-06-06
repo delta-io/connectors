@@ -134,8 +134,7 @@ private[internal] class DeltaLogImpl private(
     }.asJava
   }
 
-
-  override def getVersionBeforeOrAtTime(timestamp: Long): Long = {
+  override def getVersionBeforeOrAtTimestamp(timestamp: Long): Long = {
     // Note: if the provided timestamp is earlier than any committed version, then
     // `getActiveCommitAtTime` will throw IllegalArgumentException (specifically,
     // `DeltaErrors.timestampEarlierThanTableFirstCommit`).
@@ -144,12 +143,12 @@ private[internal] class DeltaLogImpl private(
       // e.g. if we give time T+2 and last commit has time T, then we DO want that last commit
       canReturnLastCommit = true,
       mustBeRecreatable = false,
-      // e.g. we give time T-1 and first commit has time T, then do not want that earliest commit
+      // e.g. we give time T-1 and first commit has time T, then do NOT want that earliest commit
       canReturnEarliestCommit = false
     ).version
   }
 
-  override def getVersionAtOrAfterTime(timestamp: Long): Long = {
+  override def getVersionAtOrAfterTimestamp(timestamp: Long): Long = {
     // Note: if the provided timestamp is later than any committed version, then
     // `getActiveCommitAtTime` will throw IllegalArgumentException (specifically,
     // `DeltaErrors.timestampLaterThanTableLastCommit`).
