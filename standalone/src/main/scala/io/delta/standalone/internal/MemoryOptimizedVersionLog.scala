@@ -34,7 +34,7 @@ import io.delta.standalone.internal.util.ConversionUtils
  *
  * [[CloseableIterator]] of actions, instead of [[List]] of actions, is passed into the class and
  * the full action list is only instantiated when calling [[getActions]]. The memory occupied by
- * action list is saved here when action list is long.
+ * action list is saved when [[getActions]] not been called.
  *
  * @param version the table version at which these actions occurred
  * @param supplier provide [[CloseableIterator]] of actions for fetching information inside all

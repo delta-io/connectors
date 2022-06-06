@@ -33,7 +33,7 @@ class VersionLogSuite extends FunSuite {
   private val defaultVersionNumber = 33
   private val listLength = 10
   private val stringList: java.util.List[String] = Collections.unmodifiableList(
-    (0 until listLength).map{ x =>
+    (0 until listLength).map { x =>
       AddFile(x.toString, Map.empty, 1, 1, dataChange = true).json
     }.asJava
   )
