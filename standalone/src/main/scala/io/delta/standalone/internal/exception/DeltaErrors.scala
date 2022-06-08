@@ -325,11 +325,19 @@ private[internal] object DeltaErrors {
       s"$exprName expression requires $expectedType type. But found ${realTypes.mkString(", ")}");
   }
 
-  def logStoreConfConflicts(schemeConf: Seq[String]): Throwable = {
+  def logStoreConfConflicts(classConf: Seq[String], schemeConf: Seq[String]): Throwable = {
     val schemeConfStr = schemeConf.mkString(", ")
+    val classConfStr = classConf.mkString(", ")
     new IllegalArgumentException(
-      s"(`${StandaloneHadoopConf.LOG_STORE_CLASS_KEY}`) and (`${schemeConfStr}`)" +
+      s"(`$classConfStr`) and (`$schemeConfStr`)" +
         " cannot be set at the same time. Please set only one group of them.")
+  }
+
+  def inconsistentLogStoreConfs(acceptedKeys: Seq[String]): Throwable = {
+    val acceptedKeysStr = acceptedKeys.mkString(", ")
+    new IllegalArgumentException(
+      s"($acceptedKeysStr) cannot be set to different values. Please only set one of them, " +
+        s"or set them to the same value.")
   }
 
   ///////////////////////////////////////////////////////////////////////////
