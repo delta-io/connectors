@@ -90,7 +90,7 @@ private[internal] trait LogStoreProvider {
   def normalizeHadoopConf(hadoopConf: Configuration): Unit = {
     // LogStore scheme conf keys
     val schemeConfs = hadoopConf.getValByRegex(acceptedLogStoreSchemeConfKeyRegex).asScala
-    schemeConfs.filter(_._1.contains("spark.")).foreach { case (key, value) =>
+    schemeConfs.filter(_._1.startsWith("spark.")).foreach { case (key, value) =>
       val normalizedKey = key.stripPrefix("spark.")
       Option(hadoopConf.get(normalizedKey)) match {
         case Some(normalValue) =>
