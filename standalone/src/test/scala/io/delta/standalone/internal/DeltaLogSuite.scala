@@ -465,15 +465,19 @@ abstract class DeltaLogSuiteBase extends FunSuite {
     }
   }
 
-  test("getVersionBeforeOrAtTime and getVersionAtOrAfterTime") {
+  test("getVersionBeforeOrAtTimestamp and getVersionAtOrAfterTimestamp") {
     // Note:
-    // - all Xa test cases will test getVersionBeforeOrAtTime
-    // - all Xb test cases will test getVersionAtOrAfterTime
+    // - all Xa test cases will test getVersionBeforeOrAtTimestamp
+    // - all Xb test cases will test getVersionAtOrAfterTimestamp
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      // Setup part 1/2: create log files
+
+      // ========== case 0: delta table is empty ==========
+      assert(log.getVersionBeforeOrAtTimestamp(System.currentTimeMillis()) == -1)
+      assert(log.getVersionAtOrAfterTimestamp(System.currentTimeMillis()) == -1)
+
+      // Setup part 1 of 2: create log files
       (0 to 2).foreach { i =>
-        val txn = log.startTransaction()
         val files = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
         val metadata = if (i == 0) Metadata() :: Nil else Nil
         log.startTransaction().commit(
@@ -482,7 +486,7 @@ abstract class DeltaLogSuiteBase extends FunSuite {
         )
       }
 
-      // Setup part 2/2: edit lastModified times
+      // Setup part 2 of 2: edit lastModified times
       val logPath = new Path(dir.getCanonicalPath, "_delta_log")
       val logDir = new File(dir.getCanonicalPath, "_delta_log")
       // local file system truncates to seconds
@@ -531,6 +535,66 @@ abstract class DeltaLogSuiteBase extends FunSuite {
         log.getVersionAtOrAfterTimestamp(nowEpochMs + 3.minutes)
       }.getMessage
       assert(e2.contains("is after the latest version"))
+    }
+  }
+
+  test("getVersionBeforeOrAtTimestamp and getVersionAtOrAfterTimestamp - recoverability") {
+    withTempDir { dir =>
+      // local file system truncates to seconds
+      val nowEpochMs = System.currentTimeMillis() / 1000 * 1000
+
+      val logPath = new Path(dir.getCanonicalPath, "_delta_log")
+      val logDir = new File(dir.getCanonicalPath, "_delta_log")
+
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      (0 to 35).foreach { i =>
+        val files = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
+        val metadata = if (i == 0) Metadata() :: Nil else Nil
+        log.startTransaction().commit(
+          (metadata ++ files).map(ConversionUtils.convertAction).asJava,
+          manualUpdate, engineInfo
+        )
+      }
+
+      (0 to 35).foreach { i =>
+        val delta = FileNames.deltaFile(logPath, i)
+        val file = new File(logDir, delta.getName)
+        val fs = logPath.getFileSystem(new Configuration())
+        if (i >= 25) {
+          file.setLastModified(nowEpochMs + i * 1000)
+        } else {
+          file.delete()
+          assert(!fs.exists(delta))
+        }
+      }
+
+      // A checkpoint exists at version 30, so all versions [30, 35] are recoverable.
+      // Nonetheless, getVersionBeforeOrAtTimestamp and getVersionAtOrAfterTimestamp do not
+      // require that the version is recoverable, so we should still be able to get back versions
+      // [25-29]
+
+      (25 to 34).foreach { i =>
+        if (i == 25) {
+          assertThrows[IllegalArgumentException] {
+            log.getVersionBeforeOrAtTimestamp(nowEpochMs + i * 1000 - 1)
+          }
+        } else {
+          assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + i * 1000 - 1) == i - 1)
+        }
+
+        assert(log.getVersionAtOrAfterTimestamp(nowEpochMs + i * 1000 - 1) == i)
+
+        assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + i * 1000) == i)
+        assert(log.getVersionAtOrAfterTimestamp(nowEpochMs + i * 1000) == i)
+
+        assert(log.getVersionBeforeOrAtTimestamp(nowEpochMs + i * 1000 + 1) == i)
+
+        if (i == 35) {
+          log.getVersionAtOrAfterTimestamp(nowEpochMs + i * 1000 + 1)
+        } else {
+          assert(log.getVersionAtOrAfterTimestamp(nowEpochMs + i * 1000 + 1) == i + 1)
+        }
+      }
     }
   }
 }
