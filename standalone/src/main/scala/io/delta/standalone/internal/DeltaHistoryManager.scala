@@ -69,15 +69,22 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) extends
   /**
    * Returns the latest commit that happened at or before `time`.
    *
+   * If the given timestamp is outside the range of [earliestCommit, latestCommit] then use params
+   * `canReturnLastCommit` and `canReturnEarliestCommit` to control whether an exception is thrown
+   * or the corresponding earliest/latest commit is returned. See param docs below.
+   *
    * @param timestamp the timestamp to search for
    * @param canReturnLastCommit Whether we can return the latest version of the table if the
    *                            provided timestamp is after the latest commit
    * @param mustBeRecreatable Whether the state at the given commit should be recreatable
-   * @param canReturnEarliestCommit Whether we can return the earliest commit if no such commit
-   *                                exists.
-   * @throws RuntimeException if the state at the given commit in not recreatable
-   * @throws IllegalArgumentException if the provided timestamp is before the earliest commit or
-   *                                  after the latest commit
+   * @param canReturnEarliestCommit Whether we can return the earliest version of the table if the
+   *                                provided timestamp is before the earliest commit
+   * @throws RuntimeException if the state at the given commit in not recreatable and
+   *                          mustBeRecreatable is true
+   * @throws IllegalArgumentException if the provided timestamp is before the earliest commit and
+   *                                  canReturnEarliestCommit is false
+   * @throws IllegalArgumentException if the provided timestamp is after the latest commit and
+   *                                  canReturnLastCommit is false
    */
   def getActiveCommitAtTime(
       timestamp: Timestamp,
