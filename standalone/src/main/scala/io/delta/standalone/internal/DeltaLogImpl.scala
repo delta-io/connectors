@@ -135,6 +135,8 @@ private[internal] class DeltaLogImpl private(
   }
 
   override def getVersionBeforeOrAtTimestamp(timestamp: Long): Long = {
+    if (!tableExists) return -1
+
     // Note: if the provided timestamp is earlier than any committed version, then
     // `getActiveCommitAtTime` will throw IllegalArgumentException (specifically,
     // `DeltaErrors.timestampEarlierThanTableFirstCommit`).
@@ -149,6 +151,8 @@ private[internal] class DeltaLogImpl private(
   }
 
   override def getVersionAtOrAfterTimestamp(timestamp: Long): Long = {
+    if (!tableExists) return -1
+
     // Note: if the provided timestamp is later than any committed version, then
     // `getActiveCommitAtTime` will throw IllegalArgumentException (specifically,
     // `DeltaErrors.timestampLaterThanTableLastCommit`).

@@ -108,7 +108,8 @@ public interface DeltaLog {
     Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
 
     /**
-     * Returns the latest version that was committed before or at {@code timestamp}.
+     * Returns the latest version that was committed before or at {@code timestamp}. If no version
+     * exists, returns -1.
      *
      * Specifically:
      * <ul>
@@ -127,7 +128,8 @@ public interface DeltaLog {
     long getVersionBeforeOrAtTimestamp(long timestamp);
 
     /**
-     * Returns the latest version that was committed at or after {@code timestamp}.
+     * Returns the latest version that was committed at or after {@code timestamp}. If no version
+     * exists, returns -1.
      *
      * Specifically:
      * <ul>
