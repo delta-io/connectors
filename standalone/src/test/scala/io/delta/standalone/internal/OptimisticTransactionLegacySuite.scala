@@ -565,7 +565,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
       val add = AddFile("test", Map.empty, 1, 1, dataChange = false)
 
       val log0 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log0.startTransaction().commit(metadata_2 :: add :: Nil, manualUpdate, engineInfo)
+      log0.startTransaction().commit(metadata :: add :: Nil, manualUpdate, engineInfo)
       verifyIsBlindAppend(0, expected = true)
 
       val log1 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
