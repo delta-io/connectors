@@ -97,7 +97,8 @@ private[internal] trait LogStoreProvider {
           // The normalized key is also present in the hadoopConf. Check that they store
           // the same value, otherwise throw an error.
           if (value != normalValue) {
-            throw DeltaErrors.inconsistentLogStoreConfs(Seq(key, normalizedKey))
+            throw DeltaErrors.inconsistentLogStoreConfs(
+              Seq((key, value), (normalizedKey, normalValue)))
           }
         case None =>
           // The normalized key is not present in the hadoopConf. Set the normalized key to the
@@ -110,7 +111,7 @@ private[internal] trait LogStoreProvider {
     val classConfs = hadoopConf.getValByRegex(acceptedLogStoreClassConfKeyRegex).asScala
     if (classConfs.values.toSet.size > 1) {
       // More than one class conf key are set to different values
-      throw DeltaErrors.inconsistentLogStoreConfs(classConfs.keys.toSeq)
+      throw DeltaErrors.inconsistentLogStoreConfs(classConfs.iterator.toSeq)
     } else if (classConfs.size > 0) {
       // Set the normalized key to the provided value.
       hadoopConf.set(logStoreClassConfKey, classConfs.values.head)

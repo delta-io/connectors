@@ -333,11 +333,11 @@ private[internal] object DeltaErrors {
         " cannot be set at the same time. Please set only one group of them.")
   }
 
-  def inconsistentLogStoreConfs(acceptedKeys: Seq[String]): Throwable = {
-    val acceptedKeysStr = acceptedKeys.mkString(", ")
+  def inconsistentLogStoreConfs(setKeys: Seq[(String, String)]): Throwable = {
+    val setKeyStr = setKeys.map(_.productIterator.mkString(" = ")).mkString(", ")
     new IllegalArgumentException(
-      s"($acceptedKeysStr) cannot be set to different values. Please only set one of them, " +
-        s"or set them to the same value.")
+      s"($setKeyStr) cannot be set to different values. Please only set one of them, or set them " +
+        s"to the same value.")
   }
 
   ///////////////////////////////////////////////////////////////////////////

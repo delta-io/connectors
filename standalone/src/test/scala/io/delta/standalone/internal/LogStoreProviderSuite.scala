@@ -97,6 +97,9 @@ class LogStoreProviderSuite extends FunSuite {
             LogStoreProvider.createLogStore(hadoopConf).asInstanceOf[DelegatingLogStore]
           assert(logStore.getDelegate(new Path(s"$scheme://dummy")).getClass.getName ==
             customLogStoreClassName)
+          // normalized key is set
+          assert(hadoopConf.get(LogStoreProvider.logStoreSchemeConfKey(scheme)) ==
+            customLogStoreClassName)
         }
 
         // set both spark-prefixed key and normalized key to inconsistent values
@@ -109,8 +112,9 @@ class LogStoreProviderSuite extends FunSuite {
           LogStoreProvider.createLogStore(hadoopConf)
         )
         assert(e.getMessage.contains(
-          s"(${sparkPrefixLogStoreSchemeConfKey(scheme)}, " +
-            s"${LogStoreProvider.logStoreSchemeConfKey(scheme)}) cannot be set to different " +
+          s"(${sparkPrefixLogStoreSchemeConfKey(scheme)} = $customLogStoreClassName, " +
+            s"${LogStoreProvider.logStoreSchemeConfKey(scheme)} = " +
+            s"io.delta.standalone.internal.storage.AzureLogStore) cannot be set to different " +
             s"values. Please only set one of them, or set them to the same value."
         ))
       }
@@ -129,6 +133,8 @@ class LogStoreProviderSuite extends FunSuite {
 
             assert(LogStoreProvider.createLogStore(hadoopConf).getClass.getName ==
               customLogStoreClassName)
+            // normalized key is set
+            assert(hadoopConf.get(normalClassKey) == customLogStoreClassName)
           }
         }
       }
@@ -150,7 +156,9 @@ class LogStoreProviderSuite extends FunSuite {
       assert(
         e.getMessage.contains("cannot be set to different values. Please only set one of them, " +
         "or set them to the same value.")
-        && e.getMessage.contains(key1) && e.getMessage.contains(key2)
+        && e.getMessage.contains(s"$key1 = $customLogStoreClassName")
+          &&e.getMessage.contains(s"$key2 = io.delta.standalone.internal.storage.AzureLogStore")
+
       )
     }
   }
