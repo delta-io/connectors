@@ -1,10 +1,7 @@
 package io.delta.flink.source.internal.utils;
 
 import org.apache.flink.core.fs.Path;
-import org.apache.hadoop.conf.Configuration;
 import static org.apache.flink.util.Preconditions.checkArgument;
-
-import io.delta.standalone.DeltaLog;
 
 /**
  * A utility class for Source connector
@@ -24,9 +21,5 @@ public final class SourceUtils {
     public static String pathToString(Path path) {
         checkArgument(path != null, "Path argument cannot be be null.");
         return path.toUri().normalize().toString();
-    }
-
-    public static DeltaLog createDeltaLog(Path deltaTablePath, Configuration hadoopConfiguration) {
-        return DeltaLog.forTable(hadoopConfiguration, SourceUtils.pathToString(deltaTablePath));
     }
 }

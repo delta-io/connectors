@@ -1,24 +1,30 @@
 package io.delta.flink.source.internal.builder;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
 import io.delta.flink.source.DeltaSource;
 import io.delta.flink.source.internal.DeltaSourceConfiguration;
 import io.delta.flink.source.internal.DeltaSourceOptions;
+import io.delta.flink.source.internal.enumerator.supplier.SnapshotSupplier;
+import io.delta.flink.source.internal.enumerator.supplier.SnapshotSupplierFactory;
 import io.delta.flink.source.internal.exceptions.DeltaSourceExceptions;
 import io.delta.flink.source.internal.exceptions.DeltaSourceValidationException;
 import io.delta.flink.source.internal.file.AddFileEnumerator;
 import io.delta.flink.source.internal.file.DeltaFileEnumerator;
 import io.delta.flink.source.internal.state.DeltaSourceSplit;
+import io.delta.flink.source.internal.utils.SourceSchema;
 import io.delta.flink.source.internal.utils.SourceUtils;
-import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.connector.file.src.assigners.FileSplitAssigner;
 import org.apache.flink.connector.file.src.assigners.LocalityAwareSplitAssigner;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.util.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Snapshot;
 
 /**
  * The base class for {@link io.delta.flink.source.DeltaSource} builder.
@@ -55,6 +61,11 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
         DEFAULT_SPLITTABLE_FILE_ENUMERATOR = DeltaFileEnumerator::new;
 
     /**
+     * Default reference value for column names list.
+     */
+    protected static final List<String> DEFAULT_COLUMNS = new ArrayList<>(0);
+
+    /**
      * Message prefix for validation exceptions.
      */
     protected static final String EXCEPTION_PREFIX = "DeltaSourceBuilder - ";
@@ -72,27 +83,32 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
     protected final Path tablePath;
 
     /**
-     * An instance of {@link FormatBuilder} that will be used to build {@link DeltaBulkFormat}
-     * instance.
-     */
-    protected final FormatBuilder<T> formatBuilder;
-
-    /**
      * The Hadoop's {@link Configuration} for this Source.
      */
     protected final Configuration hadoopConfiguration;
 
+    protected final SnapshotSupplierFactory snapshotSupplierFactory;
+
+    /**
+     * An array with Delta table's column names that should be read.
+     */
+    protected List<String> userColumnNames;
+
     protected DeltaSourceBuilderBase(
             Path tablePath,
-            FormatBuilder<T> formatBuilder,
-            Configuration hadoopConfiguration) {
+            Configuration hadoopConfiguration,
+            SnapshotSupplierFactory snapshotSupplierFactory) {
         this.tablePath = tablePath;
-        this.formatBuilder = formatBuilder;
         this.hadoopConfiguration = hadoopConfiguration;
+        this.snapshotSupplierFactory = snapshotSupplierFactory;
+        this.userColumnNames = DEFAULT_COLUMNS;
     }
 
-    public SELF partitionColumns(List<String> partitions) {
-        formatBuilder.partitionColumns(partitions);
+    /**
+     * Sets a {@link List} of column names that should be read from Delta table.
+     */
+    public SELF columnNames(List<String> columnNames) {
+        tryToSetOption(() -> this.userColumnNames = columnNames);
         return self();
     }
 
@@ -100,8 +116,10 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
      * Sets a configuration option.
      */
     public SELF option(String optionName, String optionValue) {
-        ConfigOption<?> configOption = validateOptionName(optionName);
-        sourceConfiguration.addOption(configOption.key(), optionValue);
+        tryToSetOption(() -> {
+            DeltaConfigOption<?> configOption = validateOptionName(optionName);
+            configOption.setOnConfig(sourceConfiguration, optionValue);
+        });
         return self();
     }
 
@@ -109,8 +127,10 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
      * Sets a configuration option.
      */
     public SELF option(String optionName, boolean optionValue) {
-        ConfigOption<?> configOption = validateOptionName(optionName);
-        sourceConfiguration.addOption(configOption.key(), optionValue);
+        tryToSetOption(() -> {
+            DeltaConfigOption<?> configOption = validateOptionName(optionName);
+            configOption.setOnConfig(sourceConfiguration, optionValue);
+        });
         return self();
     }
 
@@ -118,8 +138,10 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
      * Sets a configuration option.
      */
     public SELF option(String optionName, int optionValue) {
-        ConfigOption<?> configOption = validateOptionName(optionName);
-        sourceConfiguration.addOption(configOption.key(), optionValue);
+        tryToSetOption(() -> {
+            DeltaConfigOption<?> configOption = validateOptionName(optionName);
+            configOption.setOnConfig(sourceConfiguration, optionValue);
+        });
         return self();
     }
 
@@ -127,9 +149,19 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
      * Sets a configuration option.
      */
     public SELF option(String optionName, long optionValue) {
-        ConfigOption<?> configOption = validateOptionName(optionName);
-        sourceConfiguration.addOption(configOption.key(), optionValue);
+        tryToSetOption(() -> {
+            DeltaConfigOption<?> configOption = validateOptionName(optionName);
+            configOption.setOnConfig(sourceConfiguration, optionValue);
+        });
         return self();
+    }
+
+    /**
+     * @return A copy of {@link DeltaSourceConfiguration} used by builder. The changes made on
+     * returned copy do not change the state of builder's configuration.
+     */
+    public DeltaSourceConfiguration getSourceConfiguration() {
+        return sourceConfiguration.copy();
     }
 
     public abstract <V extends DeltaSource<T>> V build();
@@ -141,46 +173,23 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
      */
     protected abstract Validator validateOptionExclusions();
 
-    /**
-     * Validates {@link FormatBuilder} and returns new instance of {@link DeltaBulkFormat}.
-     *
-     * @return {@link DeltaBulkFormat} instance.
-     * @throws DeltaSourceValidationException if {@link FormatBuilder} definition has anny
-     *                                        validation issues.
-     */
-    protected DeltaBulkFormat<T> validateSourceAndFormat() {
-        DeltaBulkFormat<T> format = null;
-        Collection<String> formatValidationMessages = Collections.emptySet();
-        try {
-            format = formatBuilder.build();
-        } catch (DeltaSourceValidationException e) {
-            formatValidationMessages = e.getValidationMessages();
-        }
-        validateSource(formatValidationMessages);
-        return format;
-    }
+    protected abstract Collection<String> getApplicableOptions();
 
     /**
      * Validate definition of Delta source builder including mandatory and optional options.
-     *
-     * @param extraValidationMessages other validation messages that should be included in this
-     *                                validation check. If collection is not empty, the {@link
-     *                                DeltaSourceValidationException} will be thrown.
      */
-    protected void validateSource(Collection<String> extraValidationMessages) {
+    protected void validate() {
         Validator mandatoryValidator = validateMandatoryOptions();
         Validator exclusionsValidator = validateOptionExclusions();
+        Validator inapplicableOptionValidator = validateInapplicableOptions();
+        Validator optionalValidator = validateOptionalParameters();
 
         List<String> validationMessages = new LinkedList<>();
-        if (mandatoryValidator.containsMessages() || exclusionsValidator.containsMessages()) {
 
-            validationMessages.addAll(mandatoryValidator.getValidationMessages());
-            validationMessages.addAll(exclusionsValidator.getValidationMessages());
-        }
-
-        if (extraValidationMessages != null) {
-            validationMessages.addAll(extraValidationMessages);
-        }
+        validationMessages.addAll(mandatoryValidator.getValidationMessages());
+        validationMessages.addAll(exclusionsValidator.getValidationMessages());
+        validationMessages.addAll(optionalValidator.getValidationMessages());
+        validationMessages.addAll(inapplicableOptionValidator.getValidationMessages());
 
         if (!validationMessages.isEmpty()) {
             String tablePathString =
@@ -197,15 +206,71 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
             .checkNotNull(hadoopConfiguration, EXCEPTION_PREFIX + "missing Hadoop configuration.");
     }
 
+    protected Validator validateOptionalParameters() {
+        Validator validator = new Validator();
+
+        if (userColumnNames != DEFAULT_COLUMNS) {
+            validator.checkNotNull(userColumnNames,
+                EXCEPTION_PREFIX + "used a null reference for user columns.");
+
+            if (userColumnNames != null) {
+                validator.checkArgument(!userColumnNames.isEmpty(),
+                    EXCEPTION_PREFIX + "user column names list is empty.");
+                if (!userColumnNames.isEmpty()) {
+                    validator.checkArgument(
+                        userColumnNames.stream().noneMatch(StringUtils::isNullOrWhitespaceOnly),
+                        EXCEPTION_PREFIX
+                            + "user column names list contains at least one element that is null, "
+                            + "empty, or has only whitespace characters.");
+                }
+            }
+        }
+
+        return validator;
+    }
+
+    /**
+     * Validated builder options that were used but they might be not applicable for given builder
+     * type, for example using options from bounded mode like "versionAsOf" for continuous mode
+     * builder.
+     *
+     * @return The {@link Validator} object with all (if any) validation error messages.
+     */
+    protected Validator validateInapplicableOptions() {
+
+        Validator validator = new Validator();
+        sourceConfiguration.getUsedOptions()
+            .stream()
+            .filter(DeltaSourceOptions::isUserFacingOption)
+            .forEach(usedOption ->
+                validator.checkArgument(getApplicableOptions().contains(usedOption),
+                prepareInapplicableOptionMessage(
+                    sourceConfiguration.getUsedOptions(),
+                    getApplicableOptions())
+            ));
+
+        return validator;
+    }
+
     protected String prepareOptionExclusionMessage(String... mutualExclusiveOptions) {
         return String.format(
             "Used mutually exclusive options for Source definition. Invalid options [%s]",
             String.join(",", mutualExclusiveOptions));
     }
 
-    // TODO Refactor Option name validation in PR 9.1
-    protected ConfigOption<?> validateOptionName(String optionName) {
-        ConfigOption<?> option = DeltaSourceOptions.VALID_SOURCE_OPTIONS.get(optionName);
+    protected String prepareInapplicableOptionMessage(
+            Collection<String> usedOptions,
+            Collection<String> applicableOptions) {
+        return String.format(
+            "Used inapplicable option for source configuration. Used options [%s], applicable "
+                + "options [%s]",
+            usedOptions, applicableOptions);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <TYPE> DeltaConfigOption<TYPE> validateOptionName(String optionName) {
+        DeltaConfigOption<TYPE> option =
+            (DeltaConfigOption<TYPE>) DeltaSourceOptions.USER_FACING_SOURCE_OPTIONS.get(optionName);
         if (option == null) {
             throw DeltaSourceExceptions.invalidOptionNameException(
                 SourceUtils.pathToString(tablePath), optionName);
@@ -213,8 +278,64 @@ public abstract class DeltaSourceBuilderBase<T, SELF> {
         return option;
     }
 
+    /**
+     * Extracts Delta table schema from DeltaLog {@link io.delta.standalone.actions.Metadata}
+     * including column names and column types converted to
+     * {@link org.apache.flink.table.types.logical.LogicalType}.
+     * <p>
+     * If {@link #userColumnNames} were defined, only those columns will be included in extracted
+     * schema.
+     *
+     * @return A {@link SourceSchema} including Delta table column names with their types that
+     * should be read from Delta table.
+     */
+    protected SourceSchema getSourceSchema() {
+        DeltaLog deltaLog =
+            DeltaLog.forTable(hadoopConfiguration, SourceUtils.pathToString(tablePath));
+        SnapshotSupplier snapshotSupplier = snapshotSupplierFactory.create(deltaLog);
+        Snapshot snapshot = snapshotSupplier.getSnapshot(sourceConfiguration);
+
+        try {
+            return SourceSchema.fromSnapshot(userColumnNames, snapshot);
+        } catch (IllegalArgumentException e) {
+            throw DeltaSourceExceptions.generalSourceException(
+                SourceUtils.pathToString(tablePath),
+                snapshot.getVersion(),
+                e
+            );
+        }
+    }
+
+    /**
+     * Try to set option on Builder configuration. The option's value conversion, validation and
+     * logic for adding it to builder's configuration is wrapped with {@link Executable}. If {@link
+     * Executable#execute()} call throws eny exception, this exception will be wrapped in {@link
+     * DeltaSourceValidationException} and re-throw.
+     *
+     * @param argument the {@link Executable} wrapping any logic for converting and setting {@link
+     *                 DeltaConfigOption} value.
+     */
+    protected void tryToSetOption(Executable argument) {
+        try {
+            argument.execute();
+        } catch (Exception e) {
+            throw DeltaSourceExceptions.optionValidationException(
+                SourceUtils.pathToString(tablePath),
+                e
+            );
+        }
+    }
+
     @SuppressWarnings("unchecked")
     protected SELF self() {
         return (SELF) this;
+    }
+
+    /**
+     * A functional interface to execute logic that takes no argument nor returns any value.
+     */
+    @FunctionalInterface
+    protected interface Executable {
+        void execute();
     }
 }

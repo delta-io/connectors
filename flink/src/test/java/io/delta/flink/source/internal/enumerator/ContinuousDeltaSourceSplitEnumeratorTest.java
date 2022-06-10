@@ -150,8 +150,6 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
     @Test
     public void shouldOnlyReadChangesWhenStartingVersionOption() {
         long startingVersion = 10;
-        sourceConfiguration.addOption(
-            DeltaSourceOptions.STARTING_VERSION.key(), String.valueOf(startingVersion));
 
         List<VersionLog> changes = mockEnumContextAndTableChange(startingVersion);
         long nextMonitoringVersion = changes.get(changes.size() - 1).getVersion() + 1;
@@ -162,6 +160,15 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
         when(deltaLog.getSnapshotForVersionAsOf(startingVersion)).thenReturn(
             startingVersionSnapshot);
         when(startingVersionSnapshot.getVersion()).thenReturn(startingVersion);
+
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.STARTING_VERSION,
+            String.valueOf(startingVersion)
+        );
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION,
+            startingVersionSnapshot.getVersion())
+        ;
 
         enumerator = setUpEnumerator();
         enumerator.start();
@@ -187,7 +194,7 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
     @Test
     public void shouldOnlyReadChangesWhenLatestStartingVersionOption() {
         long startingVersion = 10;
-        sourceConfiguration.addOption(DeltaSourceOptions.STARTING_VERSION.key(), "latest");
+        sourceConfiguration.addOption(DeltaSourceOptions.STARTING_VERSION, "latest");
 
         List<VersionLog> changes = mockEnumContextAndTableChange(startingVersion);
         long nextMonitoringVersion = changes.get(changes.size() - 1).getVersion() + 1;
@@ -198,11 +205,6 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
 
         enumerator = setUpEnumeratorWithHeadSnapshot();
         enumerator.start();
-
-        // verify that get snapshot from head since "latest" was used as startingVersion value.
-        verify(deltaLog).snapshot();
-        verify(deltaLog, never()).getSnapshotForVersionAsOf(anyLong());
-        verify(deltaLog, never()).getSnapshotForTimestampAsOf(anyLong());
 
         // verify that we did not read from startingVersionSnapshot
         verify(startingVersionSnapshot, never()).getAllFiles();
@@ -219,12 +221,8 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
 
     @Test
     public void shouldOnlyReadChangesWhenStartingTimestampOption() {
-        String startingTimestampString = "2022-02-24T04:55:00.001Z";
-        long startingTimestamp = 1645678500001L;
+        long startingTimestampString = System.currentTimeMillis();
         long startingVersion = 10;
-
-        sourceConfiguration.addOption(
-            DeltaSourceOptions.STARTING_TIMESTAMP.key(), startingTimestampString);
 
         List<VersionLog> changes = mockEnumContextAndTableChange(startingVersion);
         long nextMonitoringVersion = changes.get(changes.size() - 1).getVersion() + 1;
@@ -232,17 +230,20 @@ public class ContinuousDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEn
         when(deltaLog.getChanges(startingVersion, true)).thenReturn(changes.iterator());
         when(deltaLog.getPath()).thenReturn(new Path("s3//some/path"));
 
-        when(deltaLog.getSnapshotForTimestampAsOf(startingTimestamp))
-            .thenReturn(startingVersionSnapshot);
         when(startingVersionSnapshot.getVersion()).thenReturn(startingVersion);
+        when(deltaLog.getSnapshotForVersionAsOf(startingVersionSnapshot.getVersion())).thenReturn(
+            startingVersionSnapshot);
+
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.STARTING_TIMESTAMP,
+            startingTimestampString);
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION,
+            startingVersionSnapshot.getVersion()
+        );
 
         enumerator = setUpEnumerator();
         enumerator.start();
-
-        // verify that get snapshot for startingTimestamp
-        verify(deltaLog).getSnapshotForTimestampAsOf(startingTimestamp);
-        verify(deltaLog, never()).getSnapshotForVersionAsOf(anyLong());
-        verify(deltaLog, never()).snapshot();
 
         // verify that we did not read from startingVersionSnapshot
         verify(startingVersionSnapshot, never()).getAllFiles();

@@ -1,6 +1,7 @@
 package io.delta.flink.source.internal.exceptions;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 
 import io.delta.flink.source.internal.file.AddFileEnumeratorContext;
@@ -134,8 +135,8 @@ public final class DeltaSourceExceptions {
     }
 
     public static DeltaSourceValidationException invalidOptionNameException(
-            String tablePath,
-            String invalidOption) {
+        String tablePath,
+        String invalidOption) {
 
         return new DeltaSourceValidationException(
             tablePath,
@@ -144,5 +145,28 @@ public final class DeltaSourceExceptions {
                     invalidOption)));
     }
 
-    // Add other methods in future PRs.
+    public static DeltaSourceException notPartitionedTableException(String columnName) {
+        return new DeltaSourceException(
+            String.format(
+                "Attempt to get a value for partition column from unpartitioned Delta Table. "
+                    + "Column name %s", columnName));
+    }
+
+    public static DeltaSourceException missingPartitionValueException(
+        String partitionName,
+        Collection<String> expectedPartitionColumnNames) {
+        return new DeltaSourceException(
+            String.format("Cannot find the partition value in Delta MetaData for column %s. "
+                    + "Expected partition column names from MetaData are %s",
+                partitionName, expectedPartitionColumnNames));
+    }
+
+    public static DeltaSourceValidationException optionValidationException(
+            String tablePath,
+            Exception e) {
+        return new DeltaSourceValidationException(
+            tablePath,
+            Collections.singletonList(e.getClass() + " - " + e.getMessage())
+        );
+    }
 }

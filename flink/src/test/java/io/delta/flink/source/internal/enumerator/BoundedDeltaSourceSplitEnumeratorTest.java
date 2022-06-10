@@ -57,9 +57,14 @@ public class BoundedDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEnume
     public void shouldUseVersionAsOfSnapshot() {
 
         long versionAsOf = 10;
-        sourceConfiguration.addOption(DeltaSourceOptions.VERSION_AS_OF.key(), versionAsOf);
         when(deltaLog.getSnapshotForVersionAsOf(versionAsOf)).thenReturn(versionAsOfSnapshot);
         when(versionAsOfSnapshot.getVersion()).thenReturn(versionAsOf);
+
+        sourceConfiguration.addOption(DeltaSourceOptions.VERSION_AS_OF, versionAsOf);
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION,
+            versionAsOfSnapshot.getVersion()
+        );
 
         enumerator = setUpEnumerator();
         enumerator.start();
@@ -72,8 +77,10 @@ public class BoundedDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEnume
 
         // verify that we read snapshot content
         verify(versionAsOfSnapshot).getAllFiles();
-        verify(fileEnumerator).enumerateSplits(any(AddFileEnumeratorContext.class), any(
-            SplitFilter.class));
+        verify(fileEnumerator).enumerateSplits(
+            any(AddFileEnumeratorContext.class),
+            any(SplitFilter.class)
+        );
 
         // verify that Processor Callback was executed.
         verify(splitAssigner).addSplits(any(Collection.class));
@@ -81,27 +88,28 @@ public class BoundedDeltaSourceSplitEnumeratorTest extends DeltaSourceSplitEnume
 
     @Test
     public void shouldUseTimestampAsOfSnapshot() {
-        String timestampAsOfString = "2022-02-24T04:55:00.001Z";
-        long timestampAsOf = 1645678500001L;
+        long timestampAsOfString = System.currentTimeMillis();
+        long timestampAsOfVersion = 10;
 
-        sourceConfiguration.addOption(DeltaSourceOptions.TIMESTAMP_AS_OF.key(),
-            timestampAsOfString);
-        when(deltaLog.getSnapshotForTimestampAsOf(timestampAsOf)).thenReturn(timestampAsOfSnapshot);
-        when(timestampAsOfSnapshot.getVersion()).thenReturn(timestampAsOf);
+        when(deltaLog.getSnapshotForVersionAsOf(timestampAsOfVersion)).thenReturn(
+            timestampAsOfSnapshot);
+        when(timestampAsOfSnapshot.getVersion()).thenReturn(timestampAsOfVersion);
+
+        sourceConfiguration.addOption(DeltaSourceOptions.TIMESTAMP_AS_OF, timestampAsOfString);
+        sourceConfiguration.addOption(
+            DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION,
+            timestampAsOfSnapshot.getVersion()
+        );
 
         enumerator = setUpEnumerator();
         enumerator.start();
 
-        // verify that we use provided option to create snapshot and not use the deltaLog
-        // .snapshot()
-        verify(deltaLog).getSnapshotForTimestampAsOf(timestampAsOf);
-        verify(deltaLog, never()).getSnapshotForVersionAsOf(anyLong());
-        verify(deltaLog, never()).snapshot();
-
         // verify that we read snapshot content
         verify(timestampAsOfSnapshot).getAllFiles();
-        verify(fileEnumerator).enumerateSplits(any(AddFileEnumeratorContext.class), any(
-            SplitFilter.class));
+        verify(fileEnumerator).enumerateSplits(
+            any(AddFileEnumeratorContext.class),
+            any(SplitFilter.class)
+        );
 
         // verify that Processor Callback was executed.
         verify(splitAssigner).addSplits(any(Collection.class));

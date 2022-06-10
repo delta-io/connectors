@@ -4,7 +4,9 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import io.delta.flink.source.internal.builder.DeltaConfigOption;
 import org.apache.flink.configuration.ConfigOption;
 
 /**
@@ -27,24 +29,40 @@ public class DeltaSourceConfiguration implements Serializable {
      */
     private final Map<String, Object> usedSourceOptions = new HashMap<>();
 
-    public DeltaSourceConfiguration addOption(String name, String value) {
-        return addOptionObject(name, value);
+    /**
+     * Creates {@link DeltaSourceConfiguration} instance without any options.
+     */
+    public DeltaSourceConfiguration() {
+
     }
 
-    public DeltaSourceConfiguration addOption(String name, boolean value) {
-        return addOptionObject(name, value);
+    /**
+     * Creates a copy of DeltaSourceConfiguration. Changes to the copy object do not influence
+     * the state of the original object.
+     */
+    public DeltaSourceConfiguration copy() {
+        return new DeltaSourceConfiguration(this.usedSourceOptions);
     }
 
-    public DeltaSourceConfiguration addOption(String name, int value) {
-        return addOptionObject(name, value);
+    /**
+     * Creates an instance of {@link DeltaSourceConfiguration} using provided options.
+     * @param options options that should be added to {@link DeltaSourceConfiguration}.
+     */
+    public DeltaSourceConfiguration(Map<String, Object> options) {
+        this.usedSourceOptions.putAll(options);
     }
 
-    public DeltaSourceConfiguration addOption(String name, long value) {
-        return addOptionObject(name, value);
+    public <T> DeltaSourceConfiguration addOption(DeltaConfigOption<T> name, T value) {
+        this.usedSourceOptions.put(name.key(), value);
+        return this;
     }
 
-    public boolean hasOption(ConfigOption<?> option) {
+    public boolean hasOption(DeltaConfigOption<?> option) {
         return this.usedSourceOptions.containsKey(option.key());
+    }
+
+    public Set<String> getUsedOptions() {
+        return this.usedSourceOptions.keySet();
     }
 
     /**
@@ -59,7 +77,7 @@ public class DeltaSourceConfiguration implements Serializable {
      * @return A value for given option if used or a default value if defined or null if none.
      */
     @SuppressWarnings("unchecked")
-    public <T> T getValue(ConfigOption<T> option) {
+    public <T> T getValue(DeltaConfigOption<T> option) {
         return (T) getValue(option.key()).orElse(option.defaultValue());
     }
 
@@ -68,8 +86,10 @@ public class DeltaSourceConfiguration implements Serializable {
         return (Optional<T>) Optional.ofNullable(this.usedSourceOptions.get(optionName));
     }
 
-    private DeltaSourceConfiguration addOptionObject(String name, Object value) {
-        this.usedSourceOptions.put(name, value);
-        return this;
+    @Override
+    public String toString() {
+        return "DeltaSourceConfiguration{" +
+            "usedSourceOptions=" + usedSourceOptions +
+            '}';
     }
 }
