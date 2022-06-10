@@ -613,16 +613,21 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   //////////////////////////////////
 
   test("concurrent metadata update should fail") {
-    withLog(actions = Nil, partitionCols = Nil) { log =>
-      val tx1 = log.startTransaction()
+    Seq(
+      (metadataJ, metadataJ), // using exact same metadata
+      (metadataJ, metadataJ_2) // using a metadata with a different schema
+    ).foreach { case (m1, m2) =>
+      withLog(actions = Nil, partitionCols = Nil) { log =>
+        val tx1 = log.startTransaction()
 
-      val tx2 = log.startTransaction()
-      tx2.updateMetadata(metadataJ)
-      tx2.commit(Iterable().asJava, manualUpdate, engineInfo)
+        val tx2 = log.startTransaction()
+        tx2.updateMetadata(m1)
+        tx2.commit(Iterable().asJava, manualUpdate, engineInfo)
 
-      assertThrows[MetadataChangedException] {
-        tx1.updateMetadata(metadataJ_2)
-        tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
+        assertThrows[MetadataChangedException] {
+          tx1.updateMetadata(m2)
+          tx1.commit(Iterable().asJava, manualUpdate, engineInfo)
+        }
       }
     }
   }
