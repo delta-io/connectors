@@ -477,7 +477,7 @@ private[internal] class OptimisticTransactionImpl(
     val partitionsColsNotInSchema = partitionCols.toSet.diff(schemaCols).toSeq
 
     if (partitionsColsNotInSchema.nonEmpty) {
-      throw DeltaErrors.partitionColumnNotFoundException(partitionsColsNotInSchema, schema)
+      throw DeltaErrors.partitionColumnsNotFoundException(partitionsColsNotInSchema, schema)
     }
 
     // schema contains at least one non-partition column
