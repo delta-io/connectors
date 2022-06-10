@@ -535,10 +535,10 @@ abstract class DeltaLogSuiteBase extends FunSuite {
 
       // Setup part 1 of 2: create log files
       (0 to 2).foreach { i =>
+        val txn = log.startTransaction()
+        if (i == 0) txn.updateMetadata(metadata)
         val files = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-        val metadata = if (i == 0) Metadata() :: Nil else Nil
-        log.startTransaction().commit(
-          (metadata ++ files).map(ConversionUtils.convertAction).asJava,
+        txn.commit(files.map(ConversionUtils.convertAction).asJava,
           manualUpdate, engineInfo
         )
       }
@@ -605,10 +605,10 @@ abstract class DeltaLogSuiteBase extends FunSuite {
 
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       (0 to 35).foreach { i =>
+        val txn = log.startTransaction()
+        if (i == 0) txn.updateMetadata(metadata)
         val files = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-        val metadata = if (i == 0) Metadata() :: Nil else Nil
-        log.startTransaction().commit(
-          (metadata ++ files).map(ConversionUtils.convertAction).asJava,
+        txn.commit(files.map(ConversionUtils.convertAction).asJava,
           manualUpdate, engineInfo
         )
       }
