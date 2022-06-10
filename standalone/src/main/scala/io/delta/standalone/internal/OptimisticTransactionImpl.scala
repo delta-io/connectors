@@ -473,10 +473,11 @@ private[internal] class OptimisticTransactionImpl(
   private def checkPartitionColumns(partitionCols: Seq[String], schema: StructType): Unit = {
     // schema contains all partition column
     val schemaCols = schema.getFieldNames.toSet
-    partitionCols.foreach { partCol =>
-      if (!schemaCols.contains(partCol)) {
-        throw DeltaErrors.partitionColumnNotFoundException(partCol, schema)
-      }
+
+    val partitionsColsNotInSchema = partitionCols.toSet.diff(schemaCols).toSeq
+
+    if (partitionsColsNotInSchema.nonEmpty) {
+      throw DeltaErrors.partitionColumnNotFoundException(partitionsColsNotInSchema, schema)
     }
 
     // schema contains at least one non-partition column

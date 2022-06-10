@@ -472,33 +472,40 @@ abstract class DeltaLogSuiteBase extends FunSuite {
   }
 
   test("schema contains all partition columns") {
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      val schema = new StructType()
-        .add("part_1", new StringType())
-        .add("part_2", new LongType())
-        .add("foo", new IntegerType())
-        .add("bar", new BooleanType())
+    val schema = new StructType()
+      .add("part_1", new StringType())
+      .add("part_2", new LongType())
+      .add("foo", new IntegerType())
+      .add("bar", new BooleanType())
 
-      // case 1: valid metadata
-      val metadata1 = MetadataJ.builder()
-        .schema(schema)
-        .partitionColumns(Seq("part_1", "part_2").asJava)
-        .build()
-      val txn1 = log.startTransaction()
-      txn1.updateMetadata(metadata1)
-      txn1.commit(Nil.asJava, manualUpdate, engineInfo)
+    val correctPartitionsCols = Seq("part_1", "part_2")
 
-      // case 2: invalid metadata
-      val metadata2 = MetadataJ.builder()
-        .schema(schema)
-        .partitionColumns(Seq("part_1", "part_2", "part_3").asJava)
-        .build()
-      // we can use updateMetadata or include metadata as part of commit actions. both are valid.
-      val e = intercept[DeltaStandaloneException] {
-        log.startTransaction().commit(Seq(metadata2).asJava, manualUpdate, engineInfo)
-      }.getMessage
-      assert(e.contains("Partition column part_3 not found in schema"))
+    Seq(
+      (correctPartitionsCols, Nil), // equal to
+      (Seq("part_1"), Nil), // subset of
+      (Nil, Nil), // empty
+      (Seq("part_1", "part_2", "part_3", "part_4"), Seq("part_3", "part_4")) // superset
+    ).foreach { case (inputPartCols, missingPartCols) =>
+      withTempDir { dir =>
+        val shouldThrow = missingPartCols.nonEmpty
+
+        val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+        val metadata = MetadataJ.builder()
+          .schema(schema)
+          .partitionColumns(inputPartCols.asJava)
+          .build()
+
+        if (shouldThrow) {
+          val e = intercept[DeltaStandaloneException] {
+            log.startTransaction().updateMetadata(metadata)
+          }.getMessage
+
+          assert(
+            e.contains(s"Partition column(s) ${missingPartCols.mkString(",")} not found in schema"))
+        } else {
+          log.startTransaction().updateMetadata(metadata)
+        }
+      }
     }
   }
 

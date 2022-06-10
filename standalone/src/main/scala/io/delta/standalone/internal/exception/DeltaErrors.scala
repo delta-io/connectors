@@ -332,9 +332,9 @@ private[internal] object DeltaErrors {
         " cannot be set at the same time. Please set only one group of them.")
   }
 
-  def partitionColumnNotFoundException(partCol: String, schema: StructType): Throwable = {
-    new DeltaStandaloneException(s"Partition column $partCol not found in schema:\n" +
-      s"${schema.getTreeString}")
+  def partitionColumnsNotFoundException(partCols: Seq[String], schema: StructType): Throwable = {
+    new DeltaStandaloneException(s"Partition column(s) ${partCols.mkString(",")} not found in " +
+      s"schema:\n${schema.getTreeString}")
   }
 
   def nonPartitionColumnAbsentException(): Throwable = {
