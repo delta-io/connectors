@@ -471,20 +471,20 @@ abstract class DeltaLogSuiteBase extends FunSuite {
     }
   }
 
-  test("schema contains all partition columns") {
+  test("schema must contain all partition columns") {
     val schema = new StructType()
-      .add("part_1", new StringType())
-      .add("part_2", new LongType())
+      .add("a", new StringType())
+      .add("b", new LongType())
       .add("foo", new IntegerType())
       .add("bar", new BooleanType())
 
-    val correctPartitionsCols = Seq("part_1", "part_2")
-
     Seq(
-      (correctPartitionsCols, Nil), // equal to
-      (Seq("part_1"), Nil), // subset of
-      (Nil, Nil), // empty
-      (Seq("part_1", "part_2", "part_3", "part_4"), Seq("part_3", "part_4")) // superset
+      // all partition columns are contained within schema
+      (Seq("a", "b"), Nil),
+      // no partition columns, so all partition columns are contained within schema
+      (Nil, Nil),
+      // partition columns c and d are not contained within the schema
+      (Seq("a", "b", "c", "d"), Seq("c", "d"))
     ).foreach { case (inputPartCols, missingPartCols) =>
       withTempDir { dir =>
         val shouldThrow = missingPartCols.nonEmpty
