@@ -109,6 +109,30 @@ Scala 2.12:
 </project>
 ```
 
+#### Gradle
+
+```
+ext {
+    // please replace the version with the one you're using.
+    connectorVersion = '0.4.1'
+    scalaVersion = '2.12'
+    flinkVersion = '1.12.0'
+    hadoopVersion = '3.1.0'
+}
+
+dependencies {
+    implementation "delta-flink:delta-flink:${connectorVersion}"
+    implementation "delta-flink:delta-standalone_${scalaVersion}:${connectorVersion}"
+    implementation "org.apache.flink:flink-clients_${scalaVersion}:${flinkVersion}"
+    implementation "org.apache.flink:flink-parquet_${scalaVersion}:${flinkVersion}"
+    
+    implementation "org.apache.hadoop:hadoop-client:${hadoopVersion}"
+    
+    compileOnly "org.apache.flink:flink-table-common:${flinkVersion}"
+    compileOnly "org.apache.flink:flink-table-runtime-blink_${scalaVersion}:${flinkVersion}"
+}
+```
+
 #### SBT
 
 Please replace the versions of the dependencies with the ones you are using.
