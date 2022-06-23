@@ -1,4 +1,4 @@
-package io.delta.flink.source;
+package io.delta.flink.utils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,7 +11,12 @@ import org.apache.flink.types.Row;
  * This class describes a Delta table update scenario for IT case test. Information from this class
  * is used by updater thread that updates Delta table with new rows during test run.
  */
-public class ContinuousTestDescriptor {
+public class TestDescriptor {
+
+    /**
+     * Path to Delta table
+     */
+    private final String tablePath;
 
     /**
      * Number of rows in test Delta table before starting adding new data.
@@ -24,7 +29,8 @@ public class ContinuousTestDescriptor {
      */
     private final List<Descriptor> updateDescriptors = new ArrayList<>();
 
-    public ContinuousTestDescriptor(int initialDataSize) {
+    public TestDescriptor(String tablePath, int initialDataSize) {
+        this.tablePath = tablePath;
         this.initialDataSize = initialDataSize;
     }
 
@@ -42,6 +48,10 @@ public class ContinuousTestDescriptor {
 
     public int getInitialDataSize() {
         return initialDataSize;
+    }
+
+    public String getTablePath() {
+        return tablePath;
     }
 
     /**

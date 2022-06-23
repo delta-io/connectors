@@ -4,22 +4,27 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import io.delta.flink.source.internal.DeltaSourceOptions;
 import io.delta.flink.source.internal.builder.DeltaConfigOption;
 import io.delta.flink.source.internal.builder.DeltaSourceBuilderBase;
 import io.delta.flink.source.internal.enumerator.supplier.TimestampFormatConverter;
+import io.delta.flink.source.internal.exceptions.DeltaSourceValidationException;
+import io.delta.flink.utils.DeltaTestUtils;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.table.data.RowData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,17 +53,18 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
 
         DeltaSource<RowData> boundedSource = DeltaSource.forContinuousRowData(
                 new Path(TABLE_PATH),
-                DeltaSinkTestUtils.getHadoopConf())
+                DeltaTestUtils.getHadoopConf())
             .build();
 
         assertThat(boundedSource, notNullValue());
         assertThat(boundedSource.getBoundedness(), equalTo(Boundedness.CONTINUOUS_UNBOUNDED));
     }
 
-    @Test
-    public void shouldCreateSourceForStartingVersion() {
-        long startingVersion = 10;
-        String string_startingVersion = "10";
+    @ParameterizedTest(name = "{index}: StartingVersion = {0}")
+    @ValueSource(ints = {0, 10})
+    public void shouldCreateSourceForStartingVersion(int startingVersion) {
+
+        String stringStartingVersion = String.valueOf(startingVersion);
 
         when(deltaLog.getSnapshotForVersionAsOf(startingVersion)).thenReturn(headSnapshot);
 
@@ -71,16 +77,16 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
             getBuilderAllColumns().startingVersion(startingVersion),
 
             // set via dedicated method String
-            getBuilderAllColumns().startingVersion(string_startingVersion),
+            getBuilderAllColumns().startingVersion(stringStartingVersion),
 
             // set via generic option(int) method
-            getBuilderAllColumns().option(startingVersionKey, 10),
+            getBuilderAllColumns().option(startingVersionKey, startingVersion),
 
             // set via generic option(long) method
-            getBuilderAllColumns().option(startingVersionKey, 10L),
+            getBuilderAllColumns().option(startingVersionKey, (long) startingVersion),
 
             // set via generic option(int) String
-            getBuilderAllColumns().option(startingVersionKey, "10")
+            getBuilderAllColumns().option(startingVersionKey, stringStartingVersion)
         );
 
         assertAll(() -> {
@@ -90,11 +96,47 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
                 assertThat(source.getBoundedness(), equalTo(Boundedness.CONTINUOUS_UNBOUNDED));
                 assertThat(
                     source.getSourceConfiguration().getValue(DeltaSourceOptions.STARTING_VERSION),
-                    equalTo(string_startingVersion)
+                    equalTo(stringStartingVersion)
                 );
             }
             // as many calls as we had builders
             verify(deltaLog, times(builders.size())).getSnapshotForVersionAsOf(startingVersion);
+        });
+    }
+
+    @Test
+    public void shouldThrowOnSourceWithInvalidStartingVersion() {
+
+        String startingVersionKey = DeltaSourceOptions.STARTING_VERSION.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().startingVersion("not_a_version"),
+            () -> getBuilderAllColumns().option(startingVersionKey, "not_a_version"),
+            () -> getBuilderAllColumns().option(startingVersionKey, ""),
+            () -> getBuilderAllColumns().option(startingVersionKey, " "),
+            () -> getBuilderAllColumns().option(startingVersionKey, true),
+            () -> getBuilderAllColumns().option(startingVersionKey, -1),
+            () -> getBuilderAllColumns().option(startingVersionKey, null)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream().allMatch(
+                            message -> message.contains(
+                                "Illegal value used for [startingVersion] option. "
+                                    + "Expected values are non-negative integers or \"latest\" "
+                                    + "keyword (case insensitive). Used value was"
+                            )
+                        ),
+                    equalTo(true)
+                );
+            }
         });
     }
 
@@ -104,7 +146,10 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         long long_startingTimestamp =
             TimestampFormatConverter.convertToTimestamp(startingTimestamp);
 
-        when(deltaLog.getSnapshotForTimestampAsOf(long_startingTimestamp)).thenReturn(headSnapshot);
+        long snapshotVersion = headSnapshot.getVersion();
+        when(deltaLog.getVersionAtOrAfterTimestamp(long_startingTimestamp))
+            .thenReturn(snapshotVersion);
+        when(deltaLog.getSnapshotForVersionAsOf(snapshotVersion)).thenReturn(headSnapshot);
 
         StructField[] schema = {new StructField("col1", new StringType())};
         mockDeltaTableForSchema(schema);
@@ -126,11 +171,51 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
             }
             // as many calls as we had builders
             verify(deltaLog, times(builders.size()))
-                .getSnapshotForTimestampAsOf(long_startingTimestamp);
+                .getVersionAtOrAfterTimestamp(long_startingTimestamp);
+            verify(deltaLog, times(builders.size())).getSnapshotForVersionAsOf(snapshotVersion);
         });
     }
 
-    // TODO PR 12.1 test negative path
+    @Test
+    public void shouldThrowOnSourceWithInvalidStartingTimestamp() {
+        String timestamp = "not_a_date";
+
+        List<Executable> builders = Arrays.asList(
+            // set via dedicated method
+            () -> getBuilderAllColumns().startingTimestamp(timestamp),
+
+            // set via generic option(String)
+            () -> getBuilderAllColumns()
+                .option(DeltaSourceOptions.TIMESTAMP_AS_OF.key(), timestamp),
+
+            () -> getBuilderAllColumns().option(DeltaSourceOptions.TIMESTAMP_AS_OF.key(), ""),
+
+            () -> getBuilderAllColumns().option(DeltaSourceOptions.TIMESTAMP_AS_OF.key(), " "),
+
+            () -> getBuilderAllColumns().option(DeltaSourceOptions.TIMESTAMP_AS_OF.key(), null)
+        );
+
+        // execute "set" or "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(
+                            message -> message
+                                .contains("class java.time.format.DateTimeParseException") ||
+                                message.contains("class java.lang.IllegalArgumentException")
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
     @Test
     public void shouldCreateSourceForUpdateCheckInterval() {
 
@@ -162,6 +247,38 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
     }
 
     @Test
+    public void shouldThrowOnSourceWithInvalidUpdateCheckInterval() {
+
+        String updateCheckIntervalKey = DeltaSourceOptions.UPDATE_CHECK_INTERVAL.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().option(updateCheckIntervalKey, "not_a_number"),
+            () -> getBuilderAllColumns().option(updateCheckIntervalKey, ""),
+            () -> getBuilderAllColumns().option(updateCheckIntervalKey, " "),
+            () -> getBuilderAllColumns().option(updateCheckIntervalKey, null),
+            () -> getBuilderAllColumns().option(updateCheckIntervalKey, true)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(message ->
+                            message.contains("class java.lang.NumberFormatException") ||
+                                message.contains("class java.lang.IllegalArgumentException")
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
+    @Test
     public void shouldCreateSourceForIgnoreDeletes() {
 
         when(deltaLog.snapshot()).thenReturn(headSnapshot);
@@ -188,7 +305,42 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         });
     }
 
-    // TODO PR 12.1 test negative path
+    @Test
+    public void shouldThrowOnSourceWithInvalidIgnoreDeletes() {
+
+        String ignoreDeletesKey = DeltaSourceOptions.IGNORE_DELETES.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().option(ignoreDeletesKey, "not_a_boolean"),
+            () -> getBuilderAllColumns().option(ignoreDeletesKey, " "),
+            () -> getBuilderAllColumns().option(ignoreDeletesKey, ""),
+            () -> getBuilderAllColumns().option(ignoreDeletesKey, null),
+            () -> getBuilderAllColumns().option(ignoreDeletesKey, 1410)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(message ->
+                            message.contains(
+                                "class java.lang.IllegalArgumentException - Illegal value used "
+                                    + "for [ignoreDeletes] option. Expected values \"true\" or "
+                                    + "\"false\" keywords (case insensitive) or boolean true, "
+                                    + "false values. Used value was"
+                            )
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
     @Test
     public void shouldCreateSourceForIgnoreChanges() {
 
@@ -216,9 +368,43 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         });
     }
 
-    // TODO PR 12.1 test negative path
     @Test
-    public void shouldCreateSourceForUpdateCheckDelayOption() {
+    public void shouldThrowOnSourceWithInvalidIgnoreChanges() {
+
+        String ignoreChangesKey = DeltaSourceOptions.IGNORE_CHANGES.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().option(ignoreChangesKey, "not_a_boolean"),
+            () -> getBuilderAllColumns().option(ignoreChangesKey, ""),
+            () -> getBuilderAllColumns().option(ignoreChangesKey, " "),
+            () -> getBuilderAllColumns().option(ignoreChangesKey, null),
+            () -> getBuilderAllColumns().option(ignoreChangesKey, 1410)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(message ->
+                            message.contains(
+                                "class java.lang.IllegalArgumentException - Illegal value used "
+                                    + "for [ignoreChanges] option. Expected values \"true\" or "
+                                    + "\"false\" keywords (case insensitive) or boolean true, "
+                                    + "false values. Used value was")
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
+    @Test
+    public void shouldCreateSourceForUpdateCheckDelay() {
 
         long expectedUpdateCheckDelay = 10;
 
@@ -251,9 +437,36 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         });
     }
 
-    // TODO PR 12.1 test negative path
     @Test
-    public void shouldCreateSourceForParquetBatchSizeOption() {
+    public void shouldThrowOnSourceWithInvalidUpdateCheckDelay() {
+
+        String updateCheckDelayKey = DeltaSourceOptions.UPDATE_CHECK_INITIAL_DELAY.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().option(updateCheckDelayKey, "not_a_number"),
+            () -> getBuilderAllColumns().option(updateCheckDelayKey, true)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(message ->
+                            message.contains("class java.lang.NumberFormatException - For input")
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
+    @Test
+    public void shouldCreateSourceForParquetBatchSize() {
 
         int expectedParquetBatchSize = 100;
 
@@ -286,6 +499,38 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         });
     }
 
+    @Test
+    public void shouldThrowOnSourceWithInvalidParquetBatchSize() {
+
+        String parquetBatchSizeKey = DeltaSourceOptions.PARQUET_BATCH_SIZE.key();
+        List<Executable> builders = Arrays.asList(
+            () -> getBuilderAllColumns().option(parquetBatchSizeKey, "not_a_number"),
+            () -> getBuilderAllColumns().option(parquetBatchSizeKey, ""),
+            () -> getBuilderAllColumns().option(parquetBatchSizeKey, " "),
+            () -> getBuilderAllColumns().option(parquetBatchSizeKey, null),
+            () -> getBuilderAllColumns().option(parquetBatchSizeKey, true)
+        );
+
+        // execute "option" on builder with invalid value.
+        assertAll(() -> {
+            for (Executable builderExecutable : builders) {
+                DeltaSourceValidationException exception =
+                    assertThrows(DeltaSourceValidationException.class, builderExecutable);
+                LOG.info("Option Validation Exception: ", exception);
+                assertThat(
+                    exception
+                        .getValidationMessages()
+                        .stream()
+                        .allMatch(message ->
+                            message.contains("class java.lang.NumberFormatException") ||
+                                message.contains("class java.lang.IllegalArgumentException")
+                        ),
+                    equalTo(true)
+                );
+            }
+        });
+    }
+
     //////////////////////////////////////////////////////////////
     // Overridden parent methods for tests in base parent class //
     //////////////////////////////////////////////////////////////
@@ -305,7 +550,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         RowDataContinuousDeltaSourceBuilder builder =
             DeltaSource.forContinuousRowData(
                 new Path(TABLE_PATH),
-                DeltaSinkTestUtils.getHadoopConf()
+                DeltaTestUtils.getHadoopConf()
             );
 
         return (RowDataContinuousDeltaSourceBuilder)
@@ -324,7 +569,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
     protected RowDataContinuousDeltaSourceBuilder getBuilderForColumns(String[] columnNames) {
         return DeltaSource.forContinuousRowData(
                 new Path(TABLE_PATH),
-                DeltaSinkTestUtils.getHadoopConf()
+                DeltaTestUtils.getHadoopConf()
             )
             .columnNames((columnNames != null) ? Arrays.asList(columnNames) : null);
     }
@@ -333,7 +578,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
     protected RowDataContinuousDeltaSourceBuilder getBuilderAllColumns() {
         return DeltaSource.forContinuousRowData(
             new Path(TABLE_PATH),
-            DeltaSinkTestUtils.getHadoopConf()
+            DeltaTestUtils.getHadoopConf()
         );
     }
 
@@ -341,7 +586,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
     protected RowDataContinuousDeltaSourceBuilder getBuilderWithMutuallyExcludedOptions() {
         return DeltaSource.forContinuousRowData(
                 new Path(TABLE_PATH),
-                DeltaSinkTestUtils.getHadoopConf()
+                DeltaTestUtils.getHadoopConf()
             )
             .startingVersion(10)
             .startingTimestamp("2022-02-24T04:55:00.001");
@@ -351,7 +596,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
     protected RowDataContinuousDeltaSourceBuilder getBuilderWithGenericMutuallyExcludedOptions() {
         return DeltaSource.forContinuousRowData(
                 new Path(TABLE_PATH),
-                DeltaSinkTestUtils.getHadoopConf()
+                DeltaTestUtils.getHadoopConf()
             )
             .option(DeltaSourceOptions.STARTING_VERSION.key(), 10)
             .option(
@@ -364,7 +609,7 @@ class RowDataContinuousDeltaSourceBuilderTest extends RowDataDeltaSourceBuilderT
         getBuilderWithNullMandatoryFieldsAndExcludedOption() {
         return DeltaSource.forContinuousRowData(
                 null,
-                DeltaSinkTestUtils.getHadoopConf()
+                DeltaTestUtils.getHadoopConf()
             )
             .startingTimestamp("2022-02-24T04:55:00.001")
             .option(DeltaSourceOptions.STARTING_VERSION.key(), 10);

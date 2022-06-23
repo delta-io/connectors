@@ -48,7 +48,7 @@ public class ContinuousSourceSnapshotSupplier extends SnapshotSupplier {
 
         String startingVersion = sourceConfiguration.getValue(STARTING_VERSION);
         if (startingVersion != null) {
-            if (startingVersion.equalsIgnoreCase(DeltaSourceOptions.STARTING_VERSION_LATEST)) {
+            if (DeltaSourceOptions.STARTING_VERSION_LATEST.equalsIgnoreCase(startingVersion)) {
                 return TransitiveOptional.ofNullable(deltaLog.snapshot());
             } else {
                 return TransitiveOptional.ofNullable(
@@ -64,8 +64,12 @@ public class ContinuousSourceSnapshotSupplier extends SnapshotSupplier {
             DeltaSourceConfiguration sourceConfiguration) {
         Long startingTimestamp = sourceConfiguration.getValue(STARTING_TIMESTAMP);
         if (startingTimestamp != null) {
+            // Delta Lake streaming semantics match timestamps to versions using
+            // 'at or after' semantics. Here we do the same.
+            long versionAtOrAfterTimestamp =
+                deltaLog.getVersionAtOrAfterTimestamp(startingTimestamp);
             return TransitiveOptional.ofNullable(
-                deltaLog.getSnapshotForTimestampAsOf(startingTimestamp));
+                deltaLog.getSnapshotForVersionAsOf(versionAtOrAfterTimestamp));
         }
         return TransitiveOptional.empty();
     }

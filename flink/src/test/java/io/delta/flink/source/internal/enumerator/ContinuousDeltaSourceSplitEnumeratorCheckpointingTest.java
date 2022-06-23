@@ -2,18 +2,20 @@ package io.delta.flink.source.internal.enumerator;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.Iterator;
 import static java.util.Collections.singletonMap;
 
-import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import io.delta.flink.source.internal.DeltaSourceConfiguration;
 import io.delta.flink.source.internal.DeltaSourceOptions;
 import io.delta.flink.source.internal.file.AddFileEnumerator;
 import io.delta.flink.source.internal.state.DeltaEnumeratorStateCheckpoint;
 import io.delta.flink.source.internal.state.DeltaSourceSplit;
+import io.delta.flink.utils.DeltaTestUtils;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.connector.file.src.assigners.FileSplitAssigner;
 import org.apache.flink.connector.testutils.source.reader.TestingSplitEnumeratorContext;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.util.EmptyIterator;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.After;
 import org.junit.Before;
@@ -25,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.stubbing.Answer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.ArgumentMatchers.any;
@@ -144,7 +147,7 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
 
         ContinuousDeltaSourceSplitEnumerator enumerator =
             splitEnumeratorProvider.createInitialStateEnumerator(tablePath,
-                DeltaSinkTestUtils.getHadoopConf(), enumContext, sourceConfiguration);
+                DeltaTestUtils.getHadoopConf(), enumContext, sourceConfiguration);
 
         enumerator.start();
 
@@ -169,7 +172,7 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
         // reset enumContext and restore enumerator from checkpoint
         enumContext = new TestingSplitEnumeratorContext<>(1);
         splitEnumeratorProvider.createEnumeratorForCheckpoint(checkpoint,
-                DeltaSinkTestUtils.getHadoopConf(), enumContext, new DeltaSourceConfiguration())
+                DeltaTestUtils.getHadoopConf(), enumContext, new DeltaSourceConfiguration())
             .start();
 
         enumContext.getExecutorService().triggerPeriodicScheduledTasks();
@@ -190,10 +193,17 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
     @Test
     public void shouldCheckpointStateAfterChangesProcessForChangesOnlyStream() throws Exception {
         when(deltaLog.getSnapshotForVersionAsOf(HEAD_VERSION)).thenReturn(headSnapshot);
-        when(deltaLog.getChanges(HEAD_VERSION, true)).thenReturn(
-            Collections.singletonList(
-                    new VersionLog(HEAD_VERSION, Collections.singletonList(ADD_FILE)))
-                .iterator());
+        when(deltaLog.getChanges(anyLong(), anyBoolean()))
+            .thenAnswer((Answer<Iterator<VersionLog>>) invocationOnMock -> {
+                long version = invocationOnMock.getArgument(0, Long.class);
+                if (version == HEAD_VERSION) {
+                    return Collections.singletonList(
+                        new VersionLog(HEAD_VERSION, Collections.singletonList(ADD_FILE))
+                        ).iterator();
+                } else {
+                    return new EmptyIterator<>();
+                }
+            });
 
         TestingSplitEnumeratorContext<DeltaSourceSplit> enumContext =
             new TestingSplitEnumeratorContext<>(1);
@@ -207,7 +217,7 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
 
         ContinuousDeltaSourceSplitEnumerator enumerator =
             splitEnumeratorProvider.createInitialStateEnumerator(tablePath,
-                DeltaSinkTestUtils.getHadoopConf(), enumContext, sourceConfiguration);
+                DeltaTestUtils.getHadoopConf(), enumContext, sourceConfiguration);
 
         enumerator.start();
 
@@ -229,7 +239,7 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
         // reset enumContext and restore enumerator from checkpoint
         enumContext = new TestingSplitEnumeratorContext<>(1);
         splitEnumeratorProvider.createEnumeratorForCheckpoint(checkpoint,
-                DeltaSinkTestUtils.getHadoopConf(), enumContext, new DeltaSourceConfiguration())
+                DeltaTestUtils.getHadoopConf(), enumContext, new DeltaSourceConfiguration())
             .start();
 
         enumContext.getExecutorService().triggerPeriodicScheduledTasks();
@@ -251,11 +261,12 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
     public void shouldCheckpointStateAfterSnapshotReadAndBeforeFirstChangeVersion()
         throws Exception {
         when(deltaLog.getSnapshotForVersionAsOf(HEAD_VERSION)).thenReturn(headSnapshot);
+        when(deltaLog.getChanges(anyLong(), anyBoolean())).thenReturn(new EmptyIterator<>());
 
         ContinuousDeltaSourceSplitEnumerator enumerator =
             splitEnumeratorProvider.createInitialStateEnumerator(
                 tablePath,
-                DeltaSinkTestUtils.getHadoopConf(),
+                DeltaTestUtils.getHadoopConf(),
                 new TestingSplitEnumeratorContext<>(1),
                 new DeltaSourceConfiguration(
                     singletonMap(DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION.key(),
@@ -275,7 +286,7 @@ public class ContinuousDeltaSourceSplitEnumeratorCheckpointingTest {
         ContinuousDeltaSourceSplitEnumerator recoveredEnumerator =
             splitEnumeratorProvider.createEnumeratorForCheckpoint(
                 checkpoint,
-                DeltaSinkTestUtils.getHadoopConf(),
+                DeltaTestUtils.getHadoopConf(),
                 enumContext,
                 new DeltaSourceConfiguration(
                     singletonMap(DeltaSourceOptions.LOADED_SCHEMA_SNAPSHOT_VERSION.key(),

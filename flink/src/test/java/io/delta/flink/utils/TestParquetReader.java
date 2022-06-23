@@ -16,19 +16,23 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.utils;
+package io.delta.flink.utils;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.vector.ParquetColumnarRowSplitReader;
 import org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.util.DataFormatConverters.DataFormatConverter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
+import org.apache.flink.types.Row;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.actions.AddFile;
@@ -56,7 +60,25 @@ public class TestParquetReader {
         for (AddFile addedFile : deltaTableFiles) {
             Path parquetFilePath = new Path(deltaLog.getPath().toString(), addedFile.getPath());
             cumulatedRecords += TestParquetReader.parseAndCountRecords(
-                parquetFilePath, DeltaSinkTestUtils.TEST_ROW_TYPE);
+                parquetFilePath,
+                DeltaSinkTestUtils.TEST_ROW_TYPE,
+                DeltaSinkTestUtils.TEST_ROW_TYPE_CONVERTER
+            );
+        }
+        return cumulatedRecords;
+    }
+
+    public static int readAndValidateAllTableRecords(
+        DeltaLog deltaLog,
+        RowType rowType,
+        DataFormatConverter<RowData, Row> converter) throws IOException {
+
+        List<AddFile> deltaTableFiles = deltaLog.snapshot().getAllFiles();
+        int cumulatedRecords = 0;
+        for (AddFile addedFile : deltaTableFiles) {
+            Path parquetFilePath = new Path(deltaLog.getPath().toString(), addedFile.getPath());
+            cumulatedRecords += TestParquetReader
+                .parseAndCountRecords(parquetFilePath, rowType, converter);
         }
         return cumulatedRecords;
     }
@@ -71,8 +93,10 @@ public class TestParquetReader {
      * @return count of written records
      * @throws IOException Thrown if an error occurs while reading the file
      */
-    public static int parseAndCountRecords(Path parquetFilepath,
-                                           RowType rowType) throws IOException {
+    public static int parseAndCountRecords(
+            Path parquetFilepath,
+            RowType rowType,
+            DataFormatConverter<RowData, Row> converter) throws IOException {
         ParquetColumnarRowSplitReader reader = getTestParquetReader(
             parquetFilepath,
             rowType
@@ -80,7 +104,7 @@ public class TestParquetReader {
 
         int recordsRead = 0;
         while (!reader.reachedEnd()) {
-            DeltaSinkTestUtils.CONVERTER.toExternal(reader.nextRecord());
+            converter.toExternal(reader.nextRecord());
             recordsRead++;
         }
         return recordsRead;
@@ -91,7 +115,7 @@ public class TestParquetReader {
         return ParquetSplitReaderUtil.genPartColumnarRowReader(
             true, // utcTimestamp
             true, // caseSensitive
-            DeltaSinkTestUtils.getHadoopConf(),
+            DeltaTestUtils.getHadoopConf(),
             rowType.getFieldNames().toArray(new String[0]),
             rowType.getChildren().stream()
                 .map(TypeConversions::fromLogicalToDataType)
