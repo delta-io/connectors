@@ -62,7 +62,7 @@ Delta Sink currently exposes the following Flink metrics:
 
 <div id='delta-sink-examples'></div>
 
-### Examples <a name="delta-sink-examples"></a>
+### Examples
 
 #### 1. Sink creation for non-partitioned tables
 
