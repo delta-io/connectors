@@ -171,8 +171,6 @@ In this example we show how to create a `DeltaSink` and plug it to an
 existing `org.apache.flink.streaming.api.datastream.DataStream`.
 
 ```java
-package com.example;
-
 import io.delta.flink.sink.DeltaSink;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -180,20 +178,18 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
-public class DeltaSinkExample {
-
-    public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
-                                               String deltaTablePath,
-                                               RowType rowType) {
-        DeltaSink<RowData> deltaSink = DeltaSink
-            .forRowData(
-                new Path(deltaTablePath),
-                new Configuration(),
-                rowType)
-            .build();
-        stream.sinkTo(deltaSink);
-        return stream;
-    }
+public DataStream<RowData> createDeltaSink(
+        DataStream<RowData> stream,
+        String deltaTablePath,
+        RowType rowType) {
+    DeltaSink<RowData> deltaSink = DeltaSink
+        .forRowData(
+            new Path(deltaTablePath),
+            new Configuration(),
+            rowType)
+        .build();
+    stream.sinkTo(deltaSink);
+    return stream;
 }
 ```
 
@@ -203,44 +199,33 @@ In this example we show how to create a `DeltaSink` for `org.apache.flink.table.
 write data to a partitioned table using one partitioning column `surname`.
 
 ```java
-package com.example;
-
 import io.delta.flink.sink.DeltaBucketAssigner;
-import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaSinkBuilder;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.types.logical.RowType;
 
-public class DeltaSinkExample {
+public static final RowType ROW_TYPE = new RowType(Arrays.asList(
+    new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
+    new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
+    new RowType.RowField("age", new IntType())
+));
 
-  public static final RowType ROW_TYPE = new RowType(Arrays.asList(
-          new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
-          new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
-          new RowType.RowField("age", new IntType())
-  ));
-
-  public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
-                                             String deltaTablePath) {
-    String[] partitionCols = {"surname"};
+public DataStream<RowData> createDeltaSink(
+        DataStream<RowData> stream,
+        String deltaTablePath) {
+    String[] partitionCols = { "surname" };
     DeltaSink<RowData> deltaSink = DeltaSink
-            .forRowData(
-                new Path(deltaTablePath),
-                new Configuration(),
-                rowType)
-            .withPartitionColumns(partitionCols)
-            .build();
+        .forRowData(
+            new Path(deltaTablePath),
+            new Configuration(),
+            rowType)
+        .withPartitionColumns(partitionCols)
+        .build();
     stream.sinkTo(deltaSink);
     return stream;
-  }
 }
 ```
 
 #### 3. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs.
 ```java
-package com.example;
-
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -248,104 +233,69 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.data.RowData;
 import org.apache.hadoop.conf.Configuration;
 
-public class DeltaSourceExample {
+public DataStream<RowData> createBoundedDeltaSourceAllColumns(
+        StreamExecutionEnvironment env,
+        String deltaTablePath) {
 
-  public DataStream<RowData> createBoundedDeltaSourceAllColumns(
-          StreamExecutionEnvironment env,
-          String deltaTablePath) {
-
-    DeltaSource<RowData> deltaSource = DeltaSource.forBoundedRowData(
-                    new Path(deltaTablePath),
-                    new Configuration())
-            .build();
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forBoundedRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        .build();
 
     return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
-  }
 }
 ```
 
 #### 4. Source creation for Delta table, to read only user defined columns in bounded mode. Suitable for batch jobs.
 ```java
-package com.example;
+public DataStream<RowData> createBoundedDeltaSourceUserColumns(
+        StreamExecutionEnvironment env,
+        String deltaTablePath,
+        String[] columnNames) {
 
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.data.RowData;
-import org.apache.hadoop.conf.Configuration;
-
-public class DeltaSourceExample {
-
-  public DataStream<RowData> createBoundedDeltaSourceUserColumns(
-          StreamExecutionEnvironment env,
-          String deltaTablePath,
-          String[] columnNames) {
-
-    DeltaSource<RowData> deltaSource = DeltaSource.forBoundedRowData(
-                    new Path(deltaTablePath),
-                    new Configuration())
-            .columnNames(columnNames)
-            .build();
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forBoundedRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        .columnNames(columnNames)
+        .build();
 
     return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
-  }
 }
 ```
 
 #### 5. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs.
 ```java
-package com.example;
+public DataStream<RowData> createContinuousDeltaSourceAllColumns(
+        StreamExecutionEnvironment env,
+        String deltaTablePath) {
 
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.data.RowData;
-import org.apache.hadoop.conf.Configuration;
-
-public class DeltaSourceExample {
-
-  public DataStream<RowData> createContinuousDeltaSourceAllColumns(
-          StreamExecutionEnvironment env,
-          String deltaTablePath) {
-
-    DeltaSource<RowData> deltaSource = DeltaSource.forContinuousRowData(
-                    new Path(deltaTablePath),
-                    new Configuration())
-            .build();
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forContinuousRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        .build();
 
     return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
-  }
 }
 ```
 
 #### 6. Source creation for Delta table, to read only user defined columns in continuous mode. Suitable for streaming jobs.
 ```java
-package com.example;
+public DataStream<RowData> createContinuousDeltaSourceUserColumns(
+        StreamExecutionEnvironment env,
+        String deltaTablePath,
+        String[] columnNames) {
 
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.data.RowData;
-import org.apache.hadoop.conf.Configuration;
-
-public class DeltaSourceExample {
-
-  public DataStream<RowData> createContinuousDeltaSourceUserColumns(
-          StreamExecutionEnvironment env,
-          String deltaTablePath,
-          String[] columnNames) {
-
-    DeltaSource<RowData> deltaSource = DeltaSource.forContinuousRowData(
-                    new Path(deltaTablePath),
-                    new Configuration())
-            .columnNames(columnNames)
-            .build();
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forContinuousRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        .columnNames(columnNames)
+        .build();
 
     return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
-  }
 }
 ```
 
