@@ -224,7 +224,7 @@ public DataStream<RowData> createDeltaSink(
 }
 ```
 
-#### 3. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs.
+#### 3. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
 ```java
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.core.fs.Path;
@@ -247,7 +247,32 @@ public DataStream<RowData> createBoundedDeltaSourceAllColumns(
 }
 ```
 
-#### 4. Source creation for Delta table, to read only user defined columns in bounded mode. Suitable for batch jobs.
+#### 4. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example performs Time Travel and loads a historical version.
+```java
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.data.RowData;
+import org.apache.hadoop.conf.Configuration;
+
+public DataStream<RowData> createBoundedDeltaSourceWithTimeTravel(
+        StreamExecutionEnvironment env,
+        String deltaTablePath) {
+
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forBoundedRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        // could also use `.versionAsOf(314159)`
+        .timestampAsOf("2022-06-28 04:55:00")
+        .build();
+
+    return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
+}
+```
+
+#### 5. Source creation for Delta table, to read only user-defined columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
 ```java
 public DataStream<RowData> createBoundedDeltaSourceUserColumns(
         StreamExecutionEnvironment env,
@@ -265,7 +290,25 @@ public DataStream<RowData> createBoundedDeltaSourceUserColumns(
 }
 ```
 
-#### 5. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs.
+#### 6. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example performs Time Travel to get all changes at and after the historical version, and then monitor for changes. It does not load the full table state at that historical version.
+```java
+public DataStream<RowData> createContinuousDeltaSourceWithTimeTravel(
+        StreamExecutionEnvironment env,
+        String deltaTablePath) {
+
+    DeltaSource<RowData> deltaSource = DeltaSource
+        .forContinuousRowData(
+            new Path(deltaTablePath),
+            new Configuration())
+        // could also use `.startingVersion(314159)`
+        .startingTimestamp("2022-06-28 04:55:00")
+        .build();
+
+    return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
+}
+```
+
+#### 7. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
 ```java
 public DataStream<RowData> createContinuousDeltaSourceAllColumns(
         StreamExecutionEnvironment env,
@@ -281,7 +324,7 @@ public DataStream<RowData> createContinuousDeltaSourceAllColumns(
 }
 ```
 
-#### 6. Source creation for Delta table, to read only user defined columns in continuous mode. Suitable for streaming jobs.
+#### 8. Source creation for Delta table, to read only user-defined columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
 ```java
 public DataStream<RowData> createContinuousDeltaSourceUserColumns(
         StreamExecutionEnvironment env,
