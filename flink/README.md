@@ -7,10 +7,10 @@ Official Delta Lake connector for [Apache Flink](https://flink.apache.org/).
 ## Introduction
 
 Flink/Delta Connector is a JVM library to read and write data from Apache Flink applications to Delta tables
-utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#delta-standalone).
+utilizing the [Delta Standalone JVM library](https://github.com/delta-io/connectors#delta-standalone).
 The connector provides exactly-once delivery guarantees.
 
-Flink/Delta Connector  includes:
+Flink/Delta Connector includes:
 - `DeltaSink` for writing data from Apache Flink to a Delta table.
 - `DeltaSource` for reading Delta tables using Apache Flink.
 
@@ -21,40 +21,19 @@ Depending on the version of the connector you can use it with following Apache F
 |  0.4.x (Sink Only)  |    >= 1.12.0    |
 |        0.5.x        |    >= 1.13.0    |
 
-<br>
+### APIs
 
-#### Known limitations:
+See the [Java API docs](https://delta-io.github.io/connectors/latest/delta-flink/api/java/index.html) here.
+
+### Known limitations
 
 - The current version only supports Flink `Datastream` API. Support for Flink Table API / SQL, along with Flink Catalog's implementation for storing Delta table's metadata in an external metastore, are planned to be added in the next releases.
 - The current version only provides Delta Lake's transactional guarantees for tables stored on HDFS and Microsoft Azure Storage.
 
-### Delta Source
-#### Modes
-Delta Source can work in one of two modes:
-- `bounded` - suitable for batch jobs, where we want to read content of Delta table for specific Snapshot version only.
-- `continuous` - suitable for streaming jobs, where we want to read content of Delta table for specific snapshot version and continuously check Delta table for new changes and versions.
+## Delta Sink
 
-The `DeltaSource` class provides factory methods to create sources for both modes.
-Please see [documentation](https://delta-io.github.io/connectors/latest/delta-flink/api/java/index.html) and examples for details.
-
-<br>
-
-#### Table schema discovery
-Flink Delta source connector will use Delta table log to discover columns and their types.
-If user did not specify any columns in source definition, all columns from underlying Delta table will be read.
-If user specified a collection of column names, using Delta source builder method, then only those columns will be read from underlying Delta table. 
-In both cases, Source connector will discover what are the Delta types for every column and will convert them to corresponding Flink types.
-
-<br>
-
-#### Partition column discovery
-Flink Delta source connector will use Delta table log to determine which columns are partition columns.
-No additional actions are needed from user end.
-
-
-### Flink metrics
-#### Delta Sink
-Delta Sink currently exposes following Flink metrics:
+### Metrics
+Delta Sink currently exposes the following Flink metrics:
 
 | metric name |                                        description                                        | update interval |
 |:-----------:|:-----------------------------------------------------------------------------------------:|:---------------:|
@@ -62,109 +41,8 @@ Delta Sink currently exposes following Flink metrics:
 |    DeltaSinkRecordsWritten    |     Counter for how many records were written to the actual files on the file system      |  on checkpoint  |
 |    DeltaSinkBytesWritten    | Counter for how many bytes were written to the actual files on the underlying file system |  on checkpoint  |
 
+### Examples
 
-### Java API docs
-
-See the [Java API docs](https://delta-io.github.io/connectors/latest/delta-flink/api/java/index.html) here.
-
-### Usage
-
-You can add the Flink/Delta Connector library as a dependency using your favorite build tool. Please note
-that it expects the following packages to be provided:
-
-- `delta-standalone`
-- `flink-parquet`
-- `flink-table-common`
-- `hadoop-client`
-
-Please see the following build files for more details.
-
-#### Maven
-
-Scala 2.12:
-
-```xml
-
-<project>
-    <properties>
-        <scala.main.version>2.12</scala.main.version>
-        <flink-version>1.12.0</flink-version>
-        <hadoop-version>3.1.0</hadoop-version>
-    </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>io.delta</groupId>
-            <artifactId>delta-flink</artifactId>
-            <version>0.4.1</version>
-        </dependency>
-        <dependency>
-            <groupId>io.delta</groupId>
-            <artifactId>delta-standalone_${scala.main.version}</artifactId>
-            <version>0.4.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-clients_${scala.main.version}</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_${scala.main.version}</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>${hadoop-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-common</artifactId>
-            <version>${flink-version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-runtime-blink_${scala.main.version}</artifactId>
-            <version>${flink-version}</version>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
-</project>
-```
-
-#### SBT
-
-Please replace the versions of the dependencies with the ones you are using.
-
-```
-libraryDependencies ++= Seq(
-  "io.delta" %% "delta-flink" % "0.4.1",
-  "io.delta" %% "delta-standalone" % "0.4.1",  
-  "org.apache.flink" %% "flink-clients" % flinkVersion,
-  "org.apache.flink" %% "flink-parquet" % flinkVersion,
-  "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
-  "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
-  "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided")
-```
-
-## Building
-
-The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-Line-Reference.html).
-
-### Environment requirements
-
-- JDK 8 or above.
-- Scala 2.11 or 2.12.
-
-### Build commands
-
-- To compile the project, run `build/sbt flink/compile`
-- To test the project, run `build/sbt flink/test`
-- To publish the JAR, run `build/sbt flink/publishM2`
-
-## Examples
 #### 1. Sink creation for non-partitioned tables
 
 In this example we show how to create a `DeltaSink` and plug it to an
@@ -224,7 +102,30 @@ public DataStream<RowData> createDeltaSink(
 }
 ```
 
-#### 3. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
+## Delta Source
+
+### Modes
+Delta Source can work in one of two modes:
+- `bounded` - suitable for batch jobs, where we want to read content of Delta table for specific Snapshot version only.
+- `continuous` - suitable for streaming jobs, where we want to read content of Delta table for specific snapshot version and continuously check Delta table for new changes and versions.
+
+The `DeltaSource` class provides factory methods to create sources for both modes.
+Please see [documentation](https://delta-io.github.io/connectors/latest/delta-flink/api/java/index.html) and examples for details.
+
+#### Table schema discovery
+Flink Delta source connector will use Delta table log to discover columns and their types.
+If user did not specify any columns in source definition, all columns from underlying Delta table will be read.
+If user specified a collection of column names, using Delta source builder method, then only those columns will be read from underlying Delta table. 
+In both cases, Source connector will discover what are the Delta types for every column and will convert them to corresponding Flink types.
+
+#### Partition column discovery
+Flink Delta source connector will use Delta table log to determine which columns are partition columns.
+No additional actions are needed from user end.
+
+### Examples
+
+#### 1. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
+
 ```java
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.core.fs.Path;
@@ -247,7 +148,8 @@ public DataStream<RowData> createBoundedDeltaSourceAllColumns(
 }
 ```
 
-#### 4. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example performs Time Travel and loads a historical version.
+#### 2. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example performs Time Travel and loads a historical version.
+
 ```java
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.core.fs.Path;
@@ -272,7 +174,8 @@ public DataStream<RowData> createBoundedDeltaSourceWithTimeTravel(
 }
 ```
 
-#### 5. Source creation for Delta table, to read only user-defined columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
+#### 3. Source creation for Delta table, to read only user-defined columns in bounded mode. Suitable for batch jobs. This example loads the latest table version.
+
 ```java
 public DataStream<RowData> createBoundedDeltaSourceUserColumns(
         StreamExecutionEnvironment env,
@@ -290,7 +193,8 @@ public DataStream<RowData> createBoundedDeltaSourceUserColumns(
 }
 ```
 
-#### 6. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example performs Time Travel to get all changes at and after the historical version, and then monitor for changes. It does not load the full table state at that historical version.
+#### 4. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example performs Time Travel to get all changes at and after the historical version, and then monitors for changes. It does not load the full table state at that historical version.
+
 ```java
 public DataStream<RowData> createContinuousDeltaSourceWithTimeTravel(
         StreamExecutionEnvironment env,
@@ -308,7 +212,8 @@ public DataStream<RowData> createContinuousDeltaSourceWithTimeTravel(
 }
 ```
 
-#### 7. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
+#### 5. Source creation for Delta table, to read all columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
+
 ```java
 public DataStream<RowData> createContinuousDeltaSourceAllColumns(
         StreamExecutionEnvironment env,
@@ -324,7 +229,8 @@ public DataStream<RowData> createContinuousDeltaSourceAllColumns(
 }
 ```
 
-#### 8. Source creation for Delta table, to read only user-defined columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
+#### 6. Source creation for Delta table, to read only user-defined columns in continuous mode. Suitable for streaming jobs. This example loads the latest table version and then monitors for changes.
+
 ```java
 public DataStream<RowData> createContinuousDeltaSourceUserColumns(
         StreamExecutionEnvironment env,
@@ -341,6 +247,102 @@ public DataStream<RowData> createContinuousDeltaSourceUserColumns(
     return env.fromSource(deltaSource, WatermarkStrategy.noWatermarks(), "delta-source");
 }
 ```
+
+## Usage
+
+You can add the Flink/Delta Connector library as a dependency using your favorite build tool. Please note
+that it expects the following packages to be provided:
+
+- `delta-standalone`
+- `flink-parquet`
+- `flink-table-common`
+- `hadoop-client`
+
+Please see the following build files for more details.
+
+### Maven
+
+Scala 2.12:
+
+```xml
+<project>
+    <properties>
+        <scala.main.version>2.12</scala.main.version>
+        <flink-version>1.12.0</flink-version>
+        <hadoop-version>3.1.0</hadoop-version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.delta</groupId>
+            <artifactId>delta-flink</artifactId>
+            <version>0.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.delta</groupId>
+            <artifactId>delta-standalone_${scala.main.version}</artifactId>
+            <version>0.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients_${scala.main.version}</artifactId>
+            <version>${flink-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-parquet_${scala.main.version}</artifactId>
+            <version>${flink-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-client</artifactId>
+            <version>${hadoop-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-common</artifactId>
+            <version>${flink-version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-runtime-blink_${scala.main.version}</artifactId>
+            <version>${flink-version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+### SBT
+
+Please replace the versions of the dependencies with the ones you are using.
+
+```scala
+libraryDependencies ++= Seq(
+  "io.delta" %% "delta-flink" % "0.4.1",
+  "io.delta" %% "delta-standalone" % "0.4.1",  
+  "org.apache.flink" %% "flink-clients" % flinkVersion,
+  "org.apache.flink" %% "flink-parquet" % flinkVersion,
+  "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+  "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
+  "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided")
+```
+
+## Building
+
+The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-Line-Reference.html).
+
+### Environment requirements
+
+- JDK 8 or above.
+- Scala 2.11 or 2.12.
+
+### Build commands
+
+- To compile the project, run `build/sbt flink/compile`
+- To test the project, run `build/sbt flink/test`
+- To publish the JAR, run `build/sbt flink/publishM2`
 
 ## Frequently asked questions (FAQ)
 
