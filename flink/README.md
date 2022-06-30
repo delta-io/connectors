@@ -177,13 +177,6 @@ public DataStream<RowData> createBoundedDeltaSourceAllColumns(
 #### 2. Source creation for Delta table, to read all columns in bounded mode. Suitable for batch jobs. This example performs Time Travel and loads a historical version.
 
 ```java
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.data.RowData;
-import org.apache.hadoop.conf.Configuration;
-
 public DataStream<RowData> createBoundedDeltaSourceWithTimeTravel(
         StreamExecutionEnvironment env,
         String deltaTablePath) {
