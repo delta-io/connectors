@@ -4,6 +4,23 @@
 
 Official Delta Lake connector for [Apache Flink](https://flink.apache.org/).
 
+## Table of contents
+- [Introduction](#introduction)
+  - [APIs](#apis)
+  - [Known limitations](#known-limitations)
+- [Delta Sink](#delta-sink)
+  - [Metrics](#delta-sink-metrics)
+  - [Examples](#delta-sink-examples)
+- [Delta Source](#delta-source)
+  - [Modes](#modes)
+  - [Examples](#delta-source-examples)
+- [Usage](#usage)
+  - [Maven](#maven)
+  - [SBT](#sbt)
+- [Building](#building)
+- [FAQ](#frequently-asked-questions-faq)
+- [Known Issues](#known-issues)
+
 ## Introduction
 
 Flink/Delta Connector is a JVM library to read and write data from Apache Flink applications to Delta tables
@@ -32,6 +49,8 @@ See the [Java API docs](https://delta-io.github.io/connectors/latest/delta-flink
 
 ## Delta Sink
 
+<div id='delta-sink-metrics'></div>
+
 ### Metrics
 Delta Sink currently exposes the following Flink metrics:
 
@@ -41,7 +60,9 @@ Delta Sink currently exposes the following Flink metrics:
 |    DeltaSinkRecordsWritten    |     Counter for how many records were written to the actual files on the file system      |  on checkpoint  |
 |    DeltaSinkBytesWritten    | Counter for how many bytes were written to the actual files on the underlying file system |  on checkpoint  |
 
-### Examples
+<div id='delta-sink-examples'></div>
+
+### Examples <a name="delta-sink-examples"></a>
 
 #### 1. Sink creation for non-partitioned tables
 
@@ -105,6 +126,7 @@ public DataStream<RowData> createDeltaSink(
 ## Delta Source
 
 ### Modes
+
 Delta Source can work in one of two modes:
 - `bounded` - suitable for batch jobs, where we want to read content of Delta table for specific Snapshot version only.
 - `continuous` - suitable for streaming jobs, where we want to read content of Delta table for specific snapshot version and continuously check Delta table for new changes and versions.
@@ -113,14 +135,18 @@ The `DeltaSource` class provides factory methods to create sources for both mode
 Please see [documentation](https://delta-io.github.io/connectors/latest/delta-flink/api/java/index.html) and examples for details.
 
 #### Table schema discovery
+
 Flink Delta source connector will use Delta table log to discover columns and their types.
 If user did not specify any columns in source definition, all columns from underlying Delta table will be read.
 If user specified a collection of column names, using Delta source builder method, then only those columns will be read from underlying Delta table. 
 In both cases, Source connector will discover what are the Delta types for every column and will convert them to corresponding Flink types.
 
 #### Partition column discovery
+
 Flink Delta source connector will use Delta table log to determine which columns are partition columns.
 No additional actions are needed from user end.
+
+<div id='delta-source-examples'></div>
 
 ### Examples
 
@@ -385,7 +411,7 @@ their compatibility. If this check fails (e.g. the change consisted of removing 
 
 ## Known issues:
 
-- (As of 0.4.0) Due to a dependency conflict with some Apache Flink packages, it may be necessary to shade
+- (0.4.x) Due to a dependency conflict with some Apache Flink packages, it may be necessary to shade
   classes from `org.apache.flink.streaming.api.functions.sink.filesystem` package when producing a fat-jar
   with a Flink job that uses this connector before deploying it to a Flink cluster.
   
