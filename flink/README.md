@@ -36,7 +36,7 @@ Depending on the version of the connector you can use it with following Apache F
 | Connector's version | Flink's version |
 |:-------------------:|:---------------:|
 |  0.4.x (Sink Only)  |    >= 1.12.0    |
-|        0.5.x        |    >= 1.13.0    |
+|        0.5.x        |    1.13.0 <= X <= 1.14.5    |
 
 ### APIs
 
