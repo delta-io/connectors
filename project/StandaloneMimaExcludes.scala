@@ -41,7 +41,9 @@ object StandaloneMimaExcludes {
 
     // Public API changes in 0.4.0 -> 0.5.0
     ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionBeforeOrAtTimestamp"),
-    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionAtOrAfterTimestamp")
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getVersionAtOrAfterTimestamp"),
+    ProblemFilters.exclude[MissingClassProblem]("io.delta.standalone.util.ParquetSchemaConverter"),
+    ProblemFilters.exclude[MissingClassProblem]("io.delta.standalone.util.ParquetSchemaConverter$ParquetOutputTimestampType")
 
     // scalastyle:on line.size.limit
   )
