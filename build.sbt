@@ -404,6 +404,26 @@ def scalaCollectionPar(version: String) = version match {
     case _ => Seq()
 }
 
+lazy val utils = (project in file("utils"))
+  .dependsOn(standaloneCosmetic % "provided")
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
+  .settings(
+    name := "delta-utils",
+    commonSettings,
+    publishArtifact := scalaBinaryVersion.value == "2.12", // only publish once
+    autoScalaLibrary := false, // exclude scala-library from dependencies
+    Test / publishArtifact := false,
+    crossPaths := false,
+    libraryDependencies ++= Seq(
+      "org.apache.parquet" % "parquet-hadoop" % "1.12.0" % "provided",
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+
+      // Compiler plugins
+      // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
+      compilerPlugin("com.typesafe.genjavadoc" %% "genjavadoc-plugin" % "0.18" cross CrossVersion.full)
+    )
+  )
+
 lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
@@ -651,6 +671,7 @@ def flinkScalaVersion(scalaBinaryVersion: String): String = {
 val flinkVersion = "1.13.0"
 lazy val flink = (project in file("flink"))
   .dependsOn(standaloneCosmetic % "provided")
+  .dependsOn(utils)
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings (
     name := "delta-flink",

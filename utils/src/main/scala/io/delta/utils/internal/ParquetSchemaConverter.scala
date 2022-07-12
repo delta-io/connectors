@@ -36,15 +36,15 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal.util
+package io.delta.utils.internal
 
+import io.delta.utils.ParquetSchemaConverter.ParquetOutputTimestampType
 import org.apache.parquet.schema.{ConversionPatterns, MessageType, Type, Types}
 import org.apache.parquet.schema.OriginalType._
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 import org.apache.parquet.schema.Type.Repetition._
 
 import io.delta.standalone.types._
-import io.delta.standalone.util.ParquetSchemaConverter.ParquetOutputTimestampType
 
 /**
  * This converter class is used to convert Spark SQL [[StructType]] to Parquet [[MessageType]].
@@ -55,7 +55,7 @@ import io.delta.standalone.util.ParquetSchemaConverter.ParquetOutputTimestampTyp
  *        affects Parquet write path.
  * @param outputTimestampType  which parquet timestamp type to use when writing.
  */
-private[standalone] class SparkToParquetSchemaConverter(
+private[utils] class SparkToParquetSchemaConverter(
     writeLegacyParquetFormat: Boolean,
     outputTimestampType: ParquetOutputTimestampType) {
 
@@ -313,7 +313,7 @@ private[standalone] class SparkToParquetSchemaConverter(
   }
 }
 
-private[internal] object ParquetSchemaConverter {
+private object ParquetSchemaConverter {
   val SPARK_PARQUET_SCHEMA_NAME = "spark_schema"
 
   val EMPTY_MESSAGE: MessageType =
