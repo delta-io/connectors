@@ -404,8 +404,8 @@ def scalaCollectionPar(version: String) = version match {
     case _ => Seq()
 }
 
-lazy val utils = (project in file("utils"))
-  .dependsOn(standaloneCosmetic % "provided")
+lazy val standaloneParquet = (project in file("standalone-parquet"))
+  .dependsOn(standalone % "provided")
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     name := "delta-utils",
@@ -671,7 +671,6 @@ def flinkScalaVersion(scalaBinaryVersion: String): String = {
 val flinkVersion = "1.13.0"
 lazy val flink = (project in file("flink"))
   .dependsOn(standaloneCosmetic % "provided")
-  .dependsOn(utils)
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings (
     name := "delta-flink",
