@@ -55,7 +55,7 @@ import io.delta.standalone.util.ParquetSchemaConverter.ParquetOutputTimestampTyp
  *        affects Parquet write path.
  * @param outputTimestampType  which parquet timestamp type to use when writing.
  */
-private[utils] class SparkToParquetSchemaConverter(
+private[standalone] class SparkToParquetSchemaConverter(
     writeLegacyParquetFormat: Boolean,
     outputTimestampType: ParquetOutputTimestampType) {
 
