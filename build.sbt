@@ -372,6 +372,7 @@ lazy val hive2Tez = (project in file("hive2-tez")) settings (
  * -- .m2/repository/io/delta/delta-standalone_2.12/0.2.1-SNAPSHOT/delta-standalone_2.12-0.2.1-SNAPSHOT-javadoc.jar
  */
 lazy val standaloneCosmetic = project
+  .dependsOn(standaloneParquet)
   .settings(
     name := "delta-standalone",
     commonSettings,
@@ -406,21 +407,13 @@ def scalaCollectionPar(version: String) = version match {
 
 lazy val standaloneParquet = (project in file("standalone-parquet"))
   .dependsOn(standalone % "provided")
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     name := "delta-utils",
     commonSettings,
-    publishArtifact := scalaBinaryVersion.value == "2.12", // only publish once
-    autoScalaLibrary := false, // exclude scala-library from dependencies
-    Test / publishArtifact := false,
-    crossPaths := false,
+    skipReleaseSettings,
     libraryDependencies ++= Seq(
       "org.apache.parquet" % "parquet-hadoop" % "1.12.0" % "provided",
-      "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
-
-      // Compiler plugins
-      // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
-      compilerPlugin("com.typesafe.genjavadoc" %% "genjavadoc-plugin" % "0.18" cross CrossVersion.full)
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
     )
   )
 
@@ -430,7 +423,7 @@ lazy val standalone = (project in file("standalone"))
     name := "delta-standalone-original",
     commonSettings,
     skipReleaseSettings,
-    mimaSettings,
+    mimaSettings, // TODO(scott): move this to standaloneCosmetic
     // When updating any dependency here, we should also review `pomPostProcess` in project
     // `standaloneCosmetic` and update it accordingly.
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(

@@ -16,13 +16,13 @@
 
 package io.delta.flink.misc;
 
-import io.delta.standalone.util.ParquetSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 import org.junit.Test;
 
 import io.delta.standalone.types.LongType;
 import io.delta.standalone.types.StringType;
 import io.delta.standalone.types.StructType;
+import io.delta.standalone.util.ParquetSchemaConverter;
 
 public class TestParquetDependency {
 
