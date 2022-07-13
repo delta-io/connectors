@@ -405,10 +405,15 @@ def scalaCollectionPar(version: String) = version match {
     case _ => Seq()
 }
 
+/**
+ * The public API ParquetSchemaConverter exposes Parquet classes in its methods so we cannot apply
+ * shading rules on it. However, sbt-assembly doesn't allow excluding a single file. Hence, we
+ * create a separate project to skip the shading.
+ */
 lazy val standaloneParquet = (project in file("standalone-parquet"))
   .dependsOn(standalone % "provided")
   .settings(
-    name := "delta-utils",
+    name := "delta-standalone-parquet",
     commonSettings,
     skipReleaseSettings,
     libraryDependencies ++= Seq(
