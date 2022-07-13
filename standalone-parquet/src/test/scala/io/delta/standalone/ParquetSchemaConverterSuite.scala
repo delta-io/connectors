@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package io.delta.utils
+package io.delta.standalone
 
-import io.delta.utils.ParquetSchemaConverter.ParquetOutputTimestampType
 import org.apache.parquet.schema.MessageTypeParser
 import org.scalatest.FunSuite
 
 import io.delta.standalone.types._
+import io.delta.standalone.util.ParquetSchemaConverter
 
 class ParquetSchemaConverterSuite extends FunSuite {
 
@@ -29,7 +29,8 @@ class ParquetSchemaConverterSuite extends FunSuite {
       sqlSchema: StructType,
       parquetSchema: String,
       writeLegacyParquetFormat: Boolean,
-      outputTimestampType: ParquetOutputTimestampType = ParquetOutputTimestampType.INT96): Unit = {
+      outputTimestampType: ParquetSchemaConverter.ParquetOutputTimestampType =
+        ParquetSchemaConverter.ParquetOutputTimestampType.INT96): Unit = {
 
     test(s"sql => parquet: $testName") {
       val actual = ParquetSchemaConverter.deltaToParquet(

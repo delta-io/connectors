@@ -16,7 +16,7 @@
 
 package io.delta.flink.misc;
 
-import io.delta.utils.ParquetSchemaConverter;
+import io.delta.standalone.util.ParquetSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 import org.junit.Test;
 

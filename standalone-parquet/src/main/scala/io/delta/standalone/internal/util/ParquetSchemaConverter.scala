@@ -36,15 +36,15 @@
  * limitations under the License.
  */
 
-package io.delta.utils.internal
+package io.delta.standalone.internal.util
 
-import io.delta.utils.ParquetSchemaConverter.ParquetOutputTimestampType
 import org.apache.parquet.schema.{ConversionPatterns, MessageType, Type, Types}
 import org.apache.parquet.schema.OriginalType._
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName._
 import org.apache.parquet.schema.Type.Repetition._
 
 import io.delta.standalone.types._
+import io.delta.standalone.util.ParquetSchemaConverter.ParquetOutputTimestampType
 
 /**
  * This converter class is used to convert Spark SQL [[StructType]] to Parquet [[MessageType]].
