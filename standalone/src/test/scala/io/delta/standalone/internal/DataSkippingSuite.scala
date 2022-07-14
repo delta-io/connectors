@@ -20,7 +20,7 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, LessThanOrEqual, Literal}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, IsNotNull, LessThan, LessThanOrEqual, Literal, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
@@ -216,7 +216,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 AND col2 == 2) (1 <= i <= 20)
+   * Filter: (col2 == 1 && col2 == 2) (1 <= i <= 20)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 2 && MAX.col2 >= 2)
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
@@ -332,15 +332,15 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 <= 1)
+   * Filter: IsNotNull(col1)
    * Column stats filter: None
    * Output: All files.
-   * Reason: Because LessThanOrEqual is currently unsupported in building column stats predicate,
+   * Reason: Because `IsNotNull` is currently unsupported in building column stats predicate,
    * the column stats filter will be empty and return all the files.
    */
   test("integration test: unsupported expression type") {
     columnStatsBasedFilePruningTest(
-      expr = new LessThanOrEqual(schema.column("col1"), Literal.of(1L)),
+      expr = new IsNotNull(schema.column("col1")),
       matchedFilePaths = (1 to 20).map(_.toString))
   }
 
@@ -495,5 +495,64 @@ class DataSkippingSuite extends FunSuite {
         Literal.of(32000.toShort))
     )
     columnStatsDataTypeTest(hits, misses)
+  }
+
+  /**
+   * Query: (col1 == 1 || col2 == 1) (1 <= i <= 20)
+   * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 || MIN.col2 <= 1 && MAX.col2 >= 1)
+   */
+  test("integration test: OR operation") {
+    val expectedResult = (1 to 20)
+      .filter { i =>
+        (col1Min(i) <= 1 && col1Max(i) >= 1) ||
+          (col2Min(i) <= 1 && col2Max(i) >= 1)
+      }
+      .map(_.toString)
+    columnStatsBasedFilePruningTest(
+      expr = new Or(
+        new EqualTo(schema.column("col1"), Literal.of(1L)),
+        new EqualTo(schema.column("col2"), Literal.of(1L))),
+      expectedResult)
+  }
+
+  test("integration test: column stats predicate building rules") {
+    val col1 = new Column("col1", new LongType)
+    val col2 = new Column("col2", new LongType)
+    val long1 = Literal.of(1L)
+    val long2 = Literal.of(2L)
+    val rules = Seq(
+      new EqualTo(col1, long1) ->
+        ((i: Int) => col1Min(i) <= 1 && col1Max(i) >= 1),
+      new EqualTo(long1, col1) ->
+        ((i: Int) => col1Min(i) <= 1 && col1Max(i) >= 1),
+      new EqualTo(col1, col2) ->
+        ((i: Int) => col1Min(i) <= col2Max(i) && col1Max(i) >= col2Min(i)),
+      new EqualTo(long1, long2) -> ((_: Int) => false),
+
+      new LessThan(col1, long1) -> ((i: Int) => col1Min(i) < 1),
+      new LessThan(long1, col1) -> ((i: Int) => col1Max(i) > 1),
+      new LessThan(col1, col2) -> ((i: Int) => col1Min(i) < col2Max(i)),
+      new LessThan(long1, long2) -> ((_: Int) => true),
+
+      new GreaterThan(col1, long1) -> ((i: Int) => col1Max(i) > 1),
+      new GreaterThan(long1, col1) -> ((i: Int) => col1Min(i) < 1),
+      new GreaterThan(col1, col2) -> ((i: Int) => col1Max(i) > col2Min(i)),
+      new GreaterThan(long1, long2) -> ((_: Int) => false),
+
+      new LessThanOrEqual(col1, long1) -> ((i: Int) => col1Min(i) <= 1),
+      new LessThanOrEqual(long1, col1) -> ((i: Int) => col1Max(i) >= 1),
+      new LessThanOrEqual(col1, col2) -> ((i: Int) => col1Min(i) <= col2Max(i)),
+      new LessThanOrEqual(long1, long2) -> ((_: Int) => true),
+
+      new GreaterThanOrEqual(col1, long1) -> ((i: Int) => col1Max(i) >= 1),
+      new GreaterThanOrEqual(long1, col1) -> ((i: Int) => col1Min(i) <= 1),
+      new GreaterThanOrEqual(col1, col2) -> ((i: Int) => col1Max(i) >= col2Min(i)),
+      new GreaterThanOrEqual(long1, long2) -> ((_: Int) => false)
+    )
+
+    rules.foreach { case (expr, filter) =>
+      val expectedResult = (1 to 20).filter(filter).map(_.toString)
+      columnStatsBasedFilePruningTest(expr, expectedResult)
+    }
   }
 }
