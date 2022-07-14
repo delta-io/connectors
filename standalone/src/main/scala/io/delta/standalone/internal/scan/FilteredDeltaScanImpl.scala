@@ -18,96 +18,77 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
-import scala.util.control.NonFatal
-
-import io.delta.standalone.expressions.Expression
+import io.delta.standalone.expressions.{Expression, Not, Or}
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}
 import io.delta.standalone.internal.data.{ColumnStatsRowRecord, PartitionRowRecord}
-import io.delta.standalone.internal.util.{DataSkippingUtils, PartitionUtils}
+import io.delta.standalone.internal.util.{ColumnStatsPredicate, DataSkippingUtils, PartitionUtils}
 
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
- * those that match the [[getPushedPredicate]] and [[getResidualPredicate]].
+ * those that match the [[getPushedPredicate]].
  *
- * If all the predicates are empty, then all files are returned.
+ * If the pushed predicate is empty, then all files are returned.
  */
 final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
     partitionSchema: StructType,
-    dataSchema: StructType) extends DeltaScanImpl(replay) {
+    tableSchema: StructType) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
-  /**
-   * If column stats filter is evaluated as true, it means some row in this file may meet the query
-   * condition, thus we need to return this file.
-   *
-   * If this is evaluated as false, then no row in this file meets the query condition and we will
-   * skip this file.
-   *
-   * Sometimes this is evaluated as `null` because stats are invalid, then we accept and return this
-   * file to client.
-   */
-  private val columnStatsFilter: Option[Expression] =
-    DataSkippingUtils.constructDataFilters(dataSchema, dataConjunction)
+  // The column stats filter, generated once per query.
+  val columnStatsFilter: Option[Expression] = dataConjunction match {
+    case Some(e: Expression) =>
+      // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
+      // If this passed, it means it is possible that the records in this file contains value can
+      // pass the query predicate.
+      val columnStatsPredicate = DataSkippingUtils.constructDataFilters(tableSchema, e)
 
-  private val statsSchema = DataSkippingUtils.buildStatsSchema(dataSchema)
+      columnStatsPredicate match {
+        case Some(_: ColumnStatsPredicate) =>
+
+          // Append additional expression to verify the stats appears in `columnStatsPredicate` is
+          // valid. If this is failed, it means that the stats is not usable, we should ignore the
+          // column stats filter and accept this.
+          val verificationPredicate = DataSkippingUtils.verifyStatsForFilter(
+            columnStatsPredicate.get.referencedStats)
+
+          // We will accept the file either `columnStatsPredicate` is passed, or the
+          // `verifyStatsForFilter` is failed.
+          Some(new Or(columnStatsPredicate.get.expr, new Not(verificationPredicate)))
+        case _ => None
+      }
+    case _ => None
+  }
 
   override protected def accept(addFile: AddFile): Boolean = {
-    // Evaluate the partition filter.
-    val partitionFilterResult = if (metadataConjunction.isDefined) {
-      val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-      metadataConjunction.get.eval(partitionRowRecord) match {
-        case null => true
-        case result => result.asInstanceOf[Boolean]
-      }
-    } else {
-      true
-    }
+    if (metadataConjunction.isEmpty) return true
+
+    val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
+    val partitionFilterResult = metadataConjunction
+      .get
+      .eval(partitionRowRecord)
+      .asInstanceOf[Boolean]
 
     if (partitionFilterResult && columnStatsFilter.isDefined) {
       // Evaluate the column stats filter when partition filter passed and column stats filter is
-      // not empty.
+      // not empty. This happens once per file.
 
-      // Get stats value from each AddFile.
-      val (fileStats, columnStats) = try {
-        DataSkippingUtils.parseColumnStats(dataSchema, addFile.stats)
-      } catch {
-        // If the stats parsing process failed, accept this file.
-        case NonFatal(_) => return true
-      }
+      // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
+      val (fileLevelStats, columnLevelStats) =
+        DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
 
-      if (fileStats.isEmpty && columnStats.isEmpty) {
-        // If we don't have any stats, skip evaluation and accept this file.
-        return true
-      }
+      // Instantiate the evaluate function based on the parsed column stats
+      val dataRowRecord = new ColumnStatsRowRecord(tableSchema, fileLevelStats, columnLevelStats)
+      val columnStatsFilterResult = columnStatsFilter.get.eval(dataRowRecord)
 
-      // Instantiate the evaluate function based on the parsed column stats.
-      val columnStatsRecord = new ColumnStatsRowRecord(statsSchema, fileStats, columnStats)
-
-      val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
-
-      // During the evaluation, all the stats values will be checked by
-      // `ColumnStatsRowRecord.isNullAt` before get the stats value. If any stats in column stats
-      // filter is missing, the evaluation result will be null. In that case the file will be
-      // accepted.
-      //
-      // Since `ColumnStatsRowRecord.isNullAt` will return null as evaluation result when stats
-      // missing, it will make `IsNull` return true wrongly when `IsNull` is the parent expression
-      // of some expression used `isNullAt`.
-      // For example, `IsNull(MIN.col1)` will be true if MIN.col1 is missing. Meanwhile, `col1` can
-      // be all non-null value.
-      // We avoid this problem by not using `IsNull` expression in any column stats filter.
-      columnStatsFilterResult match {
-        case null => true
-        case result => result.asInstanceOf[Boolean]
-      }
+      columnStatsFilterResult.asInstanceOf[Boolean]
     } else {
       partitionFilterResult
     }

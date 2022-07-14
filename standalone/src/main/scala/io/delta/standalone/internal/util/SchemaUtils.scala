@@ -1,26 +1,4 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/*
- * This file contains code from the Apache Spark project (original license above).
- * It contains modifications, which are licensed as follows:
- */
-
-/*
  * Copyright (2020-present) The Delta Lake Project Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -221,23 +199,13 @@ private[standalone] object SchemaUtils {
     }
   }
 
-  // scalastyle:off line.size.limit
   /**
-   * https://github.com/apache/spark/blob/7358253755762f9bfe6cedc1a50ec14616cfeace/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/analysis/unresolved.scala#L183
-   *
-   * Used to split attribute name by dot with backticks rule.
-   * Backticks must appear in pairs, and the quoted string must be a complete name part,
-   * which means `ab..c`e.f is not allowed.
-   * We can use backtick only inside quoted name parts.
-   *
-   * Correct examples: a.b.c, `a`.b.c, a, path.`to.col`, `col`
-   * Wrong examples: a..b, .a.b, a.b., `ab..c`e.f
-   *
+   * The column name parser from `org/apache/spark/sql/catalyst/analysis/unresolved.scala`
    * @param name The column name to parse
-   * @return The sequence of string representing the path to column, or return None if failed.
+   * @return The sequence of string representing the path to column
    */
-  // scalastyle:on line.size.limit
-  def parseAndValidateColumn(name: String): Option[Seq[String]] = {
+  def parseAndValidateColumn(name: String): Seq[String] = {
+    val e = DeltaErrors.invalidColumnName(name)
     val nameParts = mutable.ArrayBuffer.empty[String]
     val tmp = mutable.ArrayBuffer.empty[Char]
     var inBacktick = false
@@ -251,17 +219,17 @@ private[standalone] object SchemaUtils {
             i += 1
           } else {
             inBacktick = false
-            if (i + 1 < name.length && name(i + 1) != '.') return None
+            if (i + 1 < name.length && name(i + 1) != '.') throw e
           }
         } else {
           tmp += char
         }
       } else {
         if (char == '`') {
-          if (tmp.nonEmpty) return None
+          if (tmp.nonEmpty) throw e
           inBacktick = true
         } else if (char == '.') {
-          if (name(i - 1) == '.' || i == name.length - 1) return None
+          if (name(i - 1) == '.' || i == name.length - 1) throw e
           nameParts += tmp.mkString
           tmp.clear()
         } else {
@@ -270,8 +238,8 @@ private[standalone] object SchemaUtils {
       }
       i += 1
     }
-    if (inBacktick) return None
+    if (inBacktick) throw e
     nameParts += tmp.mkString
-    Some(nameParts.toSeq)
+    nameParts
   }
 }

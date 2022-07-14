@@ -16,15 +16,35 @@
 
 package io.delta.standalone.internal.util
 
+import scala.collection.immutable
+
 import com.fasterxml.jackson.databind.JsonNode
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, LessThanOrEqual, Literal}
-import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.types.{LongType, StructType}
 
+/**
+ * Results returned by [[DataSkippingUtils.constructDataFilters]].
+ *
+ * @param expr The transformed expression for column stats filter.
+ * @param referencedStats Columns appears in [[expr]].
+ */
+private [internal] case class ColumnStatsPredicate(
+    expr: Expression,
+    referencedStats: immutable.Set[Column])
+
+/**
+ * Project Milestone 1: End-to-end implementation
+ * - Implement basic column stats parsing and storage with only one-level schema with unit tests.
+ * - Implement the basic `constructDataFilters` helper support `AND`, `EqualTo`, LiteralType, and
+ *      Column with LongType, with unit tests.
+ * - Implement the `verifyStatsForFilter` helper with unit tests.
+ * - Implement the end to end stats skipping with integration tests.
+ */
 private[internal] object DataSkippingUtils {
 
   // TODO: add extensible storage of column stats name and their data type.
-  //  (data type can be fixed, like type of `NUM_RECORDS` is always LongType)
+  //  (if data type is fixed, like type of `NUM_RECORDS` is always LongType)
   /* The total number of records in the file. */
   final val NUM_RECORDS = "numRecords"
   /* The smallest (possibly truncated) value for a column. */
@@ -34,180 +54,157 @@ private[internal] object DataSkippingUtils {
   /* The number of null values present for a column. */
   final val NULL_COUNT = "nullCount"
 
-  /* The file-specific stats column contains only the column type. e.g.: NUM_RECORD */
-  final val fileStatsPathLength = 1
-  /* The column-specific stats column contains column type and column name. e.g.: MIN.col1 */
-  final val columnStatsPathLength = 2
-
   /**
-   * Build stats schema based on the schema of data columns, the first layer
-   * of stats schema is stats type. If it is a column-specific stats, it nested a second layer,
-   * which contains the column name in table schema. Or if it is a column-specific stats, contains
-   * a non-nested data type.
+   * Parse the stats in AddFile to two maps. The output contains two map distinguishing
+   * the file-level stats and column-level stats.
    *
-   * The layout of stats schema is totally the same as the full stats string in JSON:
-   * (for the table contains column `a` and `b`)
-   * {
-   *  "[[NUM_RECORDS]]": 3,
-   *  "[[MIN]]": {
-   *      "a": 2,
-   *      "b": 1
-   *   }, ... // other stats
-   * }
+   * For file-level stats, like NUM_RECORDS, it only contains one value per file. The key
+   * of file-level stats map is the stats type. And the value of map is stats value.
    *
-   * @param dataSchema The schema of data columns in table.
-   * @return The schema storing the layout of stats columns.
-   */
-  def buildStatsSchema(dataSchema: StructType): StructType = {
-    // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
-    val nonNestedColumns = dataSchema
-      .getFields
-      .filterNot(_.getDataType.isInstanceOf[StructType])
-    nonNestedColumns.length match {
-      case 0 => new StructType()
-      case _ =>
-        val nullCountColumns = nonNestedColumns.map { field =>
-          new StructField(field.getName, new LongType)
-        }
-        new StructType(Array(
-          // MIN and MAX are used the corresponding data column's type.
-          new StructField(MIN, new StructType(nonNestedColumns)),
-          new StructField(MAX, new StructType(nonNestedColumns)),
-
-          // nullCount is using the LongType for all columns
-          new StructField(NULL_COUNT, new StructType(nullCountColumns)),
-
-          // numRecords is a file-specific Long value
-          new StructField(NUM_RECORDS, new LongType)))
-    }
-  }
-
-  /**
-   * Parse the stats in data metadata files to two maps. The output contains two maps
-   * distinguishing the file-specific stats and column-specific stats.
+   * For column-level stats, like MIN, MAX, or NULL_COUNT, they contains one value per column,
+   * so that the key of column-level map is the COMPLETE column name with stats type, like `a.MAX`.
+   * And the corresponding value of map is the stats value.
    *
-   * For file-specific stats, like NUM_RECORDS, it only contains one value per file. The key
-   * of file-specific stats map is the stats type. And the value of map is stats value.
-   *
-   * For column-specific stats, like MIN, MAX, or NULL_COUNT, they contains one value per column at
-   * most, so the key of column-specific map is the stats type with COMPLETE column name, like
-   * `MAX.a`. And the corresponding value of map is the stats value.
+   * Since the structured column don't have column stats, no worry about the duplicated column
+   * names in column-level stats map. For example: if there is a column has the physical name
+   * `a.MAX`, we don't need to worry about it is duplicated with the MAX stats of column `a`,
+   * because the structured column `a` doesn't have column stats.
    *
    * If there is a column name not appears in the table schema, we won't store it.
    *
-   * Example of `statsString` (for the table contains column `a` and `b`):
+   * Example of `statsString`:
    * {
-   *   "[[NUM_RECORDS]]": 3,
-   *   "[[MIN]]": {
+   *  "numRecords": 3,
+   *  "minValues": {
    *      "a": 2,
    *      "b": 1
    *   }, ... // other stats
    * }
    *
-   * The corresponding output will be:
-   * fileStats = Map("[[NUM_RECORDS]]" -> 3)
-   * columnStats = Map("[[MIN]].a" -> 2, "[[MIN]].b" -> 1)
+   * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
-   * Currently nested column is not supported, only [[LongType]] is the supported data type, if
-   * encountered a wrong data type with a known stats type, the method will raise error and should
-   * be handled by caller.
-   *
-   * @param dataSchema  The schema of data columns in table.
-   * @param statsString The JSON-formatted stats in raw string type in table metadata files.
-   * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
-   *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
-   *         [[MAX]], [[NULL_COUNT]].
+   * @param tableSchema The table schema for this query.
+   * @param statsString The json-formatted stats in raw string type in AddFile.
+   * @return file-level stats map: the map stores file-level stats.
+   *         column-level stats map: the map stores column-level stats, like MIN, MAX, NULL_COUNT.
    */
   def parseColumnStats(
-      dataSchema: StructType,
-      statsString: String): (Map[String, Long], Map[String, Long]) = {
-    var fileStats = Map[String, Long]()
-    var columnStats = Map[String, Long]()
+      tableSchema: StructType,
+      statsString: String): (immutable.Map[String, Long], immutable.Map[String, Long]) = {
+    var fileLevelStats: Map[String, Long] = Map()
+    var columnLevelStats: Map[String, Long] = Map()
+    val columnNames = tableSchema.getFieldNames.toSeq
+    // TODO: support nested columns
 
-    val dataColumns = dataSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
-      val statsType = stats._1
-      val statsObj = stats._2
-      if (!statsObj.isObject) {
-        // This is an file-specific stats, like ROW_RECORDS.
-        if (statsType == NUM_RECORDS) {
-          fileStats += (statsType -> statsObj.asText.toLong)
+      if (!stats._2.isObject) {
+        // This is an file-level stats, like ROW_RECORDS.
+        if (stats._1 == NUM_RECORDS) {
+          fileLevelStats += (stats._1 -> stats._2.asText.toLong)
         }
       } else {
-        // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
-        // schema of data columns and fill the column-specific stats map column-by-column if the
-        // column name appears in JSON string.
-        dataColumns.filter(col => statsObj.has(col.getName)).foreach { dataColumn =>
-          // Get stats value by column in data schema.
-          val columnName = dataColumn.getName
-          val statsVal = statsObj.get(columnName)
+        // This is an column-level stats, like MIN_VALUE and MAX_VALUE, iterator through the table
+        // schema and fill the column-level stats map column-by-column if the column name appears
+        // in json string.
+        columnNames.foreach { columnName =>
+          // Get stats value by column name
+          val statsVal = stats._2.get(columnName)
           if (statsVal != null) {
-            val statsName = statsType + "." + dataColumn.getName
+            val statsType = stats._1
+            val statsName = columnName + "." + statsType
             statsType match {
               case MIN | MAX =>
                 // Check the stats type for MIN and MAX, as we only accepting the LongType for now.
-                if (dataColumn.getDataType.isInstanceOf[LongType]) {
-                  columnStats += (statsName -> statsVal.asText.toLong)
+                if (tableSchema.get(columnName).getDataType == new LongType) {
+                  columnLevelStats += (statsName -> statsVal.asText.toLong)
                 }
               case NULL_COUNT =>
-                columnStats += (statsName -> statsVal.asText.toLong)
-              case _ =>
+                columnLevelStats += (statsName -> statsVal.asText.toLong)
             }
           }
         }
       }
     }
-    (fileStats, columnStats)
+    (fileLevelStats, columnLevelStats)
   }
 
-  /** Helper function of building [[Column]] referencing stats value */
-  def statsColumnBuilder(statsType: String, columnName: String, dataType: DataType): Column =
-    new Column(statsType + "." + columnName, dataType)
-
   /**
-   * Build the column stats filter based on query predicate and the schema of data columns.
+   * Build the data filter based on query predicate. Now two rules are applied:
+   * - (col1 == Literal2) -> (col1.MIN <= Literal2 AND col1.MAX >= Literal2)
+   * - constructDataFilters(expr1 AND expr2) ->
+   *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
-   * Assume `col1` and `col2` are columns in query predicate, `l1` and `l2` are two
-   * literal values in query predicate. Let `f` be this method `constructDataFilters`.
-   * Now two rules are applied:
-   * - (col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)
-   * - f(expr1 AND expr2) -> f(expr1) AND f(expr2)
-   *
-   * @param dataSchema      The schema of data columns in table.
-   * @param dataConjunction The non-partition column query predicate.
-   * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
-   *         if met unsupported data type, or unsupported expression type issues.
+   * @param expression The non-partition column query predicate.
+   * @return columnStatsPredicate: Contains the column stats filter expression, and the set of stat
+   *         column that appears in the filter expression, please see [[ColumnStatsPredicate]]
+   *         definition.
    */
   def constructDataFilters(
-      dataSchema: StructType,
-      dataConjunction: Option[Expression]): Option[Expression] =
-    dataConjunction match {
-      case Some(eq: EqualTo) => (eq.getLeft, eq.getRight) match {
+      tableSchema: StructType,
+      expression: Expression): Option[ColumnStatsPredicate] =
+    expression match {
+      case eq: EqualTo => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
-          if (!(dataSchema.contains(columnPath) &&
-            dataSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
-              // Only accepting the LongType column for now.
-              return None
+          if (!(tableSchema.getFieldNames.contains(columnPath) &&
+          tableSchema.get(columnPath).getDataType == new LongType)) {
+            // Only accepting the LongType column for now.
+            return None
           }
-          val minColumn = statsColumnBuilder(MIN, columnPath, new LongType)
-          val maxColumn = statsColumnBuilder(MAX, columnPath, new LongType)
+          val minColumn = new Column(columnPath + "." + MIN, new LongType)
+          val maxColumn = new Column(columnPath + "." + MAX, new LongType)
 
-          Some(new And(
-              new LessThanOrEqual(minColumn, e2),
-              new GreaterThanOrEqual(maxColumn, e2)))
+          Some(ColumnStatsPredicate(
+            new And(new LessThanOrEqual(minColumn, e2),
+              new GreaterThanOrEqual(maxColumn, e2)),
+            Set(minColumn, maxColumn)))
         case _ => None
       }
-      case Some(and: And) =>
-        val e1 = constructDataFilters(dataSchema, Some(and.getLeft))
-        val e2 = constructDataFilters(dataSchema, Some(and.getRight))
+      case and: And =>
+        val e1 = constructDataFilters(tableSchema, and.getLeft)
+        val e2 = constructDataFilters(tableSchema, and.getRight)
 
-        (e1, e2) match {
-          case (Some(e1), Some(e2)) => Some(new And(e1, e2))
-          case _ => None
-        }
+        if (e1.isDefined && e2.isDefined) {
+          Some(ColumnStatsPredicate(
+            new And(e1.get.expr, e2.get.expr),
+            e1.get.referencedStats ++ e2.get.referencedStats))
+        } else None
 
       // TODO: support full types of Expression
       case _ => None
     }
+
+  /**
+   * Generate expression for validating the `referencedStats`. Following is the generation rules for
+   * different stats types (take column `col1` as example):
+   *
+   * - For the MIN and MAX stats in one file, they can either be all null value or all non-null
+   * value. So the validation expression is:
+   * `(col1.MIN is not null) OR (col1.NULL_COUNT == NUM_RECORDS)`
+   *
+   * - For other stats type (like NUM_RECORDS or NULL_COUNT), the validation expression is:
+   * `${STATS_COLUMN} is not null`
+   *
+   * @param referencedStats the set of stats columns, like `a.MAX`, that appears in the
+   *                        `column stats filter` expression, which is generated by
+   *                        [[constructDataFilters]]).
+   * @return The validation expression
+   */
+  def verifyStatsForFilter(referencedStats: immutable.Set[Column]): Expression = {
+    referencedStats.map { refStats =>
+      val pathToColumn = SchemaUtils.parseAndValidateColumn(refStats.name)
+      val statsType = pathToColumn.last
+      statsType match {
+        case MAX | MIN =>
+          val nullCountName = (pathToColumn.dropRight(1) :+ NULL_COUNT).mkString(".")
+          val nullCount = new Column(nullCountName, new LongType())
+          val numRecords = new Column(NUM_RECORDS, new LongType())
+          new Or(new IsNotNull(refStats), new EqualTo(nullCount, numRecords))
+
+        // Skip column stats filter if some column is invalid
+        case "" | null => Literal.False
+        case _ => new IsNotNull(refStats)
+      }
+    }.reduceLeft(new And(_, _))
+  }
 }
