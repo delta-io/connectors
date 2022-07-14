@@ -18,12 +18,12 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
-import io.delta.standalone.expressions.Expression
+import io.delta.standalone.expressions.{Expression, Not, Or}
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}
-import io.delta.standalone.internal.data.PartitionRowRecord
-import io.delta.standalone.internal.util.PartitionUtils
+import io.delta.standalone.internal.data.{ColumnStatsRowRecord, PartitionRowRecord}
+import io.delta.standalone.internal.util.{ColumnStatsPredicate, DataSkippingUtils, PartitionUtils}
 
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
@@ -34,19 +34,64 @@ import io.delta.standalone.internal.util.PartitionUtils
 final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
-    partitionSchema: StructType) extends DeltaScanImpl(replay) {
+    partitionSchema: StructType,
+    tableSchema: StructType) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
+  // The column stats filter, generated once per query.
+  val columnStatsFilter: Option[Expression] = dataConjunction match {
+    case Some(e: Expression) =>
+      // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
+      // If this passed, it means it is possible that the records in this file contains value can
+      // pass the query predicate.
+      val columnStatsPredicate = DataSkippingUtils.constructDataFilters(tableSchema, e)
+
+      columnStatsPredicate match {
+        case Some(_: ColumnStatsPredicate) =>
+
+          // Append additional expression to verify the stats appears in `columnStatsPredicate` is
+          // valid. If this is failed, it means that the stats is not usable, we should ignore the
+          // column stats filter and accept this.
+          val verificationPredicate = DataSkippingUtils.verifyStatsForFilter(
+            columnStatsPredicate.get.referencedStats)
+
+          // We will accept the file either `columnStatsPredicate` is passed, or the
+          // `verifyStatsForFilter` is failed.
+          Some(new Or(columnStatsPredicate.get.expr, new Not(verificationPredicate)))
+        case _ => None
+      }
+    case _ => None
+  }
+
   override protected def accept(addFile: AddFile): Boolean = {
     if (metadataConjunction.isEmpty) return true
 
     val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-    val result = metadataConjunction.get.eval(partitionRowRecord)
-    result.asInstanceOf[Boolean]
+    val partitionFilterResult = metadataConjunction
+      .get
+      .eval(partitionRowRecord)
+      .asInstanceOf[Boolean]
+
+    if (partitionFilterResult && columnStatsFilter.isDefined) {
+      // Evaluate the column stats filter when partition filter passed and column stats filter is
+      // not empty. This happens once per file.
+
+      // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
+      val (fileLevelStats, columnLevelStats) =
+        DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
+
+      // Instantiate the evaluate function based on the parsed column stats
+      val dataRowRecord = new ColumnStatsRowRecord(tableSchema, fileLevelStats, columnLevelStats)
+      val columnStatsFilterResult = columnStatsFilter.get.eval(dataRowRecord)
+
+      columnStatsFilterResult.asInstanceOf[Boolean]
+    } else {
+      partitionFilterResult
+    }
   }
 
   override def getInputPredicate: Optional[Expression] = Optional.of(expr)

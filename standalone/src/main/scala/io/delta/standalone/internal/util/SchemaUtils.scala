@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal.util
 
+import scala.collection.mutable
+
 import io.delta.standalone.exceptions.DeltaStandaloneException
 import io.delta.standalone.types.{ArrayType, DataType, MapType, StructField, StructType}
 
@@ -195,5 +197,49 @@ private[standalone] object SchemaUtils {
         throw new DeltaStandaloneException(message)
       }
     }
+  }
+
+  /**
+   * The column name parser from `org/apache/spark/sql/catalyst/analysis/unresolved.scala`
+   * @param name The column name to parse
+   * @return The sequence of string representing the path to column
+   */
+  def parseAndValidateColumn(name: String): Seq[String] = {
+    val e = DeltaErrors.invalidColumnName(name)
+    val nameParts = mutable.ArrayBuffer.empty[String]
+    val tmp = mutable.ArrayBuffer.empty[Char]
+    var inBacktick = false
+    var i = 0
+    while (i < name.length) {
+      val char = name(i)
+      if (inBacktick) {
+        if (char == '`') {
+          if (i + 1 < name.length && name(i + 1) == '`') {
+            tmp += '`'
+            i += 1
+          } else {
+            inBacktick = false
+            if (i + 1 < name.length && name(i + 1) != '.') throw e
+          }
+        } else {
+          tmp += char
+        }
+      } else {
+        if (char == '`') {
+          if (tmp.nonEmpty) throw e
+          inBacktick = true
+        } else if (char == '.') {
+          if (name(i - 1) == '.' || i == name.length - 1) throw e
+          nameParts += tmp.mkString
+          tmp.clear()
+        } else {
+          tmp += char
+        }
+      }
+      i += 1
+    }
+    if (inBacktick) throw e
+    nameParts += tmp.mkString
+    nameParts
   }
 }
