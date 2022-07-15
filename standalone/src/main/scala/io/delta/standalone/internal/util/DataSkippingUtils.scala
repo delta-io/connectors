@@ -38,7 +38,7 @@ private [internal] case class ColumnStatsPredicate(
  * - Implement basic column stats parsing and storage with only one-level schema with unit tests.
  * - Implement the basic `constructDataFilters` helper support `AND`, `EqualTo`, LiteralType, and
  *      Column with LongType, with unit tests.
- * - Implement the `verifyStatsForFilter` helper with unit tests.
+ * - Implement the [[DataSkippingUtils.generateVerifyStatsExpr]] helper with unit tests.
  * - Implement the end to end stats skipping with integration tests.
  */
 private[internal] object DataSkippingUtils {
@@ -190,7 +190,7 @@ private[internal] object DataSkippingUtils {
    *                        [[constructDataFilters]]).
    * @return The validation expression
    */
-  def verifyStatsForFilter(referencedStats: immutable.Set[Column]): Expression = {
+  def generateVerifyStatsExpr(referencedStats: immutable.Set[Column]): Expression = {
     referencedStats.map { refStats =>
       val pathToColumn = SchemaUtils.parseAndValidateColumn(refStats.name)
       val statsType = pathToColumn.last

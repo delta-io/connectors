@@ -25,11 +25,39 @@ import io.delta.standalone.types.{LongType, StructType}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.SchemaUtils
 
-
+/**
+ * Provide table schema and stats value for columns evaluation, with various of data types.
+ *
+ * Example: Assume we have a table schema like this: table1(col1: (col1_1: long, col1_2:long)),
+ * with the only supported stats type NUM_RECORDS and MIN.
+ *
+ * [[fileValues]] will be like: {"NUM_RECORDS": 1}
+ * [[columnValues]] will be like:
+ * {
+ *  "col1.col1_1.MIN": 2,
+ *  "col1.col1_2.MIN": 3
+ * }
+ *
+ * Evaluating the expression EqualTo(Column("NUM_RECORDS", Long), Column("col1.col1_2.MIN", Long)),
+ * [[getLong]] would be called twice to get the data from two maps.
+ *
+ * In [[getLong]], it will firstly distinguish the stats type, like MIN or NUM_RECORDS, then find
+ * the value in the corresponding map, then return the value for Column evaluation.
+ *
+ * When calling [[getLong]] for Column("NUM_RECORDS", Long), it finds that this is a file-specific
+ * stats, so returning fileValues["NUM_RECORDS"].
+ *
+ * When colling [[getLong]] for Column("col1.col1_2.MIN", Long), it finds that this is a
+ * column-specific class, so returning columnValues["col1.col1_2.MIN"].
+ *
+ * @param tableSchema The schema of scanning table, loaded from table metadata.
+ * @param fileValues file-specific stats, like NUM_RECORDS.
+ * @param columnValues column-specific stats, like MIN, MAX, or NULL_COUNT.
+ */
 private[internal] class ColumnStatsRowRecord(
     tableSchema: StructType,
-    fileStatsValues: collection.Map[String, Long],
-    columnStatsValues: collection.Map[String, Long]) extends RowRecordJ {
+    fileValues: collection.Map[String, Long],
+    columnValues: collection.Map[String, Long]) extends RowRecordJ {
 
   override def getSchema: StructType = tableSchema
 
@@ -37,8 +65,8 @@ private[internal] class ColumnStatsRowRecord(
 
   // if a column not exists either in `fileStatsValues` or `columnStatsValues`, then it is missing.
   override def isNullAt(fieldName: String): Boolean = {
-    !fileStatsValues.exists(_._1 == fieldName) &&
-    !columnStatsValues.exists(_._1 == fieldName)
+    !fileValues.exists(_._1 == fieldName) &&
+    !columnValues.exists(_._1 == fieldName)
   }
 
   // TODO: add extensible storage of column stats name and their data type.
@@ -56,14 +84,6 @@ private[internal] class ColumnStatsRowRecord(
     throw new UnsupportedOperationException("Int is not a supported column stats type.")
   }
 
-  // Assume we have the following table schema,
-  // - a
-  // - b
-  // and with the following nested column stats:
-  // - a
-  // - - MAX
-  // - b
-  // - - MAX
   override def getLong(fieldName: String): Long = {
 
     // Parse nested column name: a.MAX => Seq(a, MAX)
@@ -77,14 +97,14 @@ private[internal] class ColumnStatsRowRecord(
       // stats type.
       case NUM_RECORDS if pathToColumn.length == 1 =>
         // File-level column name should only have the stats type as name
-        fileStatsValues.get(fieldName)
+        fileValues.get(fieldName)
 
       // For the column-level stats type, like MIN or MAX, we get value from columnStatsValues map
       // by the COMPLETE column name with stats type, like `a.MAX`.
       case NULL_COUNT if pathToColumn.length == 2 =>
         // Currently we only support non-nested columns, so the `pathToColumn` should only contain
         // 2 parts: the column name and the stats type.
-        columnStatsValues.get(fieldName)
+        columnValues.get(fieldName)
 
       case MIN | MAX if pathToColumn.length == 2 =>
         val columnName = pathToColumn.head
@@ -94,7 +114,7 @@ private[internal] class ColumnStatsRowRecord(
           if (dataTypeInSchema.equals(new LongType)) {
             // ensure that the data type in table schema is the same as it in stats storage.
             // For now we only accept LongType.
-            columnStatsValues.get(fieldName)
+            columnValues.get(fieldName)
           } else None
         } else None
 
