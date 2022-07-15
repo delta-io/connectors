@@ -24,6 +24,7 @@ import io.delta.standalone.expressions.{And, EqualTo, GreaterThanOrEqual, Litera
 import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import io.delta.standalone.internal.util.DataSkippingUtils
 import io.delta.standalone.internal.util.TestUtils._
 
 class DataSkippingSuite extends FunSuite {
@@ -101,9 +102,12 @@ class DataSkippingSuite extends FunSuite {
   withLog(files) { log =>
     val scan = log.update().scan(new And(dataConjunct, metadataConjunct))
     val iter = scan.getFiles
+    var resFiles: Seq[String] = Seq()
     while (iter.hasNext) {
-      // print the index of accepted files
-      print(iter.next().getPath + "\n")
+      // get the index of accepted files
+      resFiles = resFiles :+ iter.next().getPath
     }
+    assert(resFiles.length == 4)
+    assert(resFiles == Seq("1", "7", "13", "19"))
   }
 }

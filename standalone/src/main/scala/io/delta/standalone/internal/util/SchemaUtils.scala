@@ -240,6 +240,6 @@ private[standalone] object SchemaUtils {
     }
     if (inBacktick) throw e
     nameParts += tmp.mkString
-    nameParts
+    nameParts.toSeq
   }
 }

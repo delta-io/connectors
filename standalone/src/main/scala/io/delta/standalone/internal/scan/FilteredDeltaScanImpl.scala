@@ -18,6 +18,9 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.JsonMappingException
+
 import io.delta.standalone.expressions.{Expression, Not, Or}
 import io.delta.standalone.types.StructType
 
@@ -56,7 +59,7 @@ final private[internal] class FilteredDeltaScanImpl(
           // Append additional expression to verify the stats appears in `columnStatsPredicate` is
           // valid. If this is failed, it means that the stats is not usable, we should ignore the
           // column stats filter and accept this.
-          val verificationPredicate = DataSkippingUtils.verifyStatsForFilter(
+          val verificationPredicate = DataSkippingUtils.generateVerifyStatsExpr(
             columnStatsPredicate.get.referencedStats)
 
           // We will accept the file either `columnStatsPredicate` is passed, or the
@@ -81,14 +84,30 @@ final private[internal] class FilteredDeltaScanImpl(
       // not empty. This happens once per file.
 
       // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
-      val (fileLevelStats, columnLevelStats) =
+      val (fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
+      } catch {
+        // If the stats parsing process failed, skip column stats filter.
+        case _: Exception => return true
+      }
 
       // Instantiate the evaluate function based on the parsed column stats
-      val dataRowRecord = new ColumnStatsRowRecord(tableSchema, fileLevelStats, columnLevelStats)
-      val columnStatsFilterResult = columnStatsFilter.get.eval(dataRowRecord)
+      val columnStatsRecord = new ColumnStatsRowRecord(tableSchema, fileStats, columnStats)
 
-      columnStatsFilterResult.asInstanceOf[Boolean]
+      val columnStatsFilterResult = try {
+        columnStatsFilter.get.eval(columnStatsRecord)
+      } catch {
+        // If errors are raised during evaluation, skip column stats filter.
+        case _: NullPointerException => null
+        case _: UnsupportedOperationException => null
+      }
+
+      columnStatsFilterResult match {
+        // If the expression is not evaluated correctly, skip column stats filter.
+        case null => true
+
+        case _ => columnStatsFilterResult.asInstanceOf[Boolean]
+      }
     } else {
       partitionFilterResult
     }
