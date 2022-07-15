@@ -18,10 +18,7 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
-import com.fasterxml.jackson.core.JsonProcessingException
-import com.fasterxml.jackson.databind.JsonMappingException
-
-import io.delta.standalone.expressions.{Expression, Not, Or}
+import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}
@@ -46,38 +43,26 @@ final private[internal] class FilteredDeltaScanImpl(
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
   // The column stats filter, generated once per query.
-  val columnStatsFilter: Option[Expression] = dataConjunction match {
+  val columnStatsFilter: Option[ColumnStatsPredicate] = dataConjunction match {
     case Some(e: Expression) =>
       // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
       // If this passed, it means it is possible that the records in this file contains value can
       // pass the query predicate.
-      val columnStatsPredicate = DataSkippingUtils.constructDataFilters(tableSchema, e)
-
-      columnStatsPredicate match {
-        case Some(_: ColumnStatsPredicate) =>
-
-          // Append additional expression to verify the stats appears in `columnStatsPredicate` is
-          // valid. If this is failed, it means that the stats is not usable, we should ignore the
-          // column stats filter and accept this.
-          val verificationPredicate = DataSkippingUtils.generateVerifyStatsExpr(
-            columnStatsPredicate.get.referencedStats)
-
-          // We will accept the file either `columnStatsPredicate` is passed, or the
-          // `verifyStatsForFilter` is failed.
-          Some(new Or(columnStatsPredicate.get.expr, new Not(verificationPredicate)))
-        case _ => None
-      }
+      DataSkippingUtils.constructDataFilters(tableSchema, e)
     case _ => None
   }
 
   override protected def accept(addFile: AddFile): Boolean = {
-    if (metadataConjunction.isEmpty) return true
-
-    val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-    val partitionFilterResult = metadataConjunction
-      .get
-      .eval(partitionRowRecord)
-      .asInstanceOf[Boolean]
+    // Evaluate the partition filter
+    val partitionFilterResult = if (metadataConjunction.isDefined) {
+      val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
+      metadataConjunction.get.eval(partitionRowRecord) match {
+        case null => true
+        case evalOutput => evalOutput.asInstanceOf[Boolean]
+      }
+    } else {
+      true
+    }
 
     if (partitionFilterResult && columnStatsFilter.isDefined) {
       // Evaluate the column stats filter when partition filter passed and column stats filter is
@@ -87,23 +72,28 @@ final private[internal] class FilteredDeltaScanImpl(
       val (fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
       } catch {
-        // If the stats parsing process failed, skip column stats filter.
+        // If the stats parsing process failed, not skipping this file.
         case _: Exception => return true
       }
 
       // Instantiate the evaluate function based on the parsed column stats
       val columnStatsRecord = new ColumnStatsRowRecord(tableSchema, fileStats, columnStats)
 
-      val columnStatsFilterResult = try {
-        columnStatsFilter.get.eval(columnStatsRecord)
-      } catch {
-        // If errors are raised during evaluation, skip column stats filter.
-        case _: NullPointerException => null
-        case _: UnsupportedOperationException => null
+      // Verify whether the stats column appears in `columnStatsPredicate` is valid. If we find any
+      // stats column in the filter that not appears in row record, then the filter is not
+      // usable. We should not skipping this file.
+      columnStatsFilter.get.referencedStats.foreach { statsCol =>
+        // now only support LongType.
+        if (columnStatsRecord.isNullAt(statsCol.name)) {
+          // If any stats in the column stats filter is null or missing, not skipping this file.
+          return true
+        }
       }
+      // Evaluate the filter, this guarantees that all stats can be found in row record.
+      val columnStatsFilterResult = columnStatsFilter.get.expr.eval(columnStatsRecord)
 
       columnStatsFilterResult match {
-        // If the expression is not evaluated correctly, skip column stats filter.
+        // If the expression is not evaluated correctly, not skipping this file.
         case null => true
 
         case _ => columnStatsFilterResult.asInstanceOf[Boolean]
