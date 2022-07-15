@@ -111,10 +111,10 @@ class DataSkippingSuite extends FunSuite {
   /** Integration test */
   // A sketchy demo:
   //
-  // table schema: (col1: int, col2: int) s partition column
+  // table schema: (col1: int, col2: int, col3: int) s partition column
   //
   // `files`: rows of data in table, for the i-th file in `files`,
-  //    file.path = i, file.col1 = i % 2, file.col2 = i % 3
+  //    file.path = i, file.col1 = i % 2, file.col2 = i % 3, file.col3 = i % 4
   //
   // range of `i` is from 1 to 20.
   //
@@ -135,9 +135,16 @@ class DataSkippingSuite extends FunSuite {
       new EqualTo(schema.column("col3"), Literal.of(1L))), Seq("1", "13"))
   }
 
-  test("test column stats filter on 1 partition column - impossible") {
-    // Filter: (i % 3 == 1 AND i % 4 == 1) (1 <= i <= 20)
-    // Output: i = 1 or 13
+  test("test multiple filter on 1 partition column - duplicate") {
+    // Filter: (i % 4 == 1 AND i % 4 == 1) (1 <= i <= 20)
+    // Output: i = 1 or 5 or 9 or 13 or 17
+    testExpression(new And(new EqualTo(schema.column("col3"), Literal.of(1L)),
+      new EqualTo(schema.column("col3"), Literal.of(1L))), Seq("1", "5", "9", "13", "17"))
+  }
+
+  test("test multiple filter on 1 partition column - impossible") {
+    // Filter: (i % 3 == 1 AND i % 3 == 2) (1 <= i <= 20)
+    // Output: No file meets the condition
     testExpression(new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
       new EqualTo(schema.column("col2"), Literal.of(2L))), Seq())
   }
