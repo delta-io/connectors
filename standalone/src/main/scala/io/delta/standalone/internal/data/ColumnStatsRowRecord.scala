@@ -27,27 +27,35 @@ import io.delta.standalone.internal.util.SchemaUtils
 /**
  * Provide table schema and stats value for columns evaluation, with various of data types.
  *
- * Example: Assume we have a table schema like this: table1(col1: (col1_1: long, col1_2:long)),
+ * Example: Assume we have a table schema like this: table1(col1: long, col2:long)),
  * with the only supported stats type NUM_RECORDS and MIN.
  *
  * [[fileValues]] will be like: {"NUM_RECORDS": 1}
  * [[columnValues]] will be like:
  * {
- *  "col1.col1_1.MIN": 2,
- *  "col1.col1_2.MIN": 3
+ *  "col1.MIN": 2,
+ *  "col2.MIN": 3
  * }
  *
- * Evaluating the expression EqualTo(Column("NUM_RECORDS", Long), Column("col1.col1_2.MIN", Long)),
+ * When evaluating the expression EqualTo(Column("NUM_RECORDS", Long), Column("col2.MIN", Long)),
  * [[getLong]] would be called twice to get the data from two maps.
  *
- * In [[getLong]], it will firstly distinguish the stats type, like MIN or NUM_RECORDS, then find
- * the value in the corresponding map, then return the value for Column evaluation.
+ * In [[getLong]], it will firstly distinguish the stats type, like MIN is a column-specific class
+ * or NUM_RECORDS is a file-specific class, then find the stats value in the corresponding map, then
+ * return the value for Column evaluation.
  *
- * When calling [[getLong]] for Column("NUM_RECORDS", Long), it finds that this is a file-specific
+ * When calling [[getLong]] for Column("NUM_RECORDS", Long), since NUM_RECORDS is a file-specific
  * stats, so returning fileValues["NUM_RECORDS"].
  *
- * When colling [[getLong]] for Column("col1.col1_2.MIN", Long), it finds that this is a
- * column-specific class, so returning columnValues["col1.col1_2.MIN"].
+ * When calling [[getLong]] for Column("col2.MIN", Long), since MIN is a column-specific class, so
+ * returning columnValues["col2.MIN"].
+ *
+ * The [[getLong]] function guarantees to return a Long value during evaluation, because
+ * [[isNullAt]] function is called before [[getLong]] to pre-check that there is a value with
+ * correct data type and correct column name stored in the map.
+ *
+ * It is also guaranteed that the [[IsNull]] or [[IsNotNull]] won't appears in column stats
+ * predicate, so [[isNullAt]] will only work for pre-checking when evaluating the column.
  *
  * @param tableSchema The schema of scanning table, loaded from table metadata.
  * @param fileValues file-specific stats, like NUM_RECORDS.
@@ -62,6 +70,7 @@ private[internal] class ColumnStatsRowRecord(
 
   override def getLength: Int = tableSchema.length()
 
+  /** Return a None if the stats is not found, return Some(Long) if it's found. */
   def getLongOrNone(fieldName: String): Option[Long] = {
     // Parse nested column name: a.MAX => Seq(a, MAX)
     val pathToColumn = SchemaUtils.parseAndValidateColumn(fieldName)
@@ -99,7 +108,7 @@ private[internal] class ColumnStatsRowRecord(
     }
   }
 
-  /** if a column not exists either in `fileValues` or `columnValues`, then it is missing. */
+  /** if a column not exists either in value map, then it is missing, will return true. */
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty
   }
@@ -119,7 +128,7 @@ private[internal] class ColumnStatsRowRecord(
     throw new UnsupportedOperationException("Int is not a supported column stats type.")
   }
 
-  /** getLongOrNone must return the field name here as we have */
+  /** getLongOrNone must return the field name here as we have pre-checked by [[isNullAt]] */
   override def getLong(fieldName: String): Long = getLongOrNone(fieldName).get
 
   override def getByte(fieldName: String): Byte =
