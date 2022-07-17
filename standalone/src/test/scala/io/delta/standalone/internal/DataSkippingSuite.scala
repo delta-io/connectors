@@ -208,9 +208,11 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * The unit test method for constructDataFilter.
-   * @param in     input query predicate
-   * @param target output column stats predicate from [[DataSkippingUtils.constructDataFilters]]
-   *               in string, will be None if the method returned empty expression.
+   * @param in              input query predicate
+   * @param target          output column stats predicate from
+   *                        [[DataSkippingUtils.constructDataFilters]] in string, will be None if
+   *                        the method returned empty expression.
+   * @param isSchemaMissing if true, testing with empty schema
    */
   def constructDataFilterTest(
       in: Expression,
@@ -434,7 +436,7 @@ class DataSkippingSuite extends FunSuite {
   /**
    * Filter: (parentCol.subCol1 == 1)
    * Output: path = nested
-   * Reason: The nested file still returned thought it is not qualified in the query predicate.
+   * Reason: The nested file still returned though it is not qualified in the query predicate.
    * Because nested tables are not supported.
    */
   test("integration test: unsupported nested column") {
