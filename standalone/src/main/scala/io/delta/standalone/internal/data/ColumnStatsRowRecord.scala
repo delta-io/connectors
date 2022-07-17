@@ -22,7 +22,7 @@ import java.util
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.types.{LongType, StructType}
 
-import io.delta.standalone.internal.util.SchemaUtils
+import io.delta.standalone.internal.util.{DataSkippingUtils, SchemaUtils}
 
 /**
  * Provide table schema and stats value for columns evaluation, with various of data types.
@@ -72,7 +72,7 @@ private[internal] class ColumnStatsRowRecord(
 
   /** Return a None if the stats is not found, return Some(Long) if it's found. */
   def getLongOrNone(fieldName: String): Option[Long] = {
-    // Parse nested column name: a.MAX => Seq(a, MAX)
+    // Parse column name with stats type: a.MAX => Seq(a, MAX)
     val pathToColumn = SchemaUtils.parseAndValidateColumn(fieldName)
 
     // In stats column the last element is stats type
@@ -81,18 +81,18 @@ private[internal] class ColumnStatsRowRecord(
     statsType match {
       // For the file-level column, like NUM_RECORDS, we get value from fileValues map by
       // stats type.
-      case NUM_RECORDS if pathToColumn.length == 1 =>
+      case DataSkippingUtils.NUM_RECORDS if pathToColumn.length == 1 =>
         // File-level column name should only have the stats type as name
         fileValues.get(fieldName)
 
       // For the column-level stats type, like MIN or MAX, we get value from columnValues map
       // by the COMPLETE column name with stats type, like `a.MAX`.
-      case NULL_COUNT if pathToColumn.length == 2 =>
+      case DataSkippingUtils.NULL_COUNT if pathToColumn.length == 2 =>
         // Currently we only support non-nested columns, so the `pathToColumn` should only contain
         // 2 parts: the column name and the stats type.
         columnValues.get(fieldName)
 
-      case MIN | MAX if pathToColumn.length == 2 =>
+      case DataSkippingUtils.MIN | DataSkippingUtils.MAX if pathToColumn.length == 2 =>
         val columnName = pathToColumn.head
         if (tableSchema.getFieldNames.contains(columnName)) {
           // ensure that such column name exists in table schema
@@ -112,17 +112,6 @@ private[internal] class ColumnStatsRowRecord(
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty
   }
-
-  // TODO: add extensible storage of column stats name and their data type.
-  //  (if data type is fixed, like type of `NUM_RECORDS` is always LongType)
-  /* The total number of records in the file. */
-  final val NUM_RECORDS = "numRecords"
-  /* The smallest (possibly truncated) value for a column. */
-  final val MIN = "minValues"
-  /* The largest (possibly truncated) value for a column. */
-  final val MAX = "maxValues"
-  /* The number of null values present for a column. */
-  final val NULL_COUNT = "nullCount"
 
   override def getInt(fieldName: String): Int = {
     throw new UnsupportedOperationException("Int is not a supported column stats type.")

@@ -20,10 +20,11 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, EqualTo, Expression, Literal}
-import io.delta.standalone.types.{LongType, StructField, StructType}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal}
+import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import io.delta.standalone.internal.util.DataSkippingUtils
 import io.delta.standalone.internal.util.TestUtils._
 
 class DataSkippingSuite extends FunSuite {
@@ -36,7 +37,8 @@ class DataSkippingSuite extends FunSuite {
   private val schema = new StructType(Array(
     new StructField("col1", new LongType(), true),
     new StructField("col2", new LongType(), true),
-    new StructField("col3", new LongType(), true)
+    new StructField("col3", new LongType(), true),
+    new StructField("col4", new StringType(), true)
   ))
 
   val metadata: Metadata = Metadata(partitionColumns = partitionSchema.getFieldNames,
@@ -46,23 +48,27 @@ class DataSkippingSuite extends FunSuite {
     val col1Value = (i % 2).toString
     val col2Value = (i % 3).toString
     val col3Value = (i % 4).toString
+    val col4Value = "null"
     val partitionValues = Map("col1" -> col1Value)
     val flatColumnStats = ("\"" + s"""
       | {
       |   "minValues": {
       |     "col1":$col1Value,
       |     "col2":$col2Value,
-      |     "col3":$col3Value
+      |     "col3":$col3Value,
+      |     "col4":$col4Value
       |   },
       |   "maxValues": {
       |     "col1":$col1Value,
       |     "col2":$col2Value,
-      |     "col3":$col3Value
+      |     "col3":$col3Value,
+      |     "col4":$col4Value
       |   },
       |   "nullCount": {
       |     "col1": 0,
       |     "col2": 0,
-      |     "col3": 0
+      |     "col3": 0,
+      |     "col4": 1
       |   },
       |   "numRecords":1
       | }
@@ -76,27 +82,17 @@ class DataSkippingSuite extends FunSuite {
 
   private val dataConjunct = new EqualTo(schema.column("col2"), Literal.of(1L))
 
-  def withLog(actions: Seq[Action])(test: DeltaLog => Unit): Unit = {
+  def withDeltaLog(actions: Seq[Action]) (l: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, op, "engineInfo")
       log.startTransaction().commit(actions, op, "engineInfo")
-
-      test(log)
-    }
-  }
-
-  def withDeltaLog (l: DeltaLog => Unit): Unit = {
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, op, "engineInfo")
-      log.startTransaction().commit(files, op, "engineInfo")
       l(log)
     }
   }
 
   def testExpression(expr: Expression, target: Seq[String]): Unit = {
-    withDeltaLog { log =>
+    withDeltaLog(files) { log =>
       val scan = log.update().scan(expr)
       val iter = scan.getFiles
       var resFiles: Seq[String] = Seq()
@@ -108,7 +104,73 @@ class DataSkippingSuite extends FunSuite {
     }
   }
 
+  /**
+   * The unit test function for constructDataFilter.
+   * @param in     input query predicate
+   * @param target output column stats predicate from [[DataSkippingUtils.constructDataFilters]]
+   *               in string, will be None if the method returned empty expression.
+   */
+  def constructDataFilterTest(
+      in: Expression,
+      target: Option[String],
+      isSchemaMissing: Boolean = false): Unit = {
+    val tableSchema = if (isSchemaMissing) new StructType(Array()) else schema
+    val output = DataSkippingUtils.constructDataFilters(
+      tableSchema = tableSchema,
+      expression = in)
+
+    assert(output.isDefined == target.isDefined)
+    if (target.isDefined) {
+      assert(target.get == output.get.expr.toString)
+    }
+  }
+
+  /**
+   * Unit test - constructDataFilters
+   */
+  test("filter construction: (col2 = 1)") {
+    constructDataFilterTest(
+      in = new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
+      target = Some("((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1))")
+    )}
+
+  test("filter construction: (col2 = 1 && col3 = 1)") {
+    constructDataFilterTest(
+      in = new And(new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
+        new EqualTo(new Column("col3", new LongType), Literal.of(1L))),
+      target = Some("(((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1)) &&" +
+        " ((Column(col3.minValues) <= 1) && (Column(col3.maxValues) >= 1)))")
+    )}
+
+  test("filter construction: (col2 >= 1) the expression '>=' is not supported") {
+    constructDataFilterTest(
+      in = new GreaterThanOrEqual(new Column("col2", new LongType), Literal.of(1L)),
+      target = None
+    )}
+
+  test("filter construction: (col2 IS NOT NULL) the expression 'IsNotNull' is not supported") {
+    constructDataFilterTest(
+      in = new IsNotNull(new Column("col2", new LongType)),
+      target = None
+    )}
+
+  test("filter construction: (col4 = 1) null value in stats will be ignored") {
+    constructDataFilterTest(
+      in = new EqualTo(new Column("col4", new LongType), Literal.of(1L)),
+      target = None
+    )}
+
+  test("filter construction: (col2 = 1) empty expression will return if schema is missing") {
+    constructDataFilterTest(
+      in = new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
+      target = None,
+      isSchemaMissing = true
+    )}
+
   /** Integration test */
+  // empty, MIN, MAX, NUM_RECORDS, NULL_VALUE, nested col - discard, unknown col
+
+
   // A sketchy demo:
   //
   // table schema: (col1: int, col2: int, col3: int) s partition column
