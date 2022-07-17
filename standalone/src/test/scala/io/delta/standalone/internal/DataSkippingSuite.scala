@@ -16,6 +16,7 @@
 
 package io.delta.standalone.internal
 
+import com.fasterxml.jackson.core.io.JsonEOFException
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
@@ -31,81 +32,182 @@ class DataSkippingSuite extends FunSuite {
   private val op = new Operation(Operation.Name.WRITE)
 
   private val partitionSchema = new StructType(Array(
-    new StructField("col1", new LongType(), true)
+    new StructField("partitionCol", new LongType(), true)
   ))
 
   private val schema = new StructType(Array(
+    new StructField("partitionCol", new LongType(), true),
     new StructField("col1", new LongType(), true),
     new StructField("col2", new LongType(), true),
-    new StructField("col3", new LongType(), true),
-    new StructField("col4", new StringType(), true)
+    new StructField("stringCol", new StringType(), true)
   ))
+
+  private val nestedSchema = new StructType(Array(
+    new StructField("normalCol", new LongType(), true),
+    new StructField("parentCol", new StructType(Array(
+      new StructField("subCol1", new LongType(), true),
+      new StructField("subCol2", new LongType(), true)
+    )), true)))
 
   val metadata: Metadata = Metadata(partitionColumns = partitionSchema.getFieldNames,
     schemaString = schema.toJson)
 
-  private val files = (1 to 20).map { i =>
-    val col1Value = (i % 2).toString
-    val col2Value = (i % 3).toString
-    val col3Value = (i % 4).toString
-    val col4Value = "null"
-    val partitionValues = Map("col1" -> col1Value)
-    val flatColumnStats = ("\"" + s"""
+  def buildFiles(
+      customStats: Option[String] = None,
+      isStrColHasValue: Boolean = false): Seq[AddFile] = (1 to 20).map { i =>
+    val partitionColValue = i.toString
+    val col1Value = (i % 3).toString
+    val col2Value = (i % 4).toString
+    val stringColValue = if (isStrColHasValue) "\"a\"" else "null"
+    val partitionValues = Map("partitionCol" -> partitionColValue)
+    val fullColumnStats = s"""
       | {
-      |   "minValues": {
+      |   "${DataSkippingUtils.MIN}": {
+      |     "partitionCol":$partitionColValue,
       |     "col1":$col1Value,
       |     "col2":$col2Value,
-      |     "col3":$col3Value,
-      |     "col4":$col4Value
+      |     "stringCol":$stringColValue
       |   },
-      |   "maxValues": {
+      |   "${DataSkippingUtils.MAX}": {
+      |     "partitionCol":$partitionColValue,
       |     "col1":$col1Value,
       |     "col2":$col2Value,
-      |     "col3":$col3Value,
-      |     "col4":$col4Value
+      |     "stringCol":$stringColValue
       |   },
-      |   "nullCount": {
+      |   "${DataSkippingUtils.NULL_COUNT}": {
+      |     "partitionCol": 0,
       |     "col1": 0,
       |     "col2": 0,
-      |     "col3": 0,
-      |     "col4": 1
+      |     "stringCol": 1
       |   },
-      |   "numRecords":1
+      |   "${DataSkippingUtils.NUM_RECORDS}":1
       | }
-      |""".replace("\"", "\\\"")
-      + "\"").stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
+      |"""
 
-    AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = flatColumnStats)
+    val columnStats = (if (customStats.isDefined) customStats.get else fullColumnStats)
+      .stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
+    // We need to wrap the stats string since it will be parsed twice. Once when AddFile is parsed
+    // in LogReplay, and once when stats string it self parsed in DataSkippingUtils.parseColumnStats
+    val wrappedColumnStats = "\"" + columnStats.replace("\"", "\\\"") + "\""
+    AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = wrappedColumnStats)
   }
 
-  private val metadataConjunct = new EqualTo(schema.column("col1"), Literal.of(1L))
+  private val nestedFiles = {
+    val normalCol = 1
+    val subCol1 = 2
+    val subCol2 = 3
+    val nestedColStats = s"""
+      | {
+      |   "${DataSkippingUtils.MIN}": {
+      |     "normalCol":$normalCol,
+      |     "parentCol": {
+      |       "subCol1":$subCol1,
+      |       "subCol2":$subCol2,
+      |     }
+      |   },
+      |   "${DataSkippingUtils.MAX}": {
+      |     "normalCol":$normalCol,
+      |     "parentCol": {
+      |       "subCol1":$subCol1,
+      |       "subCol2":$subCol2,
+      |     }
+      |   },
+      |   "${DataSkippingUtils.NUM_RECORDS}":1
+      | }
+      |""".stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
+    Seq(AddFile(
+      path = "nested",
+      Map[String, String](),
+      1L,
+      1L,
+      dataChange = true,
+      stats = "\"" + nestedColStats.replace("\"", "\\\"") + "\""))
+  }
 
-  private val dataConjunct = new EqualTo(schema.column("col2"), Literal.of(1L))
+  private val nestedMetadata: Metadata = Metadata(partitionColumns = Seq[String](),
+    schemaString = nestedSchema.toJson)
 
-  def withDeltaLog(actions: Seq[Action]) (l: DeltaLog => Unit): Unit = {
+  private val unwrappedStats = buildFiles().get(0).getStats.replace("\\\"", "\"")
+    .dropRight(1).drop(1)
+
+  private val brokenStats = unwrappedStats.substring(0, 10)
+
+  // partition column now supports expression other than equal
+  private val metadataConjunct = new LessThanOrEqual(schema.column("partitionCol"), Literal.of(5L))
+
+  private val dataConjunct = new EqualTo(schema.column("col1"), Literal.of(1L))
+
+  def withDeltaLog(actions: Seq[Action], isNested: Boolean) (l: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
+      val m = if (isNested) nestedMetadata else metadata
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, op, "engineInfo")
+      log.startTransaction().commit(m :: Nil, op, "engineInfo")
       log.startTransaction().commit(actions, op, "engineInfo")
       l(log)
     }
   }
 
-  def testExpression(expr: Expression, target: Seq[String]): Unit = {
-    withDeltaLog(files) { log =>
-      val scan = log.update().scan(expr)
-      val iter = scan.getFiles
-      var resFiles: Seq[String] = Seq()
-      while (iter.hasNext) {
-        // get the index of accepted files
-        resFiles = resFiles :+ iter.next().getPath
-      }
-      assert(resFiles == target)
-    }
+  /**
+   * The unit test method for constructDataFilter.
+   * @param statsString the stats string in JSON format
+   * @param fileStatsTarget the target output of file-specific stats
+   * @param columnStatsTarget the target output of column-specific stats
+   * @param isNestedSchema if we will use nested schema for column stats
+   */
+  def parseColumnStatsTest(
+      statsString: String,
+      fileStatsTarget: Map[String, Long],
+      columnStatsTarget: Map[String, Long],
+      isNestedSchema: Boolean = false): Unit = {
+    val s = if (isNestedSchema) nestedSchema else schema
+    val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
+      tableSchema = s, statsString = statsString)
+    assert(fileStats == fileStatsTarget)
+    assert(columnStats == columnStatsTarget)
   }
 
   /**
-   * The unit test function for constructDataFilter.
+   * Unit test - parseColumnStats
+   */
+  test("parse column stats: basic") {
+    val fileStatsTarget = Map("numRecords" -> 1L)
+    val columnStatsTarget = Map(
+      "partitionCol.maxValues" -> 1L, "col2.nullCount" -> 0L, "col2.minValues" -> 1L,
+      "col1.maxValues" -> 1L, "partitionCol.minValues" -> 1L, "col2.maxValues" -> 1L,
+      "col1.nullCount" -> 0L, "col1.minValues" -> 1L, "stringCol.nullCount" -> 1L,
+      "partitionCol.nullCount" -> 0L)
+    // Though `stringCol` is not LongType, its `nullCount` stats will be documented
+    // while `minValues` and `maxValues` won't be.
+    parseColumnStatsTest(unwrappedStats, fileStatsTarget, columnStatsTarget)
+  }
+
+  test("parse column stats: ignore nested columns") {
+    val inputStats = """{"minValues":{"normalCol": 1, "parentCol":{"subCol1": 1, "subCol2": 2}}}"""
+    val fileStatsTarget = Map[String, Long]()
+    val columnStatsTarget = Map("normalCol.minValues" -> 1L)
+    parseColumnStatsTest(inputStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
+  }
+
+  test("parse column stats: wrong JSON format") {
+    val fileStatsTarget = Map[String, Long]()
+    val columnStatsTarget = Map[String, Long]()
+    val e = intercept[JsonEOFException] {
+      parseColumnStatsTest(statsString = brokenStats,
+        fileStatsTarget, columnStatsTarget)
+    }
+    assert(e.getMessage.contains("Unexpected end-of-input in field name"))
+  }
+
+  test("parse column stats: missing stats from schema") {
+    val inputStats = """{"minValues":{"partitionCol": 1, "col1": 2}}"""
+    val fileStatsTarget = Map[String, Long]()
+    val columnStatsTarget = Map[String, Long](
+      "partitionCol.minValues" -> 1, "col1.minValues" -> 2)
+    parseColumnStatsTest(inputStats, fileStatsTarget, columnStatsTarget)
+  }
+
+  /**
+   * The unit test method for constructDataFilter.
    * @param in     input query predicate
    * @param target output column stats predicate from [[DataSkippingUtils.constructDataFilters]]
    *               in string, will be None if the method returned empty expression.
@@ -128,86 +230,215 @@ class DataSkippingSuite extends FunSuite {
   /**
    * Unit test - constructDataFilters
    */
-  test("filter construction: (col2 = 1)") {
+  test("filter construction: EqualTo") {
+    // col1 = 1
     constructDataFilterTest(
-      in = new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
-      target = Some("((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1))")
-    )}
+      in = new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
+      target = Some("((Column(col1.minValues) <= 1) && (Column(col1.maxValues) >= 1))"))
+  }
 
-  test("filter construction: (col2 = 1 && col3 = 1)") {
+  test("filter construction: simple AND") {
+    // col1 = 1 AND col2 = 1
     constructDataFilterTest(
-      in = new And(new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
-        new EqualTo(new Column("col3", new LongType), Literal.of(1L))),
-      target = Some("(((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1)) &&" +
-        " ((Column(col3.minValues) <= 1) && (Column(col3.maxValues) >= 1)))")
-    )}
+      in = new And(new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
+        new EqualTo(new Column("col2", new LongType), Literal.of(1L))),
+      target = Some("(((Column(col1.minValues) <= 1) && (Column(col1.maxValues) >= 1)) &&" +
+        " ((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1)))"))
+  }
 
-  test("filter construction: (col2 >= 1) the expression '>=' is not supported") {
+  test("filter construction: the expression '>=' is not supported") {
+    // col1 >= 1
     constructDataFilterTest(
-      in = new GreaterThanOrEqual(new Column("col2", new LongType), Literal.of(1L)),
-      target = None
-    )}
+      in = new GreaterThanOrEqual(new Column("col1", new LongType), Literal.of(1L)),
+      target = None)
+  }
 
-  test("filter construction: (col2 IS NOT NULL) the expression 'IsNotNull' is not supported") {
+  test("filter construction: the expression 'IsNotNull' is not supported") {
+    // col1 IS NOT NULL
     constructDataFilterTest(
-      in = new IsNotNull(new Column("col2", new LongType)),
-      target = None
-    )}
+      in = new IsNotNull(new Column("col1", new LongType)),
+      target = None)
+  }
 
-  test("filter construction: (col4 = 1) null value in stats will be ignored") {
+  test("filter construction: stats not in LongType will be ignored") {
+    // stringCol = 1
     constructDataFilterTest(
-      in = new EqualTo(new Column("col4", new LongType), Literal.of(1L)),
-      target = None
-    )}
+      in = new EqualTo(new Column("stringCol", new LongType), Literal.of(1L)),
+      target = None)
+  }
 
-  test("filter construction: (col2 = 1) empty expression will return if schema is missing") {
+  test("filter construction: empty expression will return if schema is missing") {
+    // col1 = 1
     constructDataFilterTest(
-      in = new EqualTo(new Column("col2", new LongType), Literal.of(1L)),
+      in = new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
       target = None,
-      isSchemaMissing = true
-    )}
-
-  /** Integration test */
-  // empty, MIN, MAX, NUM_RECORDS, NULL_VALUE, nested col - discard, unknown col
-
-
-  // A sketchy demo:
-  //
-  // table schema: (col1: int, col2: int, col3: int) s partition column
-  //
-  // `files`: rows of data in table, for the i-th file in `files`,
-  //    file.path = i, file.col1 = i % 2, file.col2 = i % 3, file.col3 = i % 4
-  //
-  // range of `i` is from 1 to 20.
-  //
-  // the query predicate is `col1 = 1 AND col2 = 1`
-  // `metadataConjunct`: the partition predicate expr, which is `col1 = 1`
-  // `dataConjunct`: the non-partition predicate expr, which is `col2 = 1`
-  //
-  // the accepted files' number should meet the condition: (i % 3 == 1 AND i % 2 == 1)
-  // The output should be: 1, 7, 13, 19.
-  test("test column stats filter on 1 partition and 1 non-partition column") {
-    testExpression(new And(metadataConjunct, dataConjunct), Seq("1", "7", "13", "19"))
+      isSchemaMissing = true)
   }
 
-  test("test column stats filter on 2 non-partition column") {
-    // Filter: (i % 3 == 1 AND i % 4 == 1) (1 <= i <= 20)
-    // Output: i = 1 or 13
-    testExpression(new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
-      new EqualTo(schema.column("col3"), Literal.of(1L))), Seq("1", "13"))
+  /**
+   * The method for integration tests with different query predicate.
+   * @param expr              the input query predicate
+   * @param target            the file list that is not skipped by evaluating column stats
+   * @param customStats       the customized stats string. If none, use default stats
+   * @param isStrColHasValue  whether testing with a non-null string value
+   * @param isNestedSchema    whether using nested schema
+   */
+  def filePruningTest(
+      expr: Expression,
+      target: Seq[String],
+      customStats: Option[String] = None,
+      isStrColHasValue: Boolean = false,
+      isNestedSchema: Boolean = false): Unit = {
+    val logFiles = if (isNestedSchema) nestedFiles else buildFiles(customStats, isStrColHasValue)
+    withDeltaLog(logFiles, isNestedSchema) { log =>
+      val scan = log.update().scan(expr)
+      val iter = scan.getFiles
+      var resFiles: Seq[String] = Seq()
+      while (iter.hasNext) {
+        // get the index of accepted files
+        resFiles = resFiles :+ iter.next().getPath
+      }
+      assert(resFiles == target)
+    }
   }
 
-  test("test multiple filter on 1 partition column - duplicate") {
-    // Filter: (i % 4 == 1 AND i % 4 == 1) (1 <= i <= 20)
-    // Output: i = 1 or 5 or 9 or 13 or 17
-    testExpression(new And(new EqualTo(schema.column("col3"), Literal.of(1L)),
-      new EqualTo(schema.column("col3"), Literal.of(1L))), Seq("1", "5", "9", "13", "17"))
+  /**
+   * Integration test
+   *
+   * Description of the first integration test:
+   *
+   * - table schema: (partitionCol: long, col1: long, col2: long, stringCol: string)
+   *
+   * - `files`: rows of data in table, for the i-th file in `files`,
+   *      file.path = i, file.partitionCol = i, file.col1 = i % 3, file.col2 = i % 4
+   *
+   * - range of `i` is from 1 to 20.
+   *
+   * - the query predicate is `partitionCol <= 5 AND col1 = 1`
+   * - [[metadataConjunct]]: the partition predicate expr, which is `partitionCol <= 5`
+   * - [[dataConjunct]]: the non-partition predicate expr, which is `col1 = 1`
+   *
+   * - the accepted files' number should meet the condition: (i <= 5 AND i % 3 == 1)
+   *
+   * - the output should be: 1, 4.
+   */
+  test("integration test: column stats filter on 1 partition and 1 non-partition column") {
+    filePruningTest(expr = new And(metadataConjunct, dataConjunct),
+      target = Seq("1", "4"))
   }
 
-  test("test multiple filter on 1 partition column - impossible") {
-    // Filter: (i % 3 == 1 AND i % 3 == 2) (1 <= i <= 20)
-    // Output: No file meets the condition
-    testExpression(new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
-      new EqualTo(schema.column("col2"), Literal.of(2L))), Seq())
+  /**
+   * Filter: (i % 3 == 1 AND i % 4 == 1) (1 <= i <= 20)
+   * Output: i = 1 or 13
+   */
+  test("integration test: column stats filter on 2 non-partition column") {
+    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+        new EqualTo(schema.column("col2"), Literal.of(1L))),
+      target = Seq("1", "13"))
+  }
+
+  /**
+   * Filter: (i % 4 == 1 AND i % 4 == 1) (1 <= i <= 20)
+   * Output: i = 1 or 5 or 9 or 13 or 17
+   */
+  test("integration test: multiple filter on 1 partition column - duplicate") {
+    filePruningTest(expr = new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
+        new EqualTo(schema.column("col2"), Literal.of(1L))),
+      target = Seq("1", "5", "9", "13", "17"))
+  }
+
+  /**
+   * Filter: (i % 3 == 1 AND i % 3 == 2) (1 <= i <= 20)
+   * Output: No file meets the condition
+   */
+  test("integration test: multiple filter on 1 partition column - conflict") {
+    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+        new EqualTo(schema.column("col1"), Literal.of(2L))),
+      target = Seq())
+  }
+
+  /**
+   * Filter: (i <= 5 AND i % 3 == 2)
+   * Output: i = 1 or 2 or 3 or 4 or 5 (i % 3 == 2 not work)
+   * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
+   * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
+   * But the partition column filter still works here.
+   */
+  test("integration test: missing stats") {
+    val incompleteColumnStats =
+      s"""
+         | {
+         |   "${DataSkippingUtils.NULL_COUNT}": {
+         |     "partitionCol": 0,
+         |     "col1": 0,
+         |     "col2": 0,
+         |     "stringCol": 1
+         |   },
+         |   "${DataSkippingUtils.NUM_RECORDS}":1
+         | }
+         |"""
+    filePruningTest(expr = new And(metadataConjunct,
+        new EqualTo(schema.column("col2"), Literal.of(2L))),
+      target = Seq("1", "2", "3", "4", "5"), Some(incompleteColumnStats))
+  }
+
+  /**
+   * Filter: (i <= 5 AND i % 4 == 1)
+   * Output: i = 1 or 2 or 3 or 4 or 5
+   * Reason: Because stats string is empty, we can't evaluate column stats predicate and will skip
+   * column stats filter. But the partition column still works here.
+   */
+  test("integration test: empty stats str") {
+    filePruningTest(expr = new And(metadataConjunct,
+        new EqualTo(schema.column("col1"), Literal.of(1L))),
+      target = Seq("1", "2", "3", "4", "5"), customStats = Some("\"\""))
+  }
+
+  /**
+   * Filter: (i <= 5 AND i % 4 == 1)
+   * Output: i = 1 or 2 or 3 or 4 or 5
+   * Reason: Because stats string is broken, we can't evaluate column stats predicate and will skip
+   * column stats filter. But the partition column still works here. The JSON parser error is caught
+   * in [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl]].
+   */
+  test("integration test: broken stats str") {
+    filePruningTest(expr = new And(metadataConjunct,
+        new EqualTo(schema.column("col1"), Literal.of(1L))),
+      target = Seq("1", "2", "3", "4", "5"), customStats = Some(brokenStats))
+  }
+
+  /**
+   * Filter: (i <= 5 AND i == "a")
+   * Output: i = 1 or 2 or 3 or 4 or 5
+   * Reason: Because string type is currently unsupported, we can't evaluate column stats
+   * predicate and will skip column stats filter.
+   */
+  test("integration test: unsupported stats data type") {
+    filePruningTest(expr = new And(metadataConjunct,
+        new EqualTo(schema.column("stringCol"), Literal.of("1"))),
+      target = Seq("1", "2", "3", "4", "5"), isStrColHasValue = true)
+  }
+
+  /**
+   * Filter: (i <= 5 AND i % 3 <= 1)
+   * Output: i = 1 or 2 or 3 or 4 or 5
+   * Reason: Because LessThanOrEqual is currently unsupported, we can't evaluate column stats
+   * predicate and will skip column stats filter.
+   */
+  test("integration test: unsupported expression type") {
+    filePruningTest(expr = new And(metadataConjunct,
+        new LessThanOrEqual(schema.column("col1"), Literal.of(1L))),
+      target = Seq("1", "2", "3", "4", "5"))
+  }
+
+  /**
+   * Filter: (parentCol.subCol1 == 1)
+   * Output: path = nested
+   * Reason: The nested file still returned thought it is not qualified in the query predicate.
+   * Because nested tables are not supported.
+   */
+  test("integration test: unsupported nested column") {
+    filePruningTest(expr = new EqualTo(nestedSchema.column("normalCol"), Literal.of(1L)),
+      target = Seq("nested"), isNestedSchema = true)
   }
 }
