@@ -76,7 +76,7 @@ private[internal] object DataSkippingUtils {
    *
    * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
-   * @param tableSchema The table schema for this query.
+   * @param tableSchema The table schema describes data column (not stats column) for this query.
    * @param statsString The json-formatted stats in raw string type in AddFile.
    * @return file-level stats map: the map stores file-level stats.
    *         column-level stats map: the map stores column-level stats, like MIN, MAX, NULL_COUNT.
@@ -84,16 +84,14 @@ private[internal] object DataSkippingUtils {
   def parseColumnStats(
       tableSchema: StructType,
       statsString: String): (immutable.Map[String, Long], immutable.Map[String, Long]) = {
-    var fileLevelStats: Map[String, Long] = Map()
-    var columnLevelStats: Map[String, Long] = Map()
+    var fileStats: Map[String, Long] = Map()
+    var columnStats: Map[String, Long] = Map()
     val columnNames = tableSchema.getFieldNames.toSeq
-    // TODO: support nested columns
-
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
       if (!stats._2.isObject) {
         // This is an file-level stats, like ROW_RECORDS.
         if (stats._1 == NUM_RECORDS) {
-          fileLevelStats += (stats._1 -> stats._2.asText.toLong)
+          fileStats += (stats._1 -> stats._2.asText.toLong)
         }
       } else {
         // This is an column-level stats, like MIN_VALUE and MAX_VALUE, iterator through the table
@@ -109,16 +107,16 @@ private[internal] object DataSkippingUtils {
               case MIN | MAX =>
                 // Check the stats type for MIN and MAX, as we only accepting the LongType for now.
                 if (tableSchema.get(columnName).getDataType == new LongType) {
-                  columnLevelStats += (statsName -> statsVal.asText.toLong)
+                  columnStats += (statsName -> statsVal.asText.toLong)
                 }
               case NULL_COUNT =>
-                columnLevelStats += (statsName -> statsVal.asText.toLong)
+                columnStats += (statsName -> statsVal.asText.toLong)
             }
           }
         }
       }
     }
-    (fileLevelStats, columnLevelStats)
+    (fileStats, columnStats)
   }
 
   /**
@@ -127,6 +125,7 @@ private[internal] object DataSkippingUtils {
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
+   * @param tableSchema The schema describes the structure of stats columns
    * @param expression The non-partition column query predicate.
    * @return columnStatsPredicate: Contains the column stats filter expression, and the set of stat
    *         column that appears in the filter expression, please see [[ColumnStatsPredicate]]
