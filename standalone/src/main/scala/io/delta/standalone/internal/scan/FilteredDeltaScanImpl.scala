@@ -18,6 +18,8 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
+import scala.util.control.NonFatal
+
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 
@@ -73,7 +75,12 @@ final private[internal] class FilteredDeltaScanImpl(
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
       } catch {
         // If the stats parsing process failed, not skipping this file.
-        case _: Exception => return true
+        case NonFatal(_) => return true
+      }
+
+      if (fileStats.isEmpty || columnStats.isEmpty) {
+        // If we don't have any stats, not skipping this file.
+        return true
       }
 
       // Instantiate the evaluate function based on the parsed column stats

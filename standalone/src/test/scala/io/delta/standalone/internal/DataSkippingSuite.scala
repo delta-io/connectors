@@ -52,26 +52,28 @@ class DataSkippingSuite extends FunSuite {
   val metadata: Metadata = Metadata(partitionColumns = partitionSchema.getFieldNames,
     schemaString = schema.toJson)
 
+
+  private val partitionColValue = (i: Int) => i.toString
+  private val col1Value = (i: Int) => (i % 3).toString
+  private val col2Value = (i: Int) => (i % 4).toString
+
   def buildFiles(
-      customStats: Option[String] = None,
+      customStats: Option[Int => String] = None,
       isStrColHasValue: Boolean = false): Seq[AddFile] = (1 to 20).map { i =>
-    val partitionColValue = i.toString
-    val col1Value = (i % 3).toString
-    val col2Value = (i % 4).toString
     val stringColValue = if (isStrColHasValue) "\"a\"" else "null"
-    val partitionValues = Map("partitionCol" -> partitionColValue)
+    val partitionValues = Map("partitionCol" -> partitionColValue(i))
     val fullColumnStats = s"""
       | {
       |   "${DataSkippingUtils.MIN}": {
-      |     "partitionCol":$partitionColValue,
-      |     "col1":$col1Value,
-      |     "col2":$col2Value,
+      |     "partitionCol":${partitionColValue(i)},
+      |     "col1":${col1Value(i)},
+      |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
       |   "${DataSkippingUtils.MAX}": {
-      |     "partitionCol":$partitionColValue,
-      |     "col1":$col1Value,
-      |     "col2":$col2Value,
+      |     "partitionCol":${partitionColValue(i)},
+      |     "col1":${col1Value(i)},
+      |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
       |   "${DataSkippingUtils.NULL_COUNT}": {
@@ -84,7 +86,7 @@ class DataSkippingSuite extends FunSuite {
       | }
       |"""
 
-    val columnStats = (if (customStats.isDefined) customStats.get else fullColumnStats)
+    val columnStats = (if (customStats.isDefined) customStats.get(i) else fullColumnStats)
       .stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
     // We need to wrap the stats string since it will be parsed twice. Once when AddFile is parsed
     // in LogReplay, and once when stats string it self parsed in DataSkippingUtils.parseColumnStats
@@ -265,7 +267,7 @@ class DataSkippingSuite extends FunSuite {
   test("filter construction: stats not in LongType will be ignored") {
     // stringCol = 1
     constructDataFilterTest(
-      in = new EqualTo(new Column("stringCol", new LongType), Literal.of(1L)),
+      in = new EqualTo(new Column("stringCol", new StringType), Literal.of("1")),
       target = None)
   }
 
@@ -288,7 +290,7 @@ class DataSkippingSuite extends FunSuite {
   def filePruningTest(
       expr: Expression,
       target: Seq[String],
-      customStats: Option[String] = None,
+      customStats: Option[Int => String] = None,
       isStrColHasValue: Boolean = false,
       isNestedSchema: Boolean = false): Unit = {
     val logFiles = if (isNestedSchema) nestedFiles else buildFiles(customStats, isStrColHasValue)
@@ -381,7 +383,40 @@ class DataSkippingSuite extends FunSuite {
          |"""
     filePruningTest(expr = new And(metadataConjunct,
         new EqualTo(schema.column("col2"), Literal.of(2L))),
-      target = Seq("1", "2", "3", "4", "5"), Some(incompleteColumnStats))
+      target = Seq("1", "2", "3", "4", "5"), Some(_ => incompleteColumnStats))
+  }
+
+  /**
+   * Filter: (i % 3 == 1 AND i % 4 == 1)
+   * Output: i = 1 to 20 (column stats based pruning not work)
+   * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
+   * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
+   */
+  test("integration test: incomplete stats") {
+    val incompleteColumnStats = (i: Int) =>
+      s"""
+         | {
+         |   "${DataSkippingUtils.MAX}": {
+         |     "partitionCol": ${partitionColValue(i)},
+         |     "col1": ${col1Value(i)},
+         |     "stringCol": null
+         |   },
+         |   ${DataSkippingUtils.MIN}": {
+         |     "partitionCol": ${partitionColValue(i)},
+         |     "col1": ${col1Value(i)},
+         |     "stringCol": null
+         |   },
+         |   "${DataSkippingUtils.NULL_COUNT}": {
+         |     "partitionCol": 0,
+         |     "col1": 0,
+         |     "stringCol": 1
+         |   },
+         |   "${DataSkippingUtils.NUM_RECORDS}":1
+         | }
+         |"""
+    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+        new EqualTo(schema.column("col2"), Literal.of(1L))),
+      target = (1 to 20).map(_.toString).toSeq, Some(incompleteColumnStats))
   }
 
   /**
@@ -393,7 +428,7 @@ class DataSkippingSuite extends FunSuite {
   test("integration test: empty stats str") {
     filePruningTest(expr = new And(metadataConjunct,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
-      target = Seq("1", "2", "3", "4", "5"), customStats = Some("\"\""))
+      target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => "\"\""))
   }
 
   /**
@@ -406,7 +441,7 @@ class DataSkippingSuite extends FunSuite {
   test("integration test: broken stats str") {
     filePruningTest(expr = new And(metadataConjunct,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
-      target = Seq("1", "2", "3", "4", "5"), customStats = Some(brokenStats))
+      target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => brokenStats))
   }
 
   /**
