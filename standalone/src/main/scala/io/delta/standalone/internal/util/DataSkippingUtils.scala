@@ -111,6 +111,7 @@ private[internal] object DataSkippingUtils {
                 }
               case NULL_COUNT =>
                 columnStats += (statsName -> statsVal.asText.toLong)
+              case _ =>
             }
           }
         }
