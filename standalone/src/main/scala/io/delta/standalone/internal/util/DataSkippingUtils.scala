@@ -21,7 +21,20 @@ import scala.collection.immutable
 import com.fasterxml.jackson.databind.JsonNode
 
 import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
-import io.delta.standalone.types.{LongType, StructType}
+import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
+
+import io.delta.standalone.internal.exception.DeltaErrors
+
+/**
+ * The referenced stats column in column stats filter, used in
+ * [[ColumnStatsPredicate]].
+ *
+ * @param pathToColumn the column name parsed by dot
+ * @param column       the stats column
+ */
+private [internal] case class ReferencedStats(
+    pathToColumn: Seq[String],
+    column: Column)
 
 /**
  * Results returned by [[DataSkippingUtils.constructDataFilters]]. Contains the column stats
@@ -32,7 +45,7 @@ import io.delta.standalone.types.{LongType, StructType}
  */
 private [internal] case class ColumnStatsPredicate(
     expr: Expression,
-    referencedStats: immutable.Set[Column])
+    referencedStats: immutable.Set[ReferencedStats])
 
 private[internal] object DataSkippingUtils {
 
@@ -46,6 +59,50 @@ private[internal] object DataSkippingUtils {
   final val MAX = "maxValues"
   /* The number of null values present for a column. */
   final val NULL_COUNT = "nullCount"
+
+  /**
+   * Add new or update existing stats column to the [[statsSchema]], the first layer of schema is
+   * stats type, and the second layer is column name in data schema.
+   *
+   * @param statsSchema the schema contains stats columns
+   * @param statsType   the type of adding stats column, like [[MIN]] and [[NUM_RECORDS]]
+   * @param dataType    the data type of adding stats column
+   * @param columnName  the corresponding data column name
+   * @return            the updated [[statsSchema]]
+   */
+  def updateStatsSchema(
+      statsSchema: StructType,
+      statsType: String,
+      dataType: DataType,
+      columnName: String): StructType = {
+    if (statsSchema.hasFieldName(statsType)) {
+      // The stats type is already in the stats schema, update the existing sub schema with new
+      // column name.
+      val originSubField = statsSchema.get(statsType)
+      val originSubSchema = originSubField.getDataType
+      val remainingFields = statsSchema.getFields.filterNot(statsType == _.getName)
+      originSubSchema match {
+        case subStruct: StructType =>
+          // Some columns already created in this stats type, update it.
+          if (subStruct.hasFieldName(columnName)) {
+            // TODO return null or throw error to stop data skipping
+            throw DeltaErrors.duplicatedStatsException(statsType, columnName)
+          }
+          val newSubSchema = subStruct.add(new StructField(columnName, dataType))
+
+          val newStatsSchema = new StructType(remainingFields)
+          newStatsSchema.add(new StructField(statsType, newSubSchema))
+        case _ =>
+          // The sub schema of one stats type can only be either data type or struct type
+          // TODO return null or throw error to stop data skipping
+          throw DeltaErrors.fieldTypeMismatch(statsType, originSubSchema, "StructType")
+      }
+    } else {
+      // Encountered a new stats type, add new StructType for it.
+      statsSchema.add(
+        new StructField(statsType, new StructType(Array(new StructField(columnName, dataType)))))
+    }
+  }
 
   /**
    * Parse the stats in AddFile to two maps. The output contains two map distinguishing
@@ -83,54 +140,64 @@ private[internal] object DataSkippingUtils {
    */
   def parseColumnStats(
       tableSchema: StructType,
-      statsString: String): (immutable.Map[String, Long], immutable.Map[String, Long]) = {
-    var fileStats: Map[String, Long] = Map()
-    var columnStats: Map[String, Long] = Map()
-    val columnNames = tableSchema.getFieldNames.toSeq
+      statsString: String): (StructType, immutable.Map[String, Long], immutable.Map[String, Long]) =
+  {
+    var fileStats = Map[String, Long]()
+    var columnStats = Map[String, Long]()
+    var statsSchema = new StructType
+
+    val dataColumns = tableSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
-      if (!stats._2.isObject) {
+      val statsType = stats._1
+      val statsObj = stats._2
+      if (!statsObj.isObject) {
         // This is an file-level stats, like ROW_RECORDS.
-        if (stats._1 == NUM_RECORDS) {
-          fileStats += (stats._1 -> stats._2.asText.toLong)
+        if (statsType == NUM_RECORDS) {
+          fileStats += (statsType -> statsObj.asText.toLong)
+          statsSchema = statsSchema.add(new StructField(statsType, new LongType))
         }
       } else {
         // This is an column-level stats, like MIN_VALUE and MAX_VALUE, iterator through the table
         // schema and fill the column-level stats map column-by-column if the column name appears
         // in json string.
-        columnNames.foreach { columnName =>
-          // Get stats value by column name
-          val statsVal = stats._2.get(columnName)
+        dataColumns.filter(col => statsObj.has(col.getName)).foreach { dataColumn =>
+          // Get stats value by column name, if the column is missing in this stat's struct, the
+          val columnName = dataColumn.getName
+          val statsVal = statsObj.get(columnName)
           if (statsVal != null) {
-            val statsType = stats._1
-            val statsName = columnName + "." + statsType
+            val statsName = statsType + "." + dataColumn.getName
             statsType match {
               case MIN | MAX =>
                 // Check the stats type for MIN and MAX, as we only accepting the LongType for now.
-                if (tableSchema.get(columnName).getDataType == new LongType) {
+                val dataType = dataColumn.getDataType
+                if (dataType == new LongType) {
                   columnStats += (statsName -> statsVal.asText.toLong)
+                  statsSchema = updateStatsSchema(statsSchema, statsType, dataType, columnName)
                 }
               case NULL_COUNT =>
                 columnStats += (statsName -> statsVal.asText.toLong)
+                statsSchema = updateStatsSchema(statsSchema, statsType, new LongType, columnName)
               case _ =>
             }
           }
         }
       }
     }
-    (fileStats, columnStats)
+    (statsSchema, fileStats, columnStats)
   }
 
   /**
-   * Build the data filter based on query predicate. Now two rules are applied:
-   * - (col1 == Literal2) -> (col1.MIN <= Literal2 AND col1.MAX >= Literal2)
+   * Build the column stats filter based on query predicate. This expression builds only once per
+   * query. Now two rules are applied:
+   * - (col1 == Literal2) -> (MIN.col1 <= Literal2 AND MAX.col1 >= Literal2)
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
    * @param tableSchema The schema describes the structure of stats columns
-   * @param expression The non-partition column query predicate.
+   * @param expression  The non-partition column query predicate.
    * @return columnStatsPredicate: Contains the column stats filter expression, and the set of stat
-   *         column that appears in the filter expression, please see [[ColumnStatsPredicate]]
-   *         definition.
+   *         columns that are referenced in the filter expression, please see
+   *         [[ColumnStatsPredicate]].
    */
   def constructDataFilters(
       tableSchema: StructType,
@@ -139,17 +206,19 @@ private[internal] object DataSkippingUtils {
       case eq: EqualTo => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
-          if (!(tableSchema.getFieldNames.contains(columnPath) &&
+          if (!(tableSchema.hasFieldName(columnPath) &&
           tableSchema.get(columnPath).getDataType == new LongType)) {
             // Only accepting the LongType column for now.
             return None
           }
-          val minColumn = new Column(columnPath + "." + MIN, new LongType)
-          val maxColumn = new Column(columnPath + "." + MAX, new LongType)
+          val minColumn = ReferencedStats(Seq(MIN, columnPath),
+            new Column(MIN + "." + columnPath, new LongType))
+          val maxColumn = ReferencedStats(Seq(MAX, columnPath),
+            new Column(MAX + "." + columnPath, new LongType))
 
           Some(ColumnStatsPredicate(
-            new And(new LessThanOrEqual(minColumn, e2),
-              new GreaterThanOrEqual(maxColumn, e2)),
+            new And(new LessThanOrEqual(minColumn.column, e2),
+              new GreaterThanOrEqual(maxColumn.column, e2)),
             Set(minColumn, maxColumn)))
         case _ => None
       }
@@ -166,4 +235,30 @@ private[internal] object DataSkippingUtils {
       // TODO: support full types of Expression
       case _ => None
     }
+
+  /**
+   * If any stats column in column stats filter is missing, disable the column stats filter for this
+   * file. This expression builds only once per query.
+   *
+   * @param   referencedStats All of stats column appears in the column stats filter.
+   * @return  the verifying expression, evaluated as true if the column stats filter is valid, false
+   *          while it is invalid.
+   */
+  def verifyStatsForFilter(
+      referencedStats: Set[ReferencedStats]): Expression = {
+    referencedStats.map { refStats =>
+      val pathToColumn = refStats.pathToColumn
+      pathToColumn.head match {
+        case MAX | MIN if pathToColumn.length == 2 =>
+          // We would allow MIN or MAX missing only if the corresponding data column value are all
+          // NULL, e.g.: NUM_RECORDS == NULL_COUNT
+          val nullCount = new Column(NULL_COUNT + "." + refStats.pathToColumn.last, new LongType())
+          val numRecords = new Column(NUM_RECORDS, new LongType())
+          new Or(new IsNotNull(refStats.column), new EqualTo(nullCount, numRecords))
+
+        case _ if pathToColumn.length == 1 => new IsNotNull(refStats.column)
+        case _ => return Literal.False
+      }
+    }.reduceLeft(new And(_, _))
+  }
 }

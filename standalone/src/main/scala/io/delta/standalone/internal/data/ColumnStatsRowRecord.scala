@@ -32,59 +32,55 @@ import io.delta.standalone.internal.util.{DataSkippingUtils, SchemaUtils}
  * Example: Assume we have a table schema like this: table1(col1: long, col2:long)),
  * with the supported stats types NUM_RECORDS, MAX, MIN, NULL_COUNT.
  *
- * [[fileStats]] will be like: {"NUM_RECORDS": 1}
- * [[columnStats]] will be like:
+ * [[fileStats]] will be: {"NUM_RECORDS": 1}
+ * [[columnStats]] will be:
  * {
- *  "col1.MIN": 2,
- *  "col1.MAX": 2,
- *  "col1.NULL_COUNT": 0,
- *  "col2.MIN": 3,
- *  "col2.MIN": 3
- *  "col2.NULL_COUNT": 0,
+ *  "MIN.col1": 2,
+ *  "MAX.col1": 2,
+ *  "NULL_COUNT.col1": 0,
+ *  "MIN.col2": 3,
+ *  "MIN.col2": 3
+ *  "NULL_COUNT.col2": 0,
  * }
- *
- * When evaluating the expression EqualTo(Column("NUM_RECORDS", Long), Column("col2.MIN", Long)),
- * [[getLong]] would be called twice to get the data from two maps.
- *
- * In [[getLong]], it will firstly distinguish the stats type, like MIN is a column-specific class
- * or NUM_RECORDS is a file-specific class, then find the stats value in the corresponding map, then
- * return the value for Column evaluation.
- *
- * When calling [[getLong]] for Column("NUM_RECORDS", Long), since NUM_RECORDS is a file-specific
- * stats, so returning fileValues["NUM_RECORDS"].
- *
- * When calling [[getLong]] for Column("col2.MIN", Long), since MIN is a column-specific class, so
- * returning columnValues["col2.MIN"].
  *
  * [[getLong]] is expected to return a non-null value. It is the responsibility of the called to
  * call [[isNullAt]] first before calling [[getLong]]. Similarly for the APIs fetching different
  * data types such as int, boolean etc.
  *
- * It is also guaranteed that the [[IsNull]] or [[IsNotNull]] won't appears in column stats
+ * It is also guaranteed that the [[IsNull]] or [[IsNotNull]] won't exists in column stats
  * predicate, so [[isNullAt]] will only work for pre-checking when evaluating the column.
  *
- * @param tableSchema the schema of scanning table, loaded from table metadata.
+ * @param statsSchema the schema of the stats column, the first level is stats type, and the
+ *                    secondary level is data column name.
  * @param fileStats   file-specific stats, like NUM_RECORDS.
  * @param columnStats column-specific stats, like MIN, MAX, or NULL_COUNT.
  */
 private[internal] class ColumnStatsRowRecord(
-    tableSchema: StructType,
+    statsSchema: StructType,
     fileStats: collection.Map[String, Long],
     columnStats: collection.Map[String, Long]) extends RowRecordJ {
 
-  override def getSchema: StructType = tableSchema
+  override def getSchema: StructType = statsSchema
 
-  override def getLength: Int = tableSchema.length()
+  override def getLength: Int = statsSchema.length()
 
-  private def checkColumnNameAndType(columnName: String): Boolean = {
-    if (!tableSchema.getFieldNames.contains(columnName)) {
+  /** Check whether there is a column in the  */
+  private def checkColumnNameAndType(columnName: String, statsType: String): Boolean = {
+    if (!statsSchema.hasFieldName(statsType)) {
       // ensure that such column name exists in table schema
-      return false;
+      return false
     }
-    val dataTypeInSchema = tableSchema.get(columnName).getDataType
+    val statType = statsSchema.get(statsType).getDataType
+    if (!statType.isInstanceOf[StructType]) {
+      return false
+    }
     // Ensure that the data type in table schema is supported.
+    val colType = statType.asInstanceOf[StructType]
+    if (!colType.hasFieldName(columnName)) {
+      return false
+    }
     // For now we only accept LongType.
-    dataTypeInSchema.equals(new LongType)
+    colType.get(columnName).getDataType.equals(new LongType)
   }
 
   /** Return a None if the stats is not found, return Some(Long) if it's found. */
@@ -93,25 +89,25 @@ private[internal] class ColumnStatsRowRecord(
     val pathToColumn = SchemaUtils.parseAndValidateColumn(fieldName)
 
     // In stats column the last element is stats type
-    val statsType = pathToColumn.last
+    val statsType = pathToColumn.head
 
     statsType match {
-      // For the file-level column, like NUM_RECORDS, we get value from fileValues map by
+      // For the file-level column, like NUM_RECORDS, we get value from fileStats map by
       // stats type.
       case DataSkippingUtils.NUM_RECORDS if pathToColumn.length == 1 =>
         // File-level column name should only have the stats type as name
         fileStats.get(fieldName)
 
       // For the column-level stats type, like MIN or MAX or NULL_COUNT, we get value from
-      // columnValues map by the COMPLETE column name with stats type, like `a.MAX`.
+      // columnStats map by the COMPLETE column name with stats type, like `a.MAX`.
       case DataSkippingUtils.NULL_COUNT if pathToColumn.length == 2 =>
         // Currently we only support non-nested columns, so the `pathToColumn` should only contain
         // 2 parts: the column name and the stats type.
         columnStats.get(fieldName)
 
       case DataSkippingUtils.MIN | DataSkippingUtils.MAX if pathToColumn.length == 2 =>
-        val columnName = pathToColumn.head
-        if (checkColumnNameAndType(columnName)) {
+        val columnName = pathToColumn.last
+        if (checkColumnNameAndType(columnName, statsType)) {
           columnStats.get(fieldName)
         } else None
 

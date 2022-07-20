@@ -227,7 +227,7 @@ public final class StructType extends DataType {
      * @param fieldName the name of the desired {@link StructField}, not null
      * @return whether the given field name is in the field list
      */
-    public boolean contains(String fieldName) {
+    public boolean hasFieldName(String fieldName) {
         return nameToField.containsKey(fieldName);
     }
 }
