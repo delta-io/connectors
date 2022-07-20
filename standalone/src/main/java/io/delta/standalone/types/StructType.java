@@ -220,4 +220,14 @@ public final class StructType extends DataType {
                 this,
                 newSchema);
     }
+
+    /**
+     * Check whether the field exists by name.
+     *
+     * @param fieldName the name of the desired {@link StructField}, not null
+     * @return whether the given field name is in the field list
+     */
+    public boolean hasFieldName(String fieldName) {
+        return nameToField.containsKey(fieldName);
+    }
 }

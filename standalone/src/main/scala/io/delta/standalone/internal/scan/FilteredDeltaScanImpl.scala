@@ -20,12 +20,12 @@ import java.util.Optional
 
 import scala.util.control.NonFatal
 
-import io.delta.standalone.expressions.Expression
+import io.delta.standalone.expressions.{Expression, Not, Or}
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}
 import io.delta.standalone.internal.data.{ColumnStatsRowRecord, PartitionRowRecord}
-import io.delta.standalone.internal.util.{ColumnStatsPredicate, DataSkippingUtils, PartitionUtils}
+import io.delta.standalone.internal.util.{DataSkippingUtils, PartitionUtils}
 
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
@@ -45,12 +45,16 @@ final private[internal] class FilteredDeltaScanImpl(
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
   // The column stats filter, generated once per query.
-  val columnStatsFilter: Option[ColumnStatsPredicate] = dataConjunction match {
+  val columnStatsFilter: Option[Expression] = dataConjunction match {
     case Some(e: Expression) =>
       // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
-      // If this passed, it means it is possible that the records in this file contains value can
+      // If this passed, it is possible that the records in this file contains value can
       // pass the query predicate.
-      DataSkippingUtils.constructDataFilters(tableSchema, e)
+      // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
+      // missing but referenced in the column stats filter, we will accept this file.
+      DataSkippingUtils.constructDataFilters(tableSchema, e).map(predicate =>
+        new Or(predicate.expr,
+          new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats))))
     case _ => None
   }
 
@@ -60,7 +64,7 @@ final private[internal] class FilteredDeltaScanImpl(
       val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
       metadataConjunction.get.eval(partitionRowRecord) match {
         case null => true
-        case evalOutput => evalOutput.asInstanceOf[Boolean]
+        case result => result.asInstanceOf[Boolean]
       }
     } else {
       true
@@ -71,38 +75,27 @@ final private[internal] class FilteredDeltaScanImpl(
       // not empty. This happens once per file.
 
       // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
-      val (fileStats, columnStats) = try {
+      val (statsSchema, fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
       } catch {
-        // If the stats parsing process failed, not skipping this file.
+        // If the stats parsing process failed, accept this file.
         case NonFatal(_) => return true
       }
 
       if (fileStats.isEmpty || columnStats.isEmpty) {
-        // If we don't have any stats, not skipping this file.
+        // If we don't have any stats, skip evaluation and accept this file.
         return true
       }
 
       // Instantiate the evaluate function based on the parsed column stats
-      val columnStatsRecord = new ColumnStatsRowRecord(tableSchema, fileStats, columnStats)
+      val columnStatsRecord = new ColumnStatsRowRecord(statsSchema, fileStats, columnStats)
 
-      // Verify whether the stats column appears in `columnStatsPredicate` is valid. If we find any
-      // stats column in the filter that not appears in row record, then the filter is not
-      // usable. We should not skipping this file.
-      columnStatsFilter.get.referencedStats.foreach { statsCol =>
-        // now only support LongType.
-        if (columnStatsRecord.isNullAt(statsCol.name)) {
-          // If any stats in the column stats filter is null or missing, not skipping this file.
-          return true
-        }
-      }
       // Evaluate the filter, this guarantees that all stats can be found in row record.
-      val columnStatsFilterResult = columnStatsFilter.get.expr.eval(columnStatsRecord)
+      val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
 
       columnStatsFilterResult match {
-        // If the expression is not evaluated correctly, not skipping this file.
+        // If the expression is not evaluated correctly, accept this file.
         case null => true
-
         case _ => columnStatsFilterResult.asInstanceOf[Boolean]
       }
     } else {

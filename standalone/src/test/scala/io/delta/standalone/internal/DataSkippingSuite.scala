@@ -162,8 +162,10 @@ class DataSkippingSuite extends FunSuite {
       columnStatsTarget: Map[String, Long],
       isNestedSchema: Boolean = false): Unit = {
     val s = if (isNestedSchema) nestedSchema else schema
-    val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
+    val (_, fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
       tableSchema = s, statsString = statsString)
+    // TODO validate stats schema
+    // TODO add verification test
     assert(fileStats == fileStatsTarget)
     assert(columnStats == columnStatsTarget)
   }
@@ -174,10 +176,10 @@ class DataSkippingSuite extends FunSuite {
   test("parse column stats: basic") {
     val fileStatsTarget = Map("numRecords" -> 1L)
     val columnStatsTarget = Map(
-      "partitionCol.maxValues" -> 1L, "col2.nullCount" -> 0L, "col2.minValues" -> 1L,
-      "col1.maxValues" -> 1L, "partitionCol.minValues" -> 1L, "col2.maxValues" -> 1L,
-      "col1.nullCount" -> 0L, "col1.minValues" -> 1L, "stringCol.nullCount" -> 1L,
-      "partitionCol.nullCount" -> 0L)
+      "maxValues.partitionCol" -> 1L, "nullCount.col2" -> 0L, "minValues.col2" -> 1L,
+      "maxValues.col1" -> 1L, "minValues.partitionCol" -> 1L, "maxValues.col2" -> 1L,
+      "nullCount.col1" -> 0L, "minValues.col1" -> 1L, "nullCount.stringCol" -> 1L,
+      "nullCount.partitionCol" -> 0L)
     // Though `stringCol` is not LongType, its `nullCount` stats will be documented
     // while `minValues` and `maxValues` won't be.
     parseColumnStatsTest(unwrappedStats, fileStatsTarget, columnStatsTarget)
@@ -186,8 +188,9 @@ class DataSkippingSuite extends FunSuite {
   test("parse column stats: ignore nested columns") {
     val inputStats = """{"minValues":{"normalCol": 1, "parentCol":{"subCol1": 1, "subCol2": 2}}}"""
     val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map("normalCol.minValues" -> 1L)
-    parseColumnStatsTest(inputStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
+    val columnStatsTarget = Map("minValues.normalCol" -> 1L)
+    parseColumnStatsTest(
+      inputStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
   }
 
   test("parse column stats: wrong JSON format") {
@@ -204,7 +207,7 @@ class DataSkippingSuite extends FunSuite {
     val inputStats = """{"minValues":{"partitionCol": 1, "col1": 2}}"""
     val fileStatsTarget = Map[String, Long]()
     val columnStatsTarget = Map[String, Long](
-      "partitionCol.minValues" -> 1, "col1.minValues" -> 2)
+      "minValues.partitionCol" -> 1, "minValues.col1" -> 2)
     parseColumnStatsTest(inputStats, fileStatsTarget, columnStatsTarget)
   }
 
@@ -238,7 +241,7 @@ class DataSkippingSuite extends FunSuite {
     // col1 = 1
     constructDataFilterTest(
       in = new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-      target = Some("((Column(col1.minValues) <= 1) && (Column(col1.maxValues) >= 1))"))
+      target = Some("((Column(minValues.col1) <= 1) && (Column(maxValues.col1) >= 1))"))
   }
 
   test("filter construction: simple AND") {
@@ -246,8 +249,8 @@ class DataSkippingSuite extends FunSuite {
     constructDataFilterTest(
       in = new And(new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
         new EqualTo(new Column("col2", new LongType), Literal.of(1L))),
-      target = Some("(((Column(col1.minValues) <= 1) && (Column(col1.maxValues) >= 1)) &&" +
-        " ((Column(col2.minValues) <= 1) && (Column(col2.maxValues) >= 1)))"))
+      target = Some("(((Column(minValues.col1) <= 1) && (Column(maxValues.col1) >= 1)) &&" +
+        " ((Column(minValues.col2) <= 1) && (Column(maxValues.col2) >= 1)))"))
   }
 
   test("filter construction: the expression '>=' is not supported") {
@@ -345,7 +348,7 @@ class DataSkippingSuite extends FunSuite {
    * Filter: (i % 4 == 1 AND i % 4 == 1) (1 <= i <= 20)
    * Output: i = 1 or 5 or 9 or 13 or 17
    */
-  test("integration test: multiple filter on 1 partition column - duplicate") {
+  test("integration test: multiple filter on 1 non-partition column - duplicate") {
     filePruningTest(expr = new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = Seq("1", "5", "9", "13", "17"))
@@ -355,7 +358,7 @@ class DataSkippingSuite extends FunSuite {
    * Filter: (i % 3 == 1 AND i % 3 == 2) (1 <= i <= 20)
    * Output: No file meets the condition
    */
-  test("integration test: multiple filter on 1 partition column - conflict") {
+  test("integration test: multiple filter on 1 non-partition column - conflict") {
     filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col1"), Literal.of(2L))),
       target = Seq())

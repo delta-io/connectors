@@ -44,7 +44,7 @@ public abstract class BinaryExpression implements Expression {
     }
 
     @Override
-    public final Object eval(RowRecord record) {
+    public Object eval(RowRecord record) {
         Object leftResult = left.eval(record);
         if (null == leftResult) return null;
 
