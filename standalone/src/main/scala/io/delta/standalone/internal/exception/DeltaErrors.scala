@@ -350,10 +350,6 @@ private[internal] object DeltaErrors {
       "non-partitioned column")
   }
 
-  def duplicatedStatsException(statsType: String, columnName: String): Throwable = {
-    new DeltaStandaloneException(s"Duplicated stats $statsType.$columnName")
-  }
-
   ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////

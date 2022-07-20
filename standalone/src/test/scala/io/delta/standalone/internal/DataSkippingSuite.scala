@@ -26,6 +26,7 @@ import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
 import io.delta.standalone.internal.util.DataSkippingUtils
+import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 import io.delta.standalone.internal.util.TestUtils._
 
 class DataSkippingSuite extends FunSuite {
@@ -64,25 +65,25 @@ class DataSkippingSuite extends FunSuite {
     val partitionValues = Map("partitionCol" -> partitionColValue(i))
     val fullColumnStats = s"""
       | {
-      |   "${DataSkippingUtils.MIN}": {
+      |   "${MIN}": {
       |     "partitionCol":${partitionColValue(i)},
       |     "col1":${col1Value(i)},
       |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
-      |   "${DataSkippingUtils.MAX}": {
+      |   "${MAX}": {
       |     "partitionCol":${partitionColValue(i)},
       |     "col1":${col1Value(i)},
       |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
-      |   "${DataSkippingUtils.NULL_COUNT}": {
+      |   "${NULL_COUNT}": {
       |     "partitionCol": 0,
       |     "col1": 0,
       |     "col2": 0,
       |     "stringCol": 1
       |   },
-      |   "${DataSkippingUtils.NUM_RECORDS}":1
+      |   "${NUM_RECORDS}":1
       | }
       |"""
 
@@ -100,21 +101,21 @@ class DataSkippingSuite extends FunSuite {
     val subCol2 = 3
     val nestedColStats = s"""
       | {
-      |   "${DataSkippingUtils.MIN}": {
+      |   "${MIN}": {
       |     "normalCol":$normalCol,
       |     "parentCol": {
       |       "subCol1":$subCol1,
       |       "subCol2":$subCol2,
       |     }
       |   },
-      |   "${DataSkippingUtils.MAX}": {
+      |   "${MAX}": {
       |     "normalCol":$normalCol,
       |     "parentCol": {
       |       "subCol1":$subCol1,
       |       "subCol2":$subCol2,
       |     }
       |   },
-      |   "${DataSkippingUtils.NUM_RECORDS}":1
+      |   "${NUM_RECORDS}":1
       | }
       |""".stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
     Seq(AddFile(
@@ -149,138 +150,6 @@ class DataSkippingSuite extends FunSuite {
     }
   }
 
-  /**
-   * The unit test method for constructDataFilter.
-   * @param statsString the stats string in JSON format
-   * @param fileStatsTarget the target output of file-specific stats
-   * @param columnStatsTarget the target output of column-specific stats
-   * @param isNestedSchema if we will use nested schema for column stats
-   */
-  def parseColumnStatsTest(
-      statsString: String,
-      fileStatsTarget: Map[String, Long],
-      columnStatsTarget: Map[String, Long],
-      isNestedSchema: Boolean = false): Unit = {
-    val s = if (isNestedSchema) nestedSchema else schema
-    val (_, fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
-      tableSchema = s, statsString = statsString)
-    // TODO validate stats schema
-    // TODO add verification test
-    assert(fileStats == fileStatsTarget)
-    assert(columnStats == columnStatsTarget)
-  }
-
-  /**
-   * Unit test - parseColumnStats
-   */
-  test("parse column stats: basic") {
-    val fileStatsTarget = Map("numRecords" -> 1L)
-    val columnStatsTarget = Map(
-      "maxValues.partitionCol" -> 1L, "nullCount.col2" -> 0L, "minValues.col2" -> 1L,
-      "maxValues.col1" -> 1L, "minValues.partitionCol" -> 1L, "maxValues.col2" -> 1L,
-      "nullCount.col1" -> 0L, "minValues.col1" -> 1L, "nullCount.stringCol" -> 1L,
-      "nullCount.partitionCol" -> 0L)
-    // Though `stringCol` is not LongType, its `nullCount` stats will be documented
-    // while `minValues` and `maxValues` won't be.
-    parseColumnStatsTest(unwrappedStats, fileStatsTarget, columnStatsTarget)
-  }
-
-  test("parse column stats: ignore nested columns") {
-    val inputStats = """{"minValues":{"normalCol": 1, "parentCol":{"subCol1": 1, "subCol2": 2}}}"""
-    val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map("minValues.normalCol" -> 1L)
-    parseColumnStatsTest(
-      inputStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
-  }
-
-  test("parse column stats: wrong JSON format") {
-    val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map[String, Long]()
-    val e = intercept[JsonEOFException] {
-      parseColumnStatsTest(statsString = brokenStats,
-        fileStatsTarget, columnStatsTarget)
-    }
-    assert(e.getMessage.contains("Unexpected end-of-input in field name"))
-  }
-
-  test("parse column stats: missing stats from schema") {
-    val inputStats = """{"minValues":{"partitionCol": 1, "col1": 2}}"""
-    val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map[String, Long](
-      "minValues.partitionCol" -> 1, "minValues.col1" -> 2)
-    parseColumnStatsTest(inputStats, fileStatsTarget, columnStatsTarget)
-  }
-
-  /**
-   * The unit test method for constructDataFilter.
-   * @param in              input query predicate
-   * @param target          output column stats predicate from
-   *                        [[DataSkippingUtils.constructDataFilters]] in string, will be None if
-   *                        the method returned empty expression.
-   * @param isSchemaMissing if true, testing with empty schema
-   */
-  def constructDataFilterTest(
-      in: Expression,
-      target: Option[String],
-      isSchemaMissing: Boolean = false): Unit = {
-    val tableSchema = if (isSchemaMissing) new StructType(Array()) else schema
-    val output = DataSkippingUtils.constructDataFilters(
-      tableSchema = tableSchema,
-      expression = in)
-
-    assert(output.isDefined == target.isDefined)
-    if (target.isDefined) {
-      assert(target.get == output.get.expr.toString)
-    }
-  }
-
-  /**
-   * Unit test - constructDataFilters
-   */
-  test("filter construction: EqualTo") {
-    // col1 = 1
-    constructDataFilterTest(
-      in = new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-      target = Some("((Column(minValues.col1) <= 1) && (Column(maxValues.col1) >= 1))"))
-  }
-
-  test("filter construction: simple AND") {
-    // col1 = 1 AND col2 = 1
-    constructDataFilterTest(
-      in = new And(new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-        new EqualTo(new Column("col2", new LongType), Literal.of(1L))),
-      target = Some("(((Column(minValues.col1) <= 1) && (Column(maxValues.col1) >= 1)) &&" +
-        " ((Column(minValues.col2) <= 1) && (Column(maxValues.col2) >= 1)))"))
-  }
-
-  test("filter construction: the expression '>=' is not supported") {
-    // col1 >= 1
-    constructDataFilterTest(
-      in = new GreaterThanOrEqual(new Column("col1", new LongType), Literal.of(1L)),
-      target = None)
-  }
-
-  test("filter construction: the expression 'IsNotNull' is not supported") {
-    // col1 IS NOT NULL
-    constructDataFilterTest(
-      in = new IsNotNull(new Column("col1", new LongType)),
-      target = None)
-  }
-
-  test("filter construction: stats not in LongType will be ignored") {
-    // stringCol = 1
-    constructDataFilterTest(
-      in = new EqualTo(new Column("stringCol", new StringType), Literal.of("1")),
-      target = None)
-  }
-
-  test("filter construction: empty expression will return if schema is missing") {
-    // col1 = 1
-    constructDataFilterTest(
-      in = new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-      target = None,
-      isSchemaMissing = true)
-  }
 
   /**
    * The method for integration tests with different query predicate.
@@ -371,17 +240,17 @@ class DataSkippingSuite extends FunSuite {
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    * But the partition column filter still works here.
    */
-  test("integration test: missing stats") {
+  test("integration test: missing stats type") {
     val incompleteColumnStats =
       s"""
          | {
-         |   "${DataSkippingUtils.NULL_COUNT}": {
+         |   "${NULL_COUNT}": {
          |     "partitionCol": 0,
          |     "col1": 0,
          |     "col2": 0,
          |     "stringCol": 1
          |   },
-         |   "${DataSkippingUtils.NUM_RECORDS}":1
+         |   "${NUM_RECORDS}":1
          | }
          |"""
     filePruningTest(expr = new And(metadataConjunct,
@@ -395,26 +264,26 @@ class DataSkippingSuite extends FunSuite {
    * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    */
-  test("integration test: incomplete stats") {
+  test("integration test: missing column in stats") {
     val incompleteColumnStats = (i: Int) =>
       s"""
          | {
-         |   "${DataSkippingUtils.MAX}": {
+         |   "${MAX}": {
          |     "partitionCol": ${partitionColValue(i)},
          |     "col1": ${col1Value(i)},
          |     "stringCol": null
          |   },
-         |   ${DataSkippingUtils.MIN}": {
+         |   ${MIN}": {
          |     "partitionCol": ${partitionColValue(i)},
          |     "col1": ${col1Value(i)},
          |     "stringCol": null
          |   },
-         |   "${DataSkippingUtils.NULL_COUNT}": {
+         |   "${NULL_COUNT}": {
          |     "partitionCol": 0,
          |     "col1": 0,
          |     "stringCol": 1
          |   },
-         |   "${DataSkippingUtils.NUM_RECORDS}":1
+         |   "${NUM_RECORDS}":1
          | }
          |"""
     filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),

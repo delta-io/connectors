@@ -84,17 +84,14 @@ private[internal] object DataSkippingUtils {
       originSubSchema match {
         case subStruct: StructType =>
           // Some columns already created in this stats type, update it.
-          if (subStruct.hasFieldName(columnName)) {
-            // TODO return null or throw error to stop data skipping
-            throw DeltaErrors.duplicatedStatsException(statsType, columnName)
-          }
           val newSubSchema = subStruct.add(new StructField(columnName, dataType))
 
           val newStatsSchema = new StructType(remainingFields)
           newStatsSchema.add(new StructField(statsType, newSubSchema))
         case _ =>
           // The sub schema of one stats type can only be either data type or struct type
-          // TODO return null or throw error to stop data skipping
+          // This will never happen as the stats name is bound to one of the file-level or
+          // column-level stats type.
           throw DeltaErrors.fieldTypeMismatch(statsType, originSubSchema, "StructType")
       }
     } else {
