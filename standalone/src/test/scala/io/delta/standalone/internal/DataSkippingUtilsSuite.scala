@@ -134,7 +134,7 @@ case class DataSkippingUtilsSuite() extends FunSuite {
     }
   }
 
-  test("Unit test: filter construction") {
+  test("unit test: filter construction") {
     val col1Min = new Column(s"$MIN.col1", new LongType)
     val col1MinRef = ReferencedStats(Seq(MIN, "col1"), col1Min)
     val col1Max = new Column(s"$MAX.col1", new LongType)
@@ -187,7 +187,7 @@ case class DataSkippingUtilsSuite() extends FunSuite {
     assert(output.toString == target)
   }
 
-  test("unit test - verifyStatsForFilter") {
+  test("unit test: verifyStatsForFilter") {
     verifyStatsFilterTest(Set(Seq(MIN, "col1")),
       target = s"((Column($MIN.col1)) IS NOT NULL || " +
         s"(Column($NULL_COUNT.col1) = Column($NUM_RECORDS)))")
@@ -202,8 +202,9 @@ case class DataSkippingUtilsSuite() extends FunSuite {
       target = s"false")
 
     verifyStatsFilterTest(Set(Seq(MIN, "col1"), Seq(NUM_RECORDS)),
-      target = s"(((Column(minValues.col1)) IS NOT NULL || " +
-        s"(Column(nullCount.col1) = Column(numRecords))) && (Column(numRecords)) IS NOT NULL)")
+      target = s"(((Column($MIN.col1)) IS NOT NULL || " +
+        s"(Column($NULL_COUNT.col1) = Column($NUM_RECORDS))) && " +
+        s"(Column($NUM_RECORDS)) IS NOT NULL)")
   }
 
 }
