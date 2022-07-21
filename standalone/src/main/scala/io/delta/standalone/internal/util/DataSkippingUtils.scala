@@ -38,8 +38,8 @@ private [internal] case class ReferencedStats(
  * Results returned by [[DataSkippingUtils.constructDataFilters]]. Contains the column stats
  * predicate, and the set of stats columns appears in the column stats predicate.
  *
- * @param expr The transformed expression for column stats filter.
- * @param referencedStats Columns appears in [[expr]].
+ * @param expr            the transformed expression for column stats filter.
+ * @param referencedStats columns appears in [[expr]].
  */
 private [internal] case class ColumnStatsPredicate(
     expr: Expression,
@@ -126,7 +126,7 @@ private[internal] object DataSkippingUtils {
    *
    * @param tableSchema The table schema describes data column (not stats column) for this query.
    * @param statsString The json-formatted stats in raw string type in AddFile.
-   * @return file-specific stats map: the map stores file-specific stats, like [[NUM_RECORDS]]
+   * @return file-specific stats map:   the map stores file-specific stats, like [[NUM_RECORDS]]
    *         column-specific stats map: the map stores column-specific stats, like [[MIN]],
    *         [[MAX]], [[NULL_COUNT]].
    */
