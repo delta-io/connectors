@@ -19,8 +19,8 @@ package io.delta.standalone.internal
 import com.fasterxml.jackson.core.io.JsonEOFException
 import org.scalatest.FunSuite
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, Literal}
-import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.types.{DataType, LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.util.{DataSkippingUtils, ReferencedStats}
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
@@ -42,11 +42,10 @@ class DataSkippingUtilsSuite extends FunSuite {
   private val nestedColStats =
    s"""{"$MIN":{"normalCol": 1, "parentCol":{"subCol1": 2, "subCol2": 3}}}"""
 
-  /**
-   * Unit test - buildStatsSchema
-   */
-  test("build stats schema: basic") {
-    val output = DataSkippingUtils.buildStatsSchema(schema)
+
+  test("unit test: build stats schema") {
+    // build stats schema: basic table schema
+    var output = DataSkippingUtils.buildStatsSchema(schema)
     assert(output.length() == 4)
     assert(output.hasFieldName(MAX) &&
       output.hasFieldName(MIN) &&
@@ -61,10 +60,9 @@ class DataSkippingUtilsSuite extends FunSuite {
     val ncFields = ncSchema.asInstanceOf[StructType].getFields
     assert(ncFields.map(_.getDataType.isInstanceOf[LongType]).reduce(_ && _))
     assert(ncFields.map(_.getName) sameElements schema.getFieldNames)
-  }
 
-  test("build stats schema: ignore nested columns") {
-    val output = DataSkippingUtils.buildStatsSchema(nestedSchema)
+    // build stats schema: ignore nested columns
+    output = DataSkippingUtils.buildStatsSchema(nestedSchema)
     assert(output.length() == 0)
   }
 
@@ -87,80 +85,87 @@ class DataSkippingUtilsSuite extends FunSuite {
     assert(columnStats == columnStatsTarget)
   }
 
-  /**
-   * Unit test - parseColumnStats
-   */
-  test("parse column stats: basic") {
-    val fileStatsTarget = Map("numRecords" -> 3L)
-    val columnStatsTarget = Map("minValues.col2" -> 2L, "minValues.col1" -> 1L)
+  test("unit test: parse column stats") {
+    var fileStatsTarget = Map("numRecords" -> 3L)
+    var columnStatsTarget = Map("minValues.col2" -> 2L, "minValues.col1" -> 1L)
     // Though `stringCol` is not LongType, its `nullCount` stats will be documented
     // while `minValues` and `maxValues` won't be.
     parseColumnStatsTest(columnStats, fileStatsTarget, columnStatsTarget)
-  }
 
-  test("parse column stats: ignore nested columns") {
-    val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map[String, Long]()
+    // parse column stats: ignore nested column
+    fileStatsTarget = Map[String, Long]()
+    columnStatsTarget = Map[String, Long]()
     parseColumnStatsTest(
       nestedColStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
-  }
 
-  test("parse column stats: wrong JSON format") {
-    val fileStatsTarget = Map[String, Long]()
-    val columnStatsTarget = Map[String, Long]()
+    // parse column stats: wrong JSON format
+    fileStatsTarget = Map[String, Long]()
+    columnStatsTarget = Map[String, Long]()
     val e = intercept[JsonEOFException] {
       parseColumnStatsTest(statsString = brokenStats,
         fileStatsTarget, columnStatsTarget)
     }
     assert(e.getMessage.contains("Unexpected end-of-input in field name"))
-  }
 
-  test("parse column stats: missing stats from schema") {
-    val fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 2)
-    val columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 1)
+    // parse column stats: missing stats from schema
+    fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 2)
+    columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 1)
     parseColumnStatsTest(missingColumnStats, fileStatsTarget, columnStatsTarget)
-  }
 
-  test("parse column stats: duplicated stats name") {
-    // Error will not raise because only one `col1` key is available in map
+    // parse column stats: duplicated stats name
     val duplicatedStats = s"""{"$MIN":{"col1":1,"col1":2},"numRecords":3}"""
-    val fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 3)
-    val columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 2)
+    fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 3)
+    columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 2)
     parseColumnStatsTest(duplicatedStats, fileStatsTarget, columnStatsTarget)
-  }
 
-  test("parse column stats: conflict stats type") {
+    // parse column stats: conflict stats type
     // Error will not raise because `minValues` will not used as the file-specific stats
     val conflictStatsType = s"""{"$MIN":{"col1":1,"col1":2},"$MIN":3}"""
     parseColumnStatsTest(conflictStatsType, Map[String, Long](), Map[String, Long]())
   }
 
   /**
-   * The unit test method for constructDataFilter.
-   * @param hits    the valid expression with its target output
-   * @param misses  the invalid expression, the expected output should be empty
+   * The unit test method for successful constructDataFilter with valid output.
+   * @param input           the query predicate as input
+   * @param targetExpr      the target column stats filter as output
+   * @param targetRefStats  the target referenced stats appears in the [[targetExpr]]
    */
-  def constructDataFilterTests(
-      hits: Seq[(Expression, String, Set[ReferencedStats])],
-      misses: Seq[Expression]): Unit = {
-    hits.foreach { hit =>
-      val output = DataSkippingUtils.constructDataFilters(
-        tableSchema = schema,
-        expression = hit._1)
+  def successConstructDataFilterTests(
+      input: Expression,
+      targetExpr: Expression,
+      targetRefStats: Set[ReferencedStats]): Unit = {
+    val output = DataSkippingUtils.constructDataFilters(
+      tableSchema = schema, expression = input)
 
-      assert(hit._2 == output.get.expr.toString)
-      assert(hit._3 == output.get.referencedStats)
-    }
-
-    misses.foreach { miss =>
-      val output = DataSkippingUtils.constructDataFilters(
-        tableSchema = schema,
-        expression = miss)
-      assert(output.isEmpty)
-    }
+    assert(targetExpr == output.get.expr)
+    assert(targetRefStats == output.get.referencedStats)
   }
 
+  /**
+   * The unit test method for failed constructDataFilter.
+   * @param input the query predicate as input
+   */
+  def failConstructDataFilterTests(input: Expression): Unit = {
+    val output = DataSkippingUtils.constructDataFilters(
+      tableSchema = schema, expression = input)
+    assert(output.isEmpty)
+  }
+
+  /** Helper function for building the column stats filter from equalTo operation */
+  def eqCast(colName: String, colType: DataType, l: Literal): Expression = {
+    val colMin = new Column(s"$MIN.$colName", colType)
+    val colMax = new Column(s"$MAX.$colName", colType)
+    new And(new LessThanOrEqual(colMin, l), new GreaterThanOrEqual(colMax, l))
+  }
+
+
   test("unit test: filter construction") {
+    val col1 = new Column("col1", new LongType)
+    val col2 = new Column("col2", new LongType)
+
+    val long1 = Literal.of(1L)
+    val long2 = Literal.of(2L)
+
     val col1Min = new Column(s"$MIN.col1", new LongType)
     val col1MinRef = ReferencedStats(Seq(MIN, "col1"), col1Min)
     val col1Max = new Column(s"$MAX.col1", new LongType)
@@ -170,33 +175,32 @@ class DataSkippingUtilsSuite extends FunSuite {
     val col2Max = new Column(s"$MAX.col2", new LongType)
     val col2MaxRef = ReferencedStats(Seq(MAX, "col2"), col2Max)
 
-    constructDataFilterTests(
-      hits = Seq(
-        // col1 = 1
-        (new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-          s"((Column($MIN.col1) <= 1) && (Column($MAX.col1) >= 1))",
-          Set(col1MinRef, col1MaxRef)),
+    // col1 == 1
+    successConstructDataFilterTests(
+      input = new EqualTo(col1, long1),
+      targetExpr = eqCast("col1", new LongType, long1),
+      targetRefStats = Set(col1MinRef, col1MaxRef))
 
-        // col1 = 1 AND col2 = 1
-        (new And(new EqualTo(new Column("col1", new LongType), Literal.of(1L)),
-          new EqualTo(new Column("col2", new LongType), Literal.of(2L))),
-          s"(((Column($MIN.col1) <= 1) && (Column($MAX.col1) >= 1)) &&" +
-            s" ((Column($MIN.col2) <= 2) && (Column($MAX.col2) >= 2)))",
-          Set(col1MinRef, col1MaxRef, col2MinRef, col2MaxRef)),
-      ),
-      misses = Seq(
-        // col1 >= 1, '>=' is not supported
-        new GreaterThanOrEqual(new Column("col1", new LongType), Literal.of(1L)),
+    // col1 == 1 AND col2 == 1
+    successConstructDataFilterTests(
+      input = new And(new EqualTo(col1, long1), new EqualTo(col2, long2)),
+      targetExpr = new And(eqCast("col1", new LongType, long1),
+        eqCast("col2", new LongType, long2)),
+      targetRefStats = Set(col1MinRef, col1MaxRef, col2MinRef, col2MaxRef))
 
-        // col1 IS NOT NULL, is not supported
-        new IsNotNull(new Column("col1", new LongType)),
+    // col1 >= 1, `>=` is not supported
+    failConstructDataFilterTests(
+      new GreaterThanOrEqual(col1, long1))
 
-        // stringCol = 1, StringType is not supported
-        new EqualTo(new Column("stringCol", new StringType), Literal.of("1")),
+    // `col1 IS NOT NULL` is not supported
+    failConstructDataFilterTests(new IsNotNull(col1))
 
-        // empty expression will return if stats is missing
-        new EqualTo(new Column("col3", new LongType), Literal.of(1L))
-      ))
+    // stringCol = 1, StringType is not supported
+    failConstructDataFilterTests(
+      new EqualTo(new Column("stringCol", new StringType), Literal.of("1")))
+
+    // empty expression will return if stats is missing
+    failConstructDataFilterTests(new EqualTo(new Column("col3", new LongType), long1))
   }
 
   /**
@@ -204,33 +208,52 @@ class DataSkippingUtilsSuite extends FunSuite {
    * @param refStatsNames the referenced columns in stats
    * @param target        the target expression in string format
    */
-  def verifyStatsFilterTest(refStatsNames: Set[Seq[String]], target: String): Unit = {
+  def verifyStatsFilterTest(refStatsNames: Set[Seq[String]], target: Expression): Unit = {
     val refStats = refStatsNames.map { refStatsName =>
       val columnName = refStatsName.mkString(".")
       ReferencedStats(refStatsName, new Column(columnName, new LongType))
     }
     val output = DataSkippingUtils.verifyStatsForFilter(refStats)
-    assert(output.toString == target)
+    assert(output == target)
+  }
+  /** Helper method for generating verifying expression for MIN/MAX stats */
+  def verifyMinMax(statsType: String, colName: String, colType: DataType): Expression = {
+    val notNullExpr = verifyStatsCol(statsType, Some(colName), colType)
+    val nullCountCol = new Column(s"$NULL_COUNT.$colName", new LongType)
+    val numRecordsCol = new Column(NUM_RECORDS, new LongType)
+    new Or(notNullExpr, new EqualTo(nullCountCol, numRecordsCol))
+  }
+
+  /** Helper method for generating verifying expression */
+  def verifyStatsCol(statsType: String, colName: Option[String], colType: DataType): Expression = {
+    colName match {
+      case Some(s) => new IsNotNull(new Column(s"$statsType.$s", colType))
+      case None => new IsNotNull(new Column(statsType, colType))
+      case _ => null // should not happen
+    }
   }
 
   test("unit test: verifyStatsForFilter") {
+    // verify col1.MIN
     verifyStatsFilterTest(Set(Seq(MIN, "col1")),
-      target = s"((Column($MIN.col1)) IS NOT NULL || " +
-        s"(Column($NULL_COUNT.col1) = Column($NUM_RECORDS)))")
+      target = verifyMinMax(MIN, "col1", new LongType))
 
+    // verify NUM_RECORDS
     verifyStatsFilterTest(Set(Seq(NUM_RECORDS)),
-      target = s"(Column($NUM_RECORDS)) IS NOT NULL")
+      target = verifyStatsCol(NUM_RECORDS, None, new LongType))
 
+    // NUM_RECORDS should be a file-specific stats, verification failed
     verifyStatsFilterTest(Set(Seq(NUM_RECORDS, "col1")),
-      target = s"false")
+      target = Literal.False)
 
+    // Unidentified stats type, verification failed
     verifyStatsFilterTest(Set(Seq("wrong_stats", "col1")),
-      target = s"false")
+      target = Literal.False)
 
-    verifyStatsFilterTest(Set(Seq(MIN, "col1"), Seq(NUM_RECORDS)),
-      target = s"(((Column($MIN.col1)) IS NOT NULL || " +
-        s"(Column($NULL_COUNT.col1) = Column($NUM_RECORDS))) && " +
-        s"(Column($NUM_RECORDS)) IS NOT NULL)")
+    // verify col1.MAX and NUM_RECORDS
+    verifyStatsFilterTest(Set(Seq(MAX, "col1"), Seq(NUM_RECORDS)),
+      target = new And(verifyMinMax(MAX, "col1", new LongType),
+        verifyStatsCol(NUM_RECORDS, None, new LongType)))
   }
 
 }

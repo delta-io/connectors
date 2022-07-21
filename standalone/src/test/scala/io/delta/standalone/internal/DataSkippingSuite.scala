@@ -16,16 +16,14 @@
 
 package io.delta.standalone.internal
 
-import com.fasterxml.jackson.core.io.JsonEOFException
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal}
+import io.delta.standalone.expressions.{And, EqualTo, Expression, LessThanOrEqual, Literal}
 import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
-import io.delta.standalone.internal.util.DataSkippingUtils
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 import io.delta.standalone.internal.util.TestUtils._
 
