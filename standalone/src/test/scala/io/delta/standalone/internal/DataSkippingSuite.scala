@@ -51,10 +51,53 @@ class DataSkippingSuite extends FunSuite {
   val metadata: Metadata = Metadata(partitionColumns = partitionSchema.getFieldNames,
     schemaString = schema.toJson)
 
-
   private val partitionColValue = (i: Int) => i.toString
   private val col1Value = (i: Int) => (i % 3).toString
   private val col2Value = (i: Int) => (i % 4).toString
+
+  private val nestedFiles = {
+    val normalCol = 1
+    val subCol1 = 2
+    val subCol2 = 3
+    val nestedColStats = s"""
+      | {
+      |   "${MIN}": {
+      |     "normalCol":$normalCol,
+      |     "parentCol": {
+      |       "subCol1":$subCol1,
+      |       "subCol2":$subCol2,
+      |     }
+      |   },
+      |   "${MAX}": {
+      |     "normalCol":$normalCol,
+      |     "parentCol": {
+      |       "subCol1":$subCol1,
+      |       "subCol2":$subCol2,
+      |     }
+      |   },
+      |   "${NUM_RECORDS}":1
+      | }
+      |""".stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
+    Seq(AddFile(path = "nested", Map[String, String](), 1L, 1L, dataChange = true,
+      stats = "\"" + nestedColStats.replace("\"", "\\\"") + "\""))
+  }
+
+  private val nestedMetadata: Metadata = Metadata(partitionColumns = Seq[String](),
+    schemaString = nestedSchema.toJson)
+
+  private val unwrappedStats = buildFiles().get(0).getStats.replace("\\\"", "\"")
+    .dropRight(1).drop(1)
+
+  private val brokenStats = unwrappedStats.substring(0, 10)
+
+  private val iLessThan5 = new LessThanOrEqual(schema.column("partitionCol"), Literal.of(5L))
+
+  private val col1EqualTo1 = new EqualTo(schema.column("col1"), Literal.of(1L))
+
+  // partition column supports expression other than equal
+  private val metadataConjunct = iLessThan5
+
+  private val dataConjunct = col1EqualTo1
 
   def buildFiles(
       customStats: Option[Int => String] = None,
@@ -93,51 +136,6 @@ class DataSkippingSuite extends FunSuite {
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = wrappedColumnStats)
   }
 
-  private val nestedFiles = {
-    val normalCol = 1
-    val subCol1 = 2
-    val subCol2 = 3
-    val nestedColStats = s"""
-      | {
-      |   "${MIN}": {
-      |     "normalCol":$normalCol,
-      |     "parentCol": {
-      |       "subCol1":$subCol1,
-      |       "subCol2":$subCol2,
-      |     }
-      |   },
-      |   "${MAX}": {
-      |     "normalCol":$normalCol,
-      |     "parentCol": {
-      |       "subCol1":$subCol1,
-      |       "subCol2":$subCol2,
-      |     }
-      |   },
-      |   "${NUM_RECORDS}":1
-      | }
-      |""".stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString
-    Seq(AddFile(
-      path = "nested",
-      Map[String, String](),
-      1L,
-      1L,
-      dataChange = true,
-      stats = "\"" + nestedColStats.replace("\"", "\\\"") + "\""))
-  }
-
-  private val nestedMetadata: Metadata = Metadata(partitionColumns = Seq[String](),
-    schemaString = nestedSchema.toJson)
-
-  private val unwrappedStats = buildFiles().get(0).getStats.replace("\\\"", "\"")
-    .dropRight(1).drop(1)
-
-  private val brokenStats = unwrappedStats.substring(0, 10)
-
-  // partition column now supports expression other than equal
-  private val metadataConjunct = new LessThanOrEqual(schema.column("partitionCol"), Literal.of(5L))
-
-  private val dataConjunct = new EqualTo(schema.column("col1"), Literal.of(1L))
-
   def withDeltaLog(actions: Seq[Action], isNested: Boolean) (l: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
       val m = if (isNested) nestedMetadata else metadata
@@ -147,7 +145,6 @@ class DataSkippingSuite extends FunSuite {
       l(log)
     }
   }
-
 
   /**
    * The method for integration tests with different query predicate.
@@ -179,7 +176,7 @@ class DataSkippingSuite extends FunSuite {
   /**
    * Integration test
    *
-   * Description of the first integration test:
+   * Description of the first test:
    *
    * - table schema: (partitionCol: long, col1: long, col2: long, stringCol: string)
    *
@@ -206,7 +203,8 @@ class DataSkippingSuite extends FunSuite {
    * Output: i = 1 or 13
    */
   test("integration test: column stats filter on 2 non-partition column") {
-    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+    filePruningTest(
+      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = Seq("1", "13"))
   }
@@ -216,7 +214,8 @@ class DataSkippingSuite extends FunSuite {
    * Output: i = 1 or 5 or 9 or 13 or 17
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
-    filePruningTest(expr = new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
+    filePruningTest(
+      expr = new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = Seq("1", "5", "9", "13", "17"))
   }
@@ -226,7 +225,8 @@ class DataSkippingSuite extends FunSuite {
    * Output: No file meets the condition
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
-    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+    filePruningTest(
+      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col1"), Literal.of(2L))),
       target = Seq())
   }
@@ -251,7 +251,8 @@ class DataSkippingSuite extends FunSuite {
          |   "${NUM_RECORDS}":1
          | }
          |"""
-    filePruningTest(expr = new And(metadataConjunct,
+    filePruningTest(
+      expr = new And(iLessThan5,
         new EqualTo(schema.column("col2"), Literal.of(2L))),
       target = Seq("1", "2", "3", "4", "5"), Some(_ => incompleteColumnStats))
   }
@@ -284,7 +285,8 @@ class DataSkippingSuite extends FunSuite {
          |   "${NUM_RECORDS}":1
          | }
          |"""
-    filePruningTest(expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+    filePruningTest(
+      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = (1 to 20).map(_.toString).toSeq, Some(incompleteColumnStats))
   }
@@ -296,7 +298,7 @@ class DataSkippingSuite extends FunSuite {
    * column stats filter. But the partition column still works here.
    */
   test("integration test: empty stats str") {
-    filePruningTest(expr = new And(metadataConjunct,
+    filePruningTest(expr = new And(iLessThan5,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => "\"\""))
   }
@@ -309,7 +311,7 @@ class DataSkippingSuite extends FunSuite {
    * in [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl]].
    */
   test("integration test: broken stats str") {
-    filePruningTest(expr = new And(metadataConjunct,
+    filePruningTest(expr = new And(iLessThan5,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => brokenStats))
   }
@@ -321,7 +323,7 @@ class DataSkippingSuite extends FunSuite {
    * predicate and will skip column stats filter.
    */
   test("integration test: unsupported stats data type") {
-    filePruningTest(expr = new And(metadataConjunct,
+    filePruningTest(expr = new And(iLessThan5,
         new EqualTo(schema.column("stringCol"), Literal.of("1"))),
       target = Seq("1", "2", "3", "4", "5"), isStrColHasValue = true)
   }
@@ -333,7 +335,7 @@ class DataSkippingSuite extends FunSuite {
    * predicate and will skip column stats filter.
    */
   test("integration test: unsupported expression type") {
-    filePruningTest(expr = new And(metadataConjunct,
+    filePruningTest(expr = new And(iLessThan5,
         new LessThanOrEqual(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"))
   }
