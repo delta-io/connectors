@@ -19,13 +19,13 @@ package io.delta.standalone.internal
 import com.fasterxml.jackson.core.io.JsonEOFException
 import org.scalatest.FunSuite
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, Literal}
 import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.util.{DataSkippingUtils, ReferencedStats}
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 
-case class DataSkippingUtilsSuite() extends FunSuite {
+class DataSkippingUtilsSuite extends FunSuite {
   private val schema = new StructType(Array(
     new StructField("col1", new LongType(), true),
     new StructField("col2", new LongType(), true),
@@ -43,7 +43,33 @@ case class DataSkippingUtilsSuite() extends FunSuite {
    s"""{"$MIN":{"normalCol": 1, "parentCol":{"subCol1": 2, "subCol2": 3}}}"""
 
   /**
-   * The unit test method for constructDataFilter.
+   * Unit test - buildStatsSchema
+   */
+  test("build stats schema: basic") {
+    val output = DataSkippingUtils.buildStatsSchema(schema)
+    assert(output.length() == 4)
+    assert(output.hasFieldName(MAX) &&
+      output.hasFieldName(MIN) &&
+      output.hasFieldName(NULL_COUNT) &&
+      output.hasFieldName(NUM_RECORDS))
+    assert(output.get(MAX).getDataType == schema &&
+      output.get(MIN).getDataType == schema &&
+      output.get(NUM_RECORDS).getDataType.isInstanceOf[LongType])
+
+    val ncSchema = output.get(NULL_COUNT).getDataType
+    assert(ncSchema.isInstanceOf[StructType])
+    val ncFields = ncSchema.asInstanceOf[StructType].getFields
+    assert(ncFields.map(_.getDataType.isInstanceOf[LongType]).reduce(_ && _))
+    assert(ncFields.map(_.getName) sameElements schema.getFieldNames)
+  }
+
+  test("build stats schema: ignore nested columns") {
+    val output = DataSkippingUtils.buildStatsSchema(nestedSchema)
+    assert(output.length() == 0)
+  }
+
+  /**
+   * The unit test method for [[DataSkippingUtils.constructDataFilters]].
    * @param statsString       the stats string in JSON format
    * @param fileStatsTarget   the target output of file-specific stats
    * @param columnStatsTarget the target output of column-specific stats
@@ -55,7 +81,7 @@ case class DataSkippingUtilsSuite() extends FunSuite {
       columnStatsTarget: Map[String, Long],
       isNestedSchema: Boolean = false): Unit = {
     val s = if (isNestedSchema) nestedSchema else schema
-    val (_, fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
+    val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
       tableSchema = s, statsString = statsString)
     assert(fileStats == fileStatsTarget)
     assert(columnStats == columnStatsTarget)

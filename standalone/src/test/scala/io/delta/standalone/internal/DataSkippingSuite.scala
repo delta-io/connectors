@@ -65,25 +65,25 @@ class DataSkippingSuite extends FunSuite {
     val partitionValues = Map("partitionCol" -> partitionColValue(i))
     val fullColumnStats = s"""
       | {
-      |   "${MIN}": {
+      |   "$MIN": {
       |     "partitionCol":${partitionColValue(i)},
       |     "col1":${col1Value(i)},
       |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
-      |   "${MAX}": {
+      |   "$MAX": {
       |     "partitionCol":${partitionColValue(i)},
       |     "col1":${col1Value(i)},
       |     "col2":${col2Value(i)},
       |     "stringCol":$stringColValue
       |   },
-      |   "${NULL_COUNT}": {
+      |   "$NULL_COUNT": {
       |     "partitionCol": 0,
       |     "col1": 0,
       |     "col2": 0,
       |     "stringCol": 1
       |   },
-      |   "${NUM_RECORDS}":1
+      |   "$NUM_RECORDS":1
       | }
       |"""
 

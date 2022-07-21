@@ -45,7 +45,7 @@ final private[internal] class FilteredDeltaScanImpl(
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
   // The column stats filter, generated once per query.
-  val columnStatsFilter: Option[Expression] = dataConjunction match {
+  private val columnStatsFilter: Option[Expression] = dataConjunction match {
     case Some(e: Expression) =>
       // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
       // If this passed, it is possible that the records in this file contains value can
@@ -57,6 +57,8 @@ final private[internal] class FilteredDeltaScanImpl(
           new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats))))
     case _ => None
   }
+
+  private val statsSchema = DataSkippingUtils.buildStatsSchema(tableSchema)
 
   override protected def accept(addFile: AddFile): Boolean = {
     // Evaluate the partition filter
@@ -75,7 +77,7 @@ final private[internal] class FilteredDeltaScanImpl(
       // not empty. This happens once per file.
 
       // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
-      val (statsSchema, fileStats, columnStats) = try {
+      val (fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
       } catch {
         // If the stats parsing process failed, accept this file.
