@@ -94,10 +94,11 @@ final private[internal] class FilteredDeltaScanImpl(
       // Evaluate the filter, this guarantees that all stats can be found in row record.
       val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
 
-      columnStatsFilterResult match {
+      columnStatsFilterResult.isInstanceOf[Boolean] match {
+        case true => columnStatsFilterResult.asInstanceOf[Boolean]
+
         // If the expression is not evaluated correctly, accept this file.
-        case null => true
-        case _ => columnStatsFilterResult.asInstanceOf[Boolean]
+        case _ => true
       }
     } else {
       partitionFilterResult
