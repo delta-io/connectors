@@ -21,9 +21,7 @@ import scala.collection.immutable
 import com.fasterxml.jackson.databind.JsonNode
 
 import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
-import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
-
-import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.types.{LongType, StructField, StructType}
 
 /**
  * The referenced stats column in column stats filter, used in
@@ -221,8 +219,8 @@ private[internal] object DataSkippingUtils {
     }
 
   /**
-   * If any stats column in column stats filter is missing, disable the column stats filter for this
-   * file. This expression builds only once per query.
+   * This expression ensures if ANY stats column in column stats filter is missing in one AddFile,
+   * disable the column stats filter for this file. This expression builds only once per query.
    *
    * @param   referencedStats All of stats column appears in the column stats filter.
    * @return  the verifying expression, evaluated as true if the column stats filter is valid, false
