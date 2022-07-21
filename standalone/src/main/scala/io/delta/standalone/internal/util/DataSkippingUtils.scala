@@ -61,43 +61,34 @@ private[internal] object DataSkippingUtils {
   final val NULL_COUNT = "nullCount"
 
   /**
-   * Add new or update existing stats column to the [[statsSchema]], the first layer of schema is
-   * stats type, and the second layer is column name in data schema.
+   * Build [[statsSchema]] based on the table schema, the first layer of schema is
+   * stats type, and the second layer is column name in data schema (if it is an
+   * column-specific stats).
+   * We don't need this to prevent missing stats as they are prevented by
+   * [[verifyStatsForFilter]].
    *
-   * @param statsSchema the schema contains stats columns
-   * @param statsType   the type of adding stats column, like [[MIN]] and [[NUM_RECORDS]]
-   * @param dataType    the data type of adding stats column
-   * @param columnName  the corresponding data column name
-   * @return            the updated [[statsSchema]]
+   * @param tableSchema the table schema in Snapshot
+   * @return [[statsSchema]]
    */
-  def updateStatsSchema(
-      statsSchema: StructType,
-      statsType: String,
-      dataType: DataType,
-      columnName: String): StructType = {
-    if (statsSchema.hasFieldName(statsType)) {
-      // The stats type is already in the stats schema, update the existing sub schema with new
-      // column name.
-      val originSubField = statsSchema.get(statsType)
-      val originSubSchema = originSubField.getDataType
-      val remainingFields = statsSchema.getFields.filterNot(statsType == _.getName)
-      originSubSchema match {
-        case subStruct: StructType =>
-          // Some columns already created in this stats type, update it.
-          val newSubSchema = subStruct.add(new StructField(columnName, dataType))
+  def buildStatsSchema(tableSchema: StructType): StructType = {
+    // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
+    // TODO: add nested column support
+    val nonNestedColumns = tableSchema.getFields.filterNot(_.getDataType.isInstanceOf[StructType])
+    nonNestedColumns.length match {
+      case 0 => new StructType()
+      case _ =>
+        val allLongColumns = nonNestedColumns.map(field =>
+          new StructField(field.getName, new LongType))
+        new StructType(Array(
+          // MIN and MAX are used the corresponding data column's type.
+          new StructField(MIN, new StructType(nonNestedColumns)),
+          new StructField(MAX, new StructType(nonNestedColumns)),
 
-          val newStatsSchema = new StructType(remainingFields)
-          newStatsSchema.add(new StructField(statsType, newSubSchema))
-        case _ =>
-          // The sub schema of one stats type can only be either data type or struct type
-          // This will never happen as the stats name is bound to one of the file-level or
-          // column-level stats type.
-          throw DeltaErrors.fieldTypeMismatch(statsType, originSubSchema, "StructType")
-      }
-    } else {
-      // Encountered a new stats type, add new StructType for it.
-      statsSchema.add(
-        new StructField(statsType, new StructType(Array(new StructField(columnName, dataType)))))
+          // nullCount is using the LongType for all columns
+          new StructField(NULL_COUNT, new StructType(allLongColumns)),
+
+          // numRecords is a file-specific Long value
+          new StructField(NUM_RECORDS, new LongType)))
     }
   }
 
@@ -137,11 +128,10 @@ private[internal] object DataSkippingUtils {
    */
   def parseColumnStats(
       tableSchema: StructType,
-      statsString: String): (StructType, immutable.Map[String, Long], immutable.Map[String, Long]) =
+      statsString: String): (immutable.Map[String, Long], immutable.Map[String, Long]) =
   {
     var fileStats = Map[String, Long]()
     var columnStats = Map[String, Long]()
-    var statsSchema = new StructType
 
     val dataColumns = tableSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
@@ -151,7 +141,6 @@ private[internal] object DataSkippingUtils {
         // This is an file-level stats, like ROW_RECORDS.
         if (statsType == NUM_RECORDS) {
           fileStats += (statsType -> statsObj.asText.toLong)
-          statsSchema = statsSchema.add(new StructField(statsType, new LongType))
         }
       } else {
         // This is an column-level stats, like MIN_VALUE and MAX_VALUE, iterator through the table
@@ -169,18 +158,16 @@ private[internal] object DataSkippingUtils {
                 val dataType = dataColumn.getDataType
                 if (dataType == new LongType) {
                   columnStats += (statsName -> statsVal.asText.toLong)
-                  statsSchema = updateStatsSchema(statsSchema, statsType, dataType, columnName)
                 }
               case NULL_COUNT =>
                 columnStats += (statsName -> statsVal.asText.toLong)
-                statsSchema = updateStatsSchema(statsSchema, statsType, new LongType, columnName)
               case _ =>
             }
           }
         }
       }
     }
-    (statsSchema, fileStats, columnStats)
+    (fileStats, columnStats)
   }
 
   /**
