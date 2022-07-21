@@ -59,12 +59,14 @@ private[internal] class ColumnStatsRowRecord(
     statsSchema: StructType,
     fileStats: collection.Map[String, Long],
     columnStats: collection.Map[String, Long]) extends RowRecordJ {
+  // TODO: support BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType,
+  //  ShortType
 
   override def getSchema: StructType = statsSchema
 
   override def getLength: Int = statsSchema.length()
 
-  /** Check whether there is a column in the  */
+  /** Check whether there is a column in the stats schema */
   private def checkColumnNameAndType(columnName: String, statsType: String): Boolean = {
     if (!statsSchema.hasFieldName(statsType)) {
       // ensure that such column name exists in table schema
@@ -115,13 +117,20 @@ private[internal] class ColumnStatsRowRecord(
     }
   }
 
-  /** if a column not exists either in value map, then it is missing, will return true. */
+  /**
+   * If a column not exists in both stats map, then it is missing, will return true.
+   *
+   * Since [[ColumnStatsRowRecord.isNullAt]] is used in the evaluation of IsNull and IsNotNull
+   * expressions, it will return TRUE for IsNull(missingStats), which could be an incorrect
+   * result. Here we avoid this problem by not using IsNull expression as a part of any column
+   * stats filter.
+   */
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty
   }
 
   override def getInt(fieldName: String): Int = {
-    throw new UnsupportedOperationException("Int is not a supported column stats type.")
+    throw new UnsupportedOperationException("integer is not a supported column stats type.")
   }
 
   /** getLongOrNone must return the field name here as we have pre-checked by [[isNullAt]] */
@@ -130,37 +139,37 @@ private[internal] class ColumnStatsRowRecord(
   }
 
   override def getByte(fieldName: String): Byte =
-    throw new UnsupportedOperationException("Byte is not a supported column stats type.")
+    throw new UnsupportedOperationException("byte is not a supported column stats type.")
 
   override def getShort(fieldName: String): Short =
-    throw new UnsupportedOperationException("Short is not a supported column stats type.")
+    throw new UnsupportedOperationException("short is not a supported column stats type.")
 
   override def getBoolean(fieldName: String): Boolean =
-    throw new UnsupportedOperationException("Boolean is not a supported column stats type.")
+    throw new UnsupportedOperationException("boolean is not a supported column stats type.")
 
   override def getFloat(fieldName: String): Float =
-    throw new UnsupportedOperationException("Float is not a supported column stats type.")
+    throw new UnsupportedOperationException("float is not a supported column stats type.")
 
   override def getDouble(fieldName: String): Double =
-    throw new UnsupportedOperationException("Double is not a supported column stats type.")
+    throw new UnsupportedOperationException("double is not a supported column stats type.")
 
   override def getString(fieldName: String): String =
-    throw new UnsupportedOperationException("String is not a supported column stats type.")
+    throw new UnsupportedOperationException("string is not a supported column stats type.")
 
   override def getBinary(fieldName: String): Array[Byte] =
-    throw new UnsupportedOperationException("Binary is not a supported column stats type.")
+    throw new UnsupportedOperationException("binary is not a supported column stats type.")
 
   override def getBigDecimal(fieldName: String): java.math.BigDecimal =
-    throw new UnsupportedOperationException("BigDecimal is not a supported column stats type.")
+    throw new UnsupportedOperationException("decimal is not a supported column stats type.")
 
   override def getTimestamp(fieldName: String): Timestamp =
-    throw new UnsupportedOperationException("TimeStamp is not a supported column stats type.")
+    throw new UnsupportedOperationException("timestamp is not a supported column stats type.")
 
   override def getDate(fieldName: String): Date =
-    throw new UnsupportedOperationException("Date is not a supported column stats type.")
+    throw new UnsupportedOperationException("date is not a supported column stats type.")
 
   override def getRecord(fieldName: String): RowRecordJ =
-    throw new UnsupportedOperationException("Record is not a supported column stats type.")
+    throw new UnsupportedOperationException("Struct is not a supported column stats type.")
 
   override def getList[T](fieldName: String): util.List[T] =
     throw new UnsupportedOperationException("List is not a supported column stats type.")

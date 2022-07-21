@@ -48,7 +48,7 @@ private [internal] case class ColumnStatsPredicate(
 private[internal] object DataSkippingUtils {
 
   // TODO: add extensible storage of column stats name and their data type.
-  //  (if data type is fixed, like type of `NUM_RECORDS` is always LongType)
+  //  (data type can be fixed, like type of `NUM_RECORDS` is always LongType)
   /* The total number of records in the file. */
   final val NUM_RECORDS = "numRecords"
   /* The smallest (possibly truncated) value for a column. */
@@ -59,9 +59,20 @@ private[internal] object DataSkippingUtils {
   final val NULL_COUNT = "nullCount"
 
   /**
-   * Build [[statsSchema]] based on the table schema, the first layer of schema is
-   * stats type, and the second layer is column name in data schema (if it is an
-   * column-specific stats).
+   * Build [[statsSchema]] based on the table schema, the first layer of stats schema is stats type.
+   * If is a column-specific stats, it nested a second layer, which contains the column name in data
+   * schema. Or it is a column-specific stats, contains a non-nested data type.
+   *
+   * The layout of stats schema is totally the same as the full stats string in JSON:
+   * (for the table contains column `a` and `b`)
+   * {
+   *  "[[NUM_RECORDS]]": 3,
+   *  "[[MIN]]": {
+   *      "a": 2,
+   *      "b": 1
+   *   }, ... // other stats
+   * }
+   *
    * We don't need this to prevent missing stats as they are prevented by
    * [[verifyStatsForFilter]].
    *
@@ -70,7 +81,6 @@ private[internal] object DataSkippingUtils {
    */
   def buildStatsSchema(tableSchema: StructType): StructType = {
     // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
-    // TODO: add nested column support
     val nonNestedColumns = tableSchema.getFields.filterNot(_.getDataType.isInstanceOf[StructType])
     nonNestedColumns.length match {
       case 0 => new StructType()
@@ -92,26 +102,21 @@ private[internal] object DataSkippingUtils {
 
   /**
    * Parse the stats in AddFile to two maps. The output contains two map distinguishing
-   * the file-level stats and column-level stats.
+   * the file-specific stats and column-specific stats.
    *
-   * For file-level stats, like NUM_RECORDS, it only contains one value per file. The key
-   * of file-level stats map is the stats type. And the value of map is stats value.
+   * For file-specific stats, like NUM_RECORDS, it only contains one value per file. The key
+   * of file-specific stats map is the stats type. And the value of map is stats value.
    *
-   * For column-level stats, like MIN, MAX, or NULL_COUNT, they contains one value per column,
-   * so that the key of column-level map is the COMPLETE column name with stats type, like `a.MAX`.
-   * And the corresponding value of map is the stats value.
-   *
-   * Since the structured column don't have column stats, no worry about the duplicated column
-   * names in column-level stats map. For example: if there is a column has the physical name
-   * `a.MAX`, we don't need to worry about it is duplicated with the MAX stats of column `a`,
-   * because the structured column `a` doesn't have column stats.
+   * For column-specific stats, like MIN, MAX, or NULL_COUNT, they contains one value per column at
+   * most, so the key of column-specific map is the stats type with COMPLETE column name, like
+   * `MAX.a`. And the corresponding value of map is the stats value.
    *
    * If there is a column name not appears in the table schema, we won't store it.
    *
-   * Example of `statsString`:
+   * Example of `statsString` (for the table contains column `a` and `b`):
    * {
-   *  "numRecords": 3,
-   *  "minValues": {
+   *  "[[NUM_RECORDS]]": 3,
+   *  "[[MIN]]": {
    *      "a": 2,
    *      "b": 1
    *   }, ... // other stats
@@ -121,8 +126,9 @@ private[internal] object DataSkippingUtils {
    *
    * @param tableSchema The table schema describes data column (not stats column) for this query.
    * @param statsString The json-formatted stats in raw string type in AddFile.
-   * @return file-level stats map: the map stores file-level stats.
-   *         column-level stats map: the map stores column-level stats, like MIN, MAX, NULL_COUNT.
+   * @return file-specific stats map: the map stores file-specific stats, like [[NUM_RECORDS]]
+   *         column-specific stats map: the map stores column-specific stats, like [[MIN]],
+   *         [[MAX]], [[NULL_COUNT]].
    */
   def parseColumnStats(
       tableSchema: StructType,
@@ -136,14 +142,14 @@ private[internal] object DataSkippingUtils {
       val statsType = stats._1
       val statsObj = stats._2
       if (!statsObj.isObject) {
-        // This is an file-level stats, like ROW_RECORDS.
+        // This is an file-specific stats, like ROW_RECORDS.
         if (statsType == NUM_RECORDS) {
           fileStats += (statsType -> statsObj.asText.toLong)
         }
       } else {
-        // This is an column-level stats, like MIN_VALUE and MAX_VALUE, iterator through the table
-        // schema and fill the column-level stats map column-by-column if the column name appears
-        // in json string.
+        // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
+        // table schema and fill the column-specific stats map column-by-column if the column name
+        // appears in json string.
         dataColumns.filter(col => statsObj.has(col.getName)).foreach { dataColumn =>
           // Get stats value by column name, if the column is missing in this stat's struct, the
           val columnName = dataColumn.getName
@@ -171,6 +177,7 @@ private[internal] object DataSkippingUtils {
   /**
    * Build the column stats filter based on query predicate. This expression builds only once per
    * query. Now two rules are applied:
+   *
    * - (col1 == Literal2) -> (MIN.col1 <= Literal2 AND MAX.col1 >= Literal2)
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
@@ -222,9 +229,9 @@ private[internal] object DataSkippingUtils {
    * This expression ensures if ANY stats column in column stats filter is missing in one AddFile,
    * disable the column stats filter for this file. This expression builds only once per query.
    *
-   * @param   referencedStats All of stats column appears in the column stats filter.
-   * @return  the verifying expression, evaluated as true if the column stats filter is valid, false
-   *          while it is invalid.
+   * @param   referencedStats All of stats column exists in the column stats filter.
+   * @return  the verifying expression, evaluated as true if the column stats filter and stats value
+   *          in current [[AddFile]] is valid, false when it is invalid.
    */
   def verifyStatsForFilter(
       referencedStats: Set[ReferencedStats]): Expression = {

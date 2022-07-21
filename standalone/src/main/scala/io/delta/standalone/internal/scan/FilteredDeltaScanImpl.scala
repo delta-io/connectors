@@ -44,7 +44,6 @@ final private[internal] class FilteredDeltaScanImpl(
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
-  // The column stats filter, generated once per query.
   private val columnStatsFilter: Option[Expression] = dataConjunction match {
     case Some(e: Expression) =>
       // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
@@ -84,7 +83,7 @@ final private[internal] class FilteredDeltaScanImpl(
         case NonFatal(_) => return true
       }
 
-      if (fileStats.isEmpty || columnStats.isEmpty) {
+      if (fileStats.isEmpty && columnStats.isEmpty) {
         // If we don't have any stats, skip evaluation and accept this file.
         return true
       }
