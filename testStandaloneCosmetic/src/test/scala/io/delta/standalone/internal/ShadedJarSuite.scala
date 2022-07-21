@@ -25,9 +25,12 @@ import scala.collection.JavaConverters._
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
+import org.apache.parquet.schema.MessageType
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation, Snapshot}
+import io.delta.standalone.types._
+import io.delta.standalone.util.ParquetSchemaConverter
 
 import io.delta.standalone.internal.DeltaLogImpl
 
@@ -83,5 +86,12 @@ class ShadedJarSuite extends FunSuite {
     } finally {
       FileUtils.deleteDirectory(dir)
     }
+  }
+
+  test("parquet dependencies") {
+    val schema = new StructType()
+      .add("col1", new StringType())
+      .add("col2", new LongType());
+    val messageType: MessageType = ParquetSchemaConverter.deltaToParquet(schema);
   }
 }

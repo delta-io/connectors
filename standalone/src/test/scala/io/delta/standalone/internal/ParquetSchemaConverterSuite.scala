@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.delta.standalone
+package io.delta.standalone.internal
 
 import org.apache.parquet.schema.MessageTypeParser
 import org.scalatest.FunSuite

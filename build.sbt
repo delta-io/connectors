@@ -43,6 +43,7 @@ lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 val sparkVersion = "2.4.3"
 val hiveDeltaVersion = "0.5.0"
 val parquet4sVersion = "1.9.4"
+val parquetHadoopVersion = "1.12.0"
 val scalaTestVersion = "3.0.8"
 val deltaStorageVersion = "1.2.1"
 // Versions for Hive 3
@@ -372,7 +373,6 @@ lazy val hive2Tez = (project in file("hive2-tez")) settings (
  * -- .m2/repository/io/delta/delta-standalone_2.12/0.2.1-SNAPSHOT/delta-standalone_2.12-0.2.1-SNAPSHOT-javadoc.jar
  */
 lazy val standaloneCosmetic = project
-  .dependsOn(standaloneParquet)
   .settings(
     name := "delta-standalone",
     commonSettings,
@@ -381,6 +381,7 @@ lazy val standaloneCosmetic = project
     Compile / packageBin := (standalone / assembly).value,
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
       "io.delta" % "delta-storage" % deltaStorageVersion,
       // parquet4s-core dependencies that are not shaded are added with compile scope.
       "com.chuusai" %% "shapeless" % "2.3.4",
@@ -395,6 +396,7 @@ lazy val testStandaloneCosmetic = project.dependsOn(standaloneCosmetic)
     skipReleaseSettings,
     libraryDependencies ++= Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion,
       "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
     )
   )
@@ -404,23 +406,6 @@ def scalaCollectionPar(version: String) = version match {
     Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4")
     case _ => Seq()
 }
-
-/**
- * The public API ParquetSchemaConverter exposes Parquet classes in its methods so we cannot apply
- * shading rules on it. However, sbt-assembly doesn't allow excluding a single file. Hence, we
- * create a separate project to skip the shading.
- */
-lazy val standaloneParquet = (project in file("standalone-parquet"))
-  .dependsOn(standalone % "provided")
-  .settings(
-    name := "delta-standalone-parquet",
-    commonSettings,
-    skipReleaseSettings,
-    libraryDependencies ++= Seq(
-      "org.apache.parquet" % "parquet-hadoop" % "1.12.0" % "provided",
-      "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
-    )
-  )
 
 lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
@@ -433,8 +418,10 @@ lazy val standalone = (project in file("standalone"))
     // `standaloneCosmetic` and update it accordingly.
     libraryDependencies ++= scalaCollectionPar(scalaVersion.value) ++ Seq(
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+      "org.apache.parquet" % "parquet-hadoop" % parquetHadoopVersion % "provided",
       "com.github.mjakubowski84" %% "parquet4s-core" % parquet4sVersion excludeAll (
-        ExclusionRule("org.slf4j", "slf4j-api")
+        ExclusionRule("org.slf4j", "slf4j-api"),
+        ExclusionRule("org.apache.parquet", "parquet-hadoop")
       ),
       "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3",
       "org.json4s" %% "json4s-jackson" % "3.7.0-M11" excludeAll (
@@ -484,7 +471,7 @@ lazy val standalone = (project in file("standalone"))
     assembly / assemblyExcludedJars := {
       val cp = (assembly / fullClasspath).value
       val allowedPrefixes = Set("META_INF", "io", "json4s", "jackson", "paranamer",
-        "parquet4s", "parquet-", "audience-annotations", "commons-pool")
+        "parquet4s", "audience-annotations", "commons-pool")
       cp.filter { f =>
         !allowedPrefixes.exists(prefix => f.data.getName.startsWith(prefix))
       }
@@ -495,8 +482,6 @@ lazy val standalone = (project in file("standalone"))
       ShadeRule.rename("org.json4s.**" -> "shadedelta.@0").inAll,
       ShadeRule.rename("com.github.mjakubowski84.parquet4s.**" -> "shadedelta.@0").inAll,
       ShadeRule.rename("org.apache.commons.pool.**" -> "shadedelta.@0").inAll,
-      ShadeRule.rename("org.apache.parquet.**" -> "shadedelta.@0").inAll,
-      ShadeRule.rename("shaded.parquet.**" -> "shadedelta.@0").inAll,
       ShadeRule.rename("org.apache.yetus.audience.**" -> "shadedelta.@0").inAll
     ),
     assembly / assemblyMergeStrategy := {
