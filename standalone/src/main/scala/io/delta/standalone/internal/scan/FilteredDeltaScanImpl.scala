@@ -61,11 +61,7 @@ final private[internal] class FilteredDeltaScanImpl(
       //
       // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
       // missing but referenced in the column stats filter, we will accept this file.
-      DataSkippingUtils.constructDataFilters(dataSchema, e).map { predicate =>
-        new Or(
-          predicate.expr,
-          new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats)))
-      }
+      DataSkippingUtils.constructDataFilters(dataSchema, e).map(_.expr)
     case _ => None
   }
 
