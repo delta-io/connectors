@@ -31,40 +31,37 @@ import io.delta.standalone.internal.util.{DataSkippingUtils, PartitionUtils}
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
  * those that match the [[getPushedPredicate]] and [[getResidualPredicate]].
  *
- * Before evaluating the [[getResidualPredicate]] by stats stored in each [[AddFile]], the query
- * predicate will be transformed to the column stats filter following rules in
- * [[DataSkippingUtils.constructDataFilters]].
- *
- * If the all predicates are empty, then all files are returned.
+ * If all the predicates are empty, then all files are returned.
  */
 final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
     partitionSchema: StructType,
-    nonPartitionSchema: StructType) extends DeltaScanImpl(replay) {
+    dataSchema: StructType) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
+  /**
+   * If column stats filter is evaluated as true, it means some row in this file may meet the query
+   * condition, thus we need to return this file.
+   *
+   * If this is evaluated as false, then no row in this file meets the query condition and we will
+   * skip this file.
+   *
+   * Sometimes this is evaluated as `null` because stats are invalid, then we accept and return this
+   * file to client.
+   */
   private val columnStatsFilter: Option[Expression] = dataConjunction match {
-    // If this filter is evaluated as true, it means there exists the non-empty intersection between
-    // query predicate acceptance domain and the column domain defined by MIN/MAX, thus we need to
-    // return this file to client.
-    //
-    // If this is evaluated as false, then no intersection and we will skip this file.
-    //
-    // Sometimes this is evaluated as `null` because stats are illegal, then we `disable` the
-    // filtering by accept and return this file to client.
-
     case Some(e: Expression) =>
       // Transform the query predicate based on filter, see
       // `DataSkippingUtils.constructDataFilters`.
       //
       // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
       // missing but referenced in the column stats filter, we will accept this file.
-      DataSkippingUtils.constructDataFilters(nonPartitionSchema, e).map { predicate =>
+      DataSkippingUtils.constructDataFilters(dataSchema, e).map { predicate =>
         new Or(
           predicate.expr,
           new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats)))
@@ -72,7 +69,7 @@ final private[internal] class FilteredDeltaScanImpl(
     case _ => None
   }
 
-  private val statsSchema = DataSkippingUtils.buildStatsSchema(nonPartitionSchema)
+  private val statsSchema = DataSkippingUtils.buildStatsSchema(dataSchema)
 
   override protected def accept(addFile: AddFile): Boolean = {
     // Evaluate the partition filter.
@@ -90,9 +87,9 @@ final private[internal] class FilteredDeltaScanImpl(
       // Evaluate the column stats filter when partition filter passed and column stats filter is
       // not empty.
 
-      // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`.
+      // Get stats value from each AddFile.
       val (fileStats, columnStats) = try {
-        DataSkippingUtils.parseColumnStats(nonPartitionSchema, addFile.stats)
+        DataSkippingUtils.parseColumnStats(dataSchema, addFile.stats)
       } catch {
         // If the stats parsing process failed, accept this file.
         case NonFatal(_) => return true
@@ -109,6 +106,15 @@ final private[internal] class FilteredDeltaScanImpl(
       // Evaluate the filter, this guarantees that all stats can be found in row record.
       val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
 
+      // During the evaluation, all the stats values will be checked by
+      // `ColumnStatsRowRecord.isNullAt` before get the stats value. If any stats in column stats
+      // filter is missing, the evaluation result will be null. In that case the file will be
+      // accepted.
+      //
+      // Since `ColumnStatsRowRecord.isNullAt` is used in the evaluation of IsNull expression, it
+      // will return true for IsNull(missingStats), which could be an incorrect
+      // result. We avoid this problem by not using IsNull expression as a part of any column
+      // stats filter.
       if (columnStatsFilterResult.isInstanceOf[Boolean]) {
         columnStatsFilterResult.asInstanceOf[Boolean]
       } else {

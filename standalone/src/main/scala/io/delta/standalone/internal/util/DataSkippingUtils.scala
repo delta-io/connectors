@@ -27,7 +27,7 @@ import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
  * @param pathToColumn The stats column name separated by dot.
  * @param column       The stats column.
  */
-private [internal] case class ReferencedStats(
+private[internal] case class ReferencedStats(
     pathToColumn: Seq[String],
     column: Column)
 
@@ -38,7 +38,7 @@ private [internal] case class ReferencedStats(
  * @param expr            The transformed expression for column stats filter.
  * @param referencedStats Columns appears in [[expr]].
  */
-private [internal] case class ColumnStatsPredicate(
+private[internal] case class ColumnStatsPredicate(
     expr: Expression,
     referencedStats: Set[ReferencedStats])
 
@@ -78,12 +78,12 @@ private[internal] object DataSkippingUtils {
    *
    * We don't need this to prevent missing stats as they are prevented by [[verifyStatsForFilter]].
    *
-   * @param nonPartitionSchema The table schema with only non-partition columns.
+   * @param dataSchema The schema with only non-partition columns in table.
    * @return [[statsSchema]] The schema storing the layout of stats columns.
    */
-  def buildStatsSchema(nonPartitionSchema: StructType): StructType = {
+  def buildStatsSchema(dataSchema: StructType): StructType = {
     // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
-    val nonNestedColumns = nonPartitionSchema
+    val nonNestedColumns = dataSchema
       .getFields
       .filterNot(_.getDataType.isInstanceOf[StructType])
     nonNestedColumns.length match {
@@ -133,19 +133,19 @@ private[internal] object DataSkippingUtils {
    *
    * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
-   * @param nonPartitionSchema The schema contains non-partition columns in table.
-   * @param statsString        The JSON-formatted stats in raw string type in table metadata files.
+   * @param dataSchema  The schema contains non-partition columns in table.
+   * @param statsString The JSON-formatted stats in raw string type in table metadata files.
    * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
    *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
    *         [[MAX]], [[NULL_COUNT]].
    */
   def parseColumnStats(
-      nonPartitionSchema: StructType,
+      dataSchema: StructType,
       statsString: String): (Map[String, Long], Map[String, Long]) = {
     var fileStats = Map[String, Long]()
     var columnStats = Map[String, Long]()
 
-    val dataColumns = nonPartitionSchema.getFields
+    val dataColumns = dataSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
       val statsType = stats._1
       val statsObj = stats._2
@@ -200,22 +200,22 @@ private[internal] object DataSkippingUtils {
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
-   * @param nonPartitionSchema  The schema describes the structure of non-partition columns.
-   * @param dataConjunction     The non-partition column query predicate.
+   * @param dataSchema      The schema contains non-partition columns in table.
+   * @param dataConjunction The non-partition column query predicate.
    * @return columnStatsPredicate: Return the column stats filter predicate, and the set of stat
    *         columns that are referenced in the predicate, please see [[ColumnStatsPredicate]].
    *         Or it will return None if met missing stats, unsupported data type, or unsupported
    *         expression type issues.
    */
   def constructDataFilters(
-      nonPartitionSchema: StructType,
+      dataSchema: StructType,
       dataConjunction: Expression): Option[ColumnStatsPredicate] =
     dataConjunction match {
       case eq: EqualTo => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
-          if (!(nonPartitionSchema.contains(columnPath) &&
-            nonPartitionSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
+          if (!(dataSchema.contains(columnPath) &&
+            dataSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
               // Only accepting the LongType column for now.
               return None
             }
@@ -230,8 +230,8 @@ private[internal] object DataSkippingUtils {
         case _ => None
       }
       case and: And =>
-        val e1 = constructDataFilters(nonPartitionSchema, and.getLeft)
-        val e2 = constructDataFilters(nonPartitionSchema, and.getRight)
+        val e1 = constructDataFilters(dataSchema, and.getLeft)
+        val e2 = constructDataFilters(dataSchema, and.getRight)
 
         if (e1.isDefined && e2.isDefined) {
           Some(ColumnStatsPredicate(
