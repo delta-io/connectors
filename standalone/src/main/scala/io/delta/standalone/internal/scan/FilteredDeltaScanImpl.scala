@@ -74,7 +74,7 @@ final private[internal] class FilteredDeltaScanImpl(
   private val statsSchema = DataSkippingUtils.buildStatsSchema(tableSchema)
 
   override protected def accept(addFile: AddFile): Boolean = {
-    // Evaluate the partition filter
+    // Evaluate the partition filter.
     val partitionFilterResult = if (metadataConjunction.isDefined) {
       val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
       metadataConjunction.get.eval(partitionRowRecord) match {
@@ -89,7 +89,7 @@ final private[internal] class FilteredDeltaScanImpl(
       // Evaluate the column stats filter when partition filter passed and column stats filter is
       // not empty.
 
-      // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
+      // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`.
       val (fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
       } catch {
@@ -102,7 +102,7 @@ final private[internal] class FilteredDeltaScanImpl(
         return true
       }
 
-      // Instantiate the evaluate function based on the parsed column stats
+      // Instantiate the evaluate function based on the parsed column stats.
       val columnStatsRecord = new ColumnStatsRowRecord(statsSchema, fileStats, columnStats)
 
       // Evaluate the filter, this guarantees that all stats can be found in row record.

@@ -80,7 +80,7 @@ private[internal] object DataSkippingUtils {
    * [[verifyStatsForFilter]].
    *
    * @param tableSchema The table schema from table metadata.
-   * @return [[statsSchema]]
+   * @return [[statsSchema]] The schema storing the layout of stats columns.
    */
   def buildStatsSchema(tableSchema: StructType): StructType = {
     // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
@@ -134,8 +134,8 @@ private[internal] object DataSkippingUtils {
    *
    * @param tableSchema The schema from table metadata.
    * @param statsString The json-formatted stats in raw string type in table metadata files.
-   * @return file-specific stats map:   the map stores file-specific stats, like [[NUM_RECORDS]]
-   *         column-specific stats map: the map stores column-specific stats, like [[MIN]],
+   * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
+   *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
    *         [[MAX]], [[NULL_COUNT]].
    */
   def parseColumnStats(
@@ -201,10 +201,10 @@ private[internal] object DataSkippingUtils {
    *
    * @param statsSchema      The schema describes the structure of stats columns.
    * @param dataConjunction  The non-partition column query predicate.
-   * @return columnStatsPredicate: Return the column stats filter expression, and the set of stat
-   *         columns that are referenced in the filter expression, please see
-   *         [[ColumnStatsPredicate]]. Or it will return None if met missing stats, unsupported data
-   *         type, or unsupported expression type issues.
+   * @return columnStatsPredicate: Return the column stats filter predicate, and the set of stat
+   *         columns that are referenced in the predicate, please see [[ColumnStatsPredicate]].
+   *         Or it will return None if met missing stats, unsupported data type, or unsupported
+   *         expression type issues.
    */
   def constructDataFilters(
       statsSchema: StructType,
