@@ -30,6 +30,7 @@ import io.delta.standalone.internal.util.{DataSkippingUtils, PartitionUtils}
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
  * those that match the [[getPushedPredicate]] and [[getResidualPredicate]].
+ *
  * Before evaluating the [[getResidualPredicate]] by stats stored in each [[AddFile]], the query
  * predicate will be transformed to the column stats filter following rules in
  * [[DataSkippingUtils.constructDataFilters]].
@@ -40,7 +41,7 @@ final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
     partitionSchema: StructType,
-    tableSchema: StructType) extends DeltaScanImpl(replay) {
+    nonPartitionSchema: StructType) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
@@ -63,7 +64,7 @@ final private[internal] class FilteredDeltaScanImpl(
       //
       // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
       // missing but referenced in the column stats filter, we will accept this file.
-      DataSkippingUtils.constructDataFilters(tableSchema, e).map { predicate =>
+      DataSkippingUtils.constructDataFilters(nonPartitionSchema, e).map { predicate =>
         new Or(
           predicate.expr,
           new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats)))
@@ -71,7 +72,7 @@ final private[internal] class FilteredDeltaScanImpl(
     case _ => None
   }
 
-  private val statsSchema = DataSkippingUtils.buildStatsSchema(tableSchema)
+  private val statsSchema = DataSkippingUtils.buildStatsSchema(nonPartitionSchema)
 
   override protected def accept(addFile: AddFile): Boolean = {
     // Evaluate the partition filter.
@@ -91,7 +92,7 @@ final private[internal] class FilteredDeltaScanImpl(
 
       // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`.
       val (fileStats, columnStats) = try {
-        DataSkippingUtils.parseColumnStats(tableSchema, addFile.stats)
+        DataSkippingUtils.parseColumnStats(nonPartitionSchema, addFile.stats)
       } catch {
         // If the stats parsing process failed, accept this file.
         case NonFatal(_) => return true

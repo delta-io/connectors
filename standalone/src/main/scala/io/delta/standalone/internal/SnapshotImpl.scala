@@ -69,7 +69,7 @@ private[internal] class SnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.schema)
+      metadataScala.dataSchema)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
@@ -105,7 +105,7 @@ private[internal] class SnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.schema)
+      metadataScala.dataSchema)
 
   def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
   def setTransactions: Seq[SetTransactionJ] =
@@ -311,5 +311,5 @@ private class InitialSnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.schema)
+      metadataScala.dataSchema)
 }
