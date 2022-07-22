@@ -58,10 +58,10 @@ class DataSkippingUtilsSuite extends FunSuite {
     // build stats schema: basic table schema
     var output = DataSkippingUtils.buildStatsSchema(schema)
     assert(output.length() == 4)
-    assert(output.hasFieldName(MAX) &&
-      output.hasFieldName(MIN) &&
-      output.hasFieldName(NULL_COUNT) &&
-      output.hasFieldName(NUM_RECORDS))
+    assert(output.contains(MAX) &&
+      output.contains(MIN) &&
+      output.contains(NULL_COUNT) &&
+      output.contains(NUM_RECORDS))
     assert(output.get(MAX).getDataType == schema &&
       output.get(MIN).getDataType == schema &&
       output.get(NUM_RECORDS).getDataType.isInstanceOf[LongType])
@@ -113,8 +113,7 @@ class DataSkippingUtilsSuite extends FunSuite {
     fileStatsTarget = Map[String, Long]()
     columnStatsTarget = Map[String, Long]()
     val e = intercept[JsonEOFException] {
-      parseColumnStatsTest(statsString = brokenStats,
-        fileStatsTarget, columnStatsTarget)
+      parseColumnStatsTest(statsString = brokenStats, fileStatsTarget, columnStatsTarget)
     }
     assert(e.getMessage.contains("Unexpected end-of-input in field name"))
 
@@ -147,7 +146,7 @@ class DataSkippingUtilsSuite extends FunSuite {
         targetExpr: Expression,
         targetRefStats: Set[ReferencedStats]): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        tableSchema = schema, expression = input)
+        statsSchema = schema, dataConjunction = input)
 
       assert(targetExpr == output.get.expr)
       assert(targetRefStats == output.get.referencedStats)
@@ -159,7 +158,7 @@ class DataSkippingUtilsSuite extends FunSuite {
      */
     def failConstructDataFilterTests(input: Expression): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        tableSchema = schema, expression = input)
+        statsSchema = schema, dataConjunction = input)
       assert(output.isEmpty)
     }
 
@@ -167,7 +166,9 @@ class DataSkippingUtilsSuite extends FunSuite {
     def eqCast(colName: String, colType: DataType, l: Literal): Expression = {
       val colMin = new Column(s"$MIN.$colName", colType)
       val colMax = new Column(s"$MAX.$colName", colType)
-      new And(new LessThanOrEqual(colMin, l), new GreaterThanOrEqual(colMax, l))
+      new And(
+        new LessThanOrEqual(colMin, l),
+        new GreaterThanOrEqual(colMax, l))
     }
 
     val col1 = new Column("col1", new LongType)
@@ -176,14 +177,10 @@ class DataSkippingUtilsSuite extends FunSuite {
     val long1 = Literal.of(1L)
     val long2 = Literal.of(2L)
 
-    val col1Min = new Column(s"$MIN.col1", new LongType)
-    val col1MinRef = ReferencedStats(Seq(MIN, "col1"), col1Min)
-    val col1Max = new Column(s"$MAX.col1", new LongType)
-    val col1MaxRef = ReferencedStats(Seq(MAX, "col1"), col1Max)
-    val col2Min = new Column(s"$MIN.col2", new LongType)
-    val col2MinRef = ReferencedStats(Seq(MIN, "col2"), col2Min)
-    val col2Max = new Column(s"$MAX.col2", new LongType)
-    val col2MaxRef = ReferencedStats(Seq(MAX, "col2"), col2Max)
+    val col1MinRef = DataSkippingUtils.refStatsBuilder(MIN, "col1", new LongType)
+    val col1MaxRef = DataSkippingUtils.refStatsBuilder(MAX, "col1", new LongType)
+    val col2MinRef = DataSkippingUtils.refStatsBuilder(MIN, "col2", new LongType)
+    val col2MaxRef = DataSkippingUtils.refStatsBuilder(MAX, "col2", new LongType)
 
     // col1 == 1
     successConstructDataFilterTests(
@@ -193,7 +190,9 @@ class DataSkippingUtilsSuite extends FunSuite {
 
     // col1 == 1 AND col2 == 1
     successConstructDataFilterTests(
-      input = new And(new EqualTo(col1, long1), new EqualTo(col2, long2)),
+      input = new And(
+        new EqualTo(col1, long1),
+        new EqualTo(col2, long2)),
       targetExpr = new And(eqCast("col1", new LongType, long1),
         eqCast("col2", new LongType, long2)),
       targetRefStats = Set(col1MinRef, col1MaxRef, col2MinRef, col2MaxRef))
@@ -265,7 +264,8 @@ class DataSkippingUtilsSuite extends FunSuite {
 
     // verify col1.MAX and NUM_RECORDS
     verifyStatsFilterTest(Set(Seq(MAX, "col1"), Seq(NUM_RECORDS)),
-      target = new And(verifyMinMax(MAX, "col1", new LongType),
+      target = new And(
+        verifyMinMax(MAX, "col1", new LongType),
         verifyStatsCol(NUM_RECORDS, None, new LongType)))
   }
 

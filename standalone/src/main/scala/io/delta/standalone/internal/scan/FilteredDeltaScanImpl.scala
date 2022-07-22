@@ -45,15 +45,26 @@ final private[internal] class FilteredDeltaScanImpl(
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
   private val columnStatsFilter: Option[Expression] = dataConjunction match {
+    // If this filter is evaluated as true, it means there exists the non-empty intersection between
+    // query predicate acceptance domain and the column domain defined by MIN/MAX, thus we need to
+    // return this file to client.
+    //
+    // If this is evaluated as false, then no intersection and we will skip this file.
+    //
+    // Sometimes this is evaluated as `null` because stats are illegal, then we `disable` the
+    // filtering by accept and return this file to client.
+
     case Some(e: Expression) =>
-      // Transform the query predicate based on filter, see `DataSkippingUtils.constructDataFilters`
-      // If this passed, it is possible that the records in this file contains value can
-      // pass the query predicate.
+      // Transform the query predicate based on filter, see
+      // `DataSkippingUtils.constructDataFilters`.
+      //
       // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
       // missing but referenced in the column stats filter, we will accept this file.
-      DataSkippingUtils.constructDataFilters(tableSchema, e).map(predicate =>
-        new Or(predicate.expr,
-          new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats))))
+      DataSkippingUtils.constructDataFilters(tableSchema, e).map { predicate =>
+        new Or(
+          predicate.expr,
+          new Not(DataSkippingUtils.verifyStatsForFilter(predicate.referencedStats)))
+      }
     case _ => None
   }
 
@@ -73,7 +84,7 @@ final private[internal] class FilteredDeltaScanImpl(
 
     if (partitionFilterResult && columnStatsFilter.isDefined) {
       // Evaluate the column stats filter when partition filter passed and column stats filter is
-      // not empty. This happens once per file.
+      // not empty.
 
       // Parse stats in AddFile, see `DataSkippingUtils.parseColumnStats`
       val (fileStats, columnStats) = try {

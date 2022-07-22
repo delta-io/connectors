@@ -204,7 +204,8 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: column stats filter on 2 non-partition column") {
     filePruningTest(
-      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+      expr = new And(
+        new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = Seq("1", "13"))
   }
@@ -215,7 +216,8 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
     filePruningTest(
-      expr = new And(new EqualTo(schema.column("col2"), Literal.of(1L)),
+      expr = new And(
+        new EqualTo(schema.column("col2"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = Seq("1", "5", "9", "13", "17"))
   }
@@ -226,7 +228,8 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
     filePruningTest(
-      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+      expr = new And(
+        new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col1"), Literal.of(2L))),
       target = Seq())
   }
@@ -252,7 +255,8 @@ class DataSkippingSuite extends FunSuite {
          | }
          |"""
     filePruningTest(
-      expr = new And(iLessThan5,
+      expr = new And(
+        iLessThan5,
         new EqualTo(schema.column("col2"), Literal.of(2L))),
       target = Seq("1", "2", "3", "4", "5"), Some(_ => incompleteColumnStats))
   }
@@ -286,7 +290,8 @@ class DataSkippingSuite extends FunSuite {
          | }
          |"""
     filePruningTest(
-      expr = new And(new EqualTo(schema.column("col1"), Literal.of(1L)),
+      expr = new And(
+        new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
       target = (1 to 20).map(_.toString).toSeq, Some(incompleteColumnStats))
   }
@@ -298,7 +303,9 @@ class DataSkippingSuite extends FunSuite {
    * column stats filter. But the partition column still works here.
    */
   test("integration test: empty stats str") {
-    filePruningTest(expr = new And(iLessThan5,
+    filePruningTest(
+      expr = new And(
+        iLessThan5,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => "\"\""))
   }
@@ -311,7 +318,9 @@ class DataSkippingSuite extends FunSuite {
    * in [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl]].
    */
   test("integration test: broken stats str") {
-    filePruningTest(expr = new And(iLessThan5,
+    filePruningTest(
+      expr = new And(
+        iLessThan5,
         new EqualTo(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"), customStats = Some(_ => brokenStats))
   }
@@ -323,7 +332,9 @@ class DataSkippingSuite extends FunSuite {
    * predicate and will skip column stats filter.
    */
   test("integration test: unsupported stats data type") {
-    filePruningTest(expr = new And(iLessThan5,
+    filePruningTest(
+      expr = new And(
+        iLessThan5,
         new EqualTo(schema.column("stringCol"), Literal.of("1"))),
       target = Seq("1", "2", "3", "4", "5"), isStrColHasValue = true)
   }
@@ -335,7 +346,9 @@ class DataSkippingSuite extends FunSuite {
    * predicate and will skip column stats filter.
    */
   test("integration test: unsupported expression type") {
-    filePruningTest(expr = new And(iLessThan5,
+    filePruningTest(
+      expr = new And(
+        iLessThan5,
         new LessThanOrEqual(schema.column("col1"), Literal.of(1L))),
       target = Seq("1", "2", "3", "4", "5"))
   }
