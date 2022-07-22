@@ -51,10 +51,10 @@ import io.delta.standalone.internal.util.SchemaUtils
  * It is also guaranteed that the [[IsNull]] or [[IsNotNull]] won't exists in column stats
  * predicate, so [[isNullAt]] will only work for pre-checking when evaluating the column.
  *
- * @param statsSchema the schema of the stats column, the first level is stats type, and the
+ * @param statsSchema The schema of the stats column, the first level is stats type, and the
  *                    secondary level is data column name.
- * @param fileStats   file-specific stats, like NUM_RECORDS.
- * @param columnStats column-specific stats, like MIN, MAX, or NULL_COUNT.
+ * @param fileStats   File-specific stats, like NUM_RECORDS.
+ * @param columnStats Column-specific stats, like MIN, MAX, or NULL_COUNT.
  */
 private[internal] class ColumnStatsRowRecord(
     statsSchema: StructType,
@@ -116,8 +116,7 @@ private[internal] class ColumnStatsRowRecord(
         // 2 parts: the column name and the stats type.
         columnStats.get(fieldName)
 
-      case MIN | MAX
-        if pathToColumn.length == columnStatsPathLength =>
+      case MIN | MAX if pathToColumn.length == columnStatsPathLength =>
           val columnName = pathToColumn.last
           if (isValidColumnNameAndType(columnName, statsType)) {
             columnStats.get(fieldName)
