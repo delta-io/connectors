@@ -29,9 +29,12 @@ import io.delta.standalone.internal.util.{DataSkippingUtils, PartitionUtils}
 
 /**
  * An implementation of [[io.delta.standalone.DeltaScan]] that filters files and only returns
- * those that match the [[getPushedPredicate]].
+ * those that match the [[getPushedPredicate]] and [[getResidualPredicate]].
+ * Before evaluating the [[getResidualPredicate]] by stats stored in each [[AddFile]], the query
+ * predicate will be transformed to the column stats filter following rules in
+ * [[DataSkippingUtils.constructDataFilters]].
  *
- * If the pushed predicate is empty, then all files are returned.
+ * If the all predicates are empty, then all files are returned.
  */
 final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
@@ -105,11 +108,10 @@ final private[internal] class FilteredDeltaScanImpl(
       // Evaluate the filter, this guarantees that all stats can be found in row record.
       val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
 
-      columnStatsFilterResult.isInstanceOf[Boolean] match {
-        case true => columnStatsFilterResult.asInstanceOf[Boolean]
-
-        // If the expression is not evaluated correctly, accept this file.
-        case _ => true
+      if (columnStatsFilterResult.isInstanceOf[Boolean]) {
+        columnStatsFilterResult.asInstanceOf[Boolean]
+      } else {
+        true
       }
     } else {
       partitionFilterResult

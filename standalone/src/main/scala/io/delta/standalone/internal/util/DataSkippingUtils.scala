@@ -25,8 +25,8 @@ import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
  * The referenced stats column in column stats filter, used in
  * [[ColumnStatsPredicate]].
  *
- * @param pathToColumn the column name parsed by dot
- * @param column       the stats column
+ * @param pathToColumn The column name parsed by dot
+ * @param column       The stats column
  */
 private [internal] case class ReferencedStats(
     pathToColumn: Seq[String],
@@ -36,8 +36,8 @@ private [internal] case class ReferencedStats(
  * Results returned by [[DataSkippingUtils.constructDataFilters]]. Contains the column stats
  * predicate, and the set of stats columns appears in the column stats predicate.
  *
- * @param expr            the transformed expression for column stats filter.
- * @param referencedStats columns appears in [[expr]].
+ * @param expr            The transformed expression for column stats filter.
+ * @param referencedStats Columns appears in [[expr]].
  */
 private [internal] case class ColumnStatsPredicate(
     expr: Expression,
@@ -62,7 +62,7 @@ private[internal] object DataSkippingUtils {
   final val columnStatsPathLength = 2
 
   /**
-   * Build [[statsSchema]] based on the table schema, the first layer of stats schema is stats type.
+   * Build stats schema based on the table schema, the first layer of stats schema is stats type.
    * If is a column-specific stats, it nested a second layer, which contains the column name in
    * table schema. Or if it is a column-specific stats, contains a non-nested data type.
    *
@@ -79,7 +79,7 @@ private[internal] object DataSkippingUtils {
    * We don't need this to prevent missing stats as they are prevented by
    * [[verifyStatsForFilter]].
    *
-   * @param tableSchema the table schema in Snapshot
+   * @param tableSchema The table schema from table metadata.
    * @return [[statsSchema]]
    */
   def buildStatsSchema(tableSchema: StructType): StructType = {
@@ -132,7 +132,7 @@ private[internal] object DataSkippingUtils {
    *
    * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
-   * @param tableSchema The table schema describes data column (not stats column) for this query.
+   * @param tableSchema The schema from table metadata.
    * @param statsString The json-formatted stats in raw string type in table metadata files.
    * @return file-specific stats map:   the map stores file-specific stats, like [[NUM_RECORDS]]
    *         column-specific stats map: the map stores column-specific stats, like [[MIN]],
@@ -199,13 +199,12 @@ private[internal] object DataSkippingUtils {
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
-   * @param statsSchema      The schema describes the structure of stats columns
+   * @param statsSchema      The schema describes the structure of stats columns.
    * @param dataConjunction  The non-partition column query predicate.
    * @return columnStatsPredicate: Return the column stats filter expression, and the set of stat
    *         columns that are referenced in the filter expression, please see
-   *         [[ColumnStatsPredicate]].
-   *         Or it will return None if met missing stats, unsupported data type, or unsupported
-   *         expression type issues.
+   *         [[ColumnStatsPredicate]]. Or it will return None if met missing stats, unsupported data
+   *         type, or unsupported expression type issues.
    */
   def constructDataFilters(
       statsSchema: StructType,
@@ -248,7 +247,7 @@ private[internal] object DataSkippingUtils {
    * metadata file, disable the column stats filter for this file.
    *
    * @param   referencedStats All of stats column exists in the column stats filter.
-   * @return  the verifying expression, evaluated as true if the column stats filter and stats value
+   * @return  The verifying expression, evaluated as true if the column stats filter and stats value
    *          in current table metadata file is valid, false when it is invalid.
    */
   def verifyStatsForFilter(
