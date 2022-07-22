@@ -22,8 +22,7 @@ import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, Greate
 import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
 
 /**
- * The referenced stats column in column stats filter, used in
- * [[ColumnStatsPredicate]].
+ * The referenced stats column in column stats filter, used in [[ColumnStatsPredicate]].
  *
  * @param pathToColumn The column name parsed by dot
  * @param column       The stats column
@@ -62,9 +61,10 @@ private[internal] object DataSkippingUtils {
   final val columnStatsPathLength = 2
 
   /**
-   * Build stats schema based on the table schema, the first layer of stats schema is stats type.
-   * If is a column-specific stats, it nested a second layer, which contains the column name in
-   * table schema. Or if it is a column-specific stats, contains a non-nested data type.
+   * Build stats schema based on the table schema with only non-partition columns, the first layer
+   * of stats schema is stats type. If it is a column-specific stats, it nested a second layer,
+   * which contains the column name in table schema. Or if it is a column-specific stats, contains
+   * a non-nested data type.
    *
    * The layout of stats schema is totally the same as the full stats string in JSON:
    * (for the table contains column `a` and `b`)
@@ -76,15 +76,16 @@ private[internal] object DataSkippingUtils {
    *   }, ... // other stats
    * }
    *
-   * We don't need this to prevent missing stats as they are prevented by
-   * [[verifyStatsForFilter]].
+   * We don't need this to prevent missing stats as they are prevented by [[verifyStatsForFilter]].
    *
-   * @param tableSchema The table schema from table metadata.
+   * @param nonPartitionSchema The table schema with only non-partition columns.
    * @return [[statsSchema]] The schema storing the layout of stats columns.
    */
-  def buildStatsSchema(tableSchema: StructType): StructType = {
+  def buildStatsSchema(nonPartitionSchema: StructType): StructType = {
     // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`
-    val nonNestedColumns = tableSchema.getFields.filterNot(_.getDataType.isInstanceOf[StructType])
+    val nonNestedColumns = nonPartitionSchema
+      .getFields
+      .filterNot(_.getDataType.isInstanceOf[StructType])
     nonNestedColumns.length match {
       case 0 => new StructType()
       case _ =>
@@ -105,7 +106,7 @@ private[internal] object DataSkippingUtils {
   }
 
   /**
-   * Parse the stats in table metadata files to two maps. The output contains two map
+   * Parse the stats in data metadata files to two maps. The output contains two map
    * distinguishing the file-specific stats and column-specific stats.
    *
    * For file-specific stats, like NUM_RECORDS, it only contains one value per file. The key
@@ -132,19 +133,19 @@ private[internal] object DataSkippingUtils {
    *
    * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
-   * @param tableSchema The schema from table metadata.
-   * @param statsString The json-formatted stats in raw string type in table metadata files.
+   * @param nonPartitionSchema The schema contains non-partition columns in table.
+   * @param statsString        The json-formatted stats in raw string type in table metadata files.
    * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
    *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
    *         [[MAX]], [[NULL_COUNT]].
    */
   def parseColumnStats(
-      tableSchema: StructType,
+      nonPartitionSchema: StructType,
       statsString: String): (Map[String, Long], Map[String, Long]) = {
     var fileStats = Map[String, Long]()
     var columnStats = Map[String, Long]()
 
-    val dataColumns = tableSchema.getFields
+    val dataColumns = nonPartitionSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
       val statsType = stats._1
       val statsObj = stats._2
@@ -191,7 +192,7 @@ private[internal] object DataSkippingUtils {
   }
 
   /**
-   * Build the column stats filter based on query predicate.
+   * Build the column stats filter based on query predicate and non-partition schema.
    *
    * Assume `col1` and `col2` are columns in query predicate, `literal1` and `literal2` are two
    * literal values in query predicate. Now two rules are applied:
@@ -247,8 +248,8 @@ private[internal] object DataSkippingUtils {
    * metadata file, disable the column stats filter for this file.
    *
    * @param   referencedStats All of stats column exists in the column stats filter.
-   * @return  The verifying expression, evaluated as true if the column stats filter and stats value
-   *          in current table metadata file is valid, false when it is invalid.
+   * @return  The verification expression, evaluated as true if the column stats filter and stats
+   *          value in current table metadata file is valid, false when it is invalid.
    */
   def verifyStatsForFilter(
       referencedStats: Set[ReferencedStats]): Expression = {

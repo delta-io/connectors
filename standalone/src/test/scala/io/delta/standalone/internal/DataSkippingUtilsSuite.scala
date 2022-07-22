@@ -91,7 +91,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       isNestedSchema: Boolean = false): Unit = {
     val s = if (isNestedSchema) nestedSchema else schema
     val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
-      tableSchema = s, statsString = statsString)
+      nonPartitionSchema = s, statsString = statsString)
     assert(fileStats == fileStatsTarget)
     assert(columnStats == columnStatsTarget)
   }
