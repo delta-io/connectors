@@ -18,29 +18,8 @@ package io.delta.standalone.internal.util
 
 import com.fasterxml.jackson.databind.JsonNode
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, LessThanOrEqual, Literal}
 import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
-
-/**
- * The referenced stats column in column stats filter, used in [[ColumnStatsPredicate]].
- *
- * @param pathToColumn The stats column name separated by dot.
- * @param column       The stats column.
- */
-private[internal] case class ReferencedStats(
-    pathToColumn: Seq[String],
-    column: Column)
-
-/**
- * Results returned by [[DataSkippingUtils.constructDataFilters]]. Contains the column stats
- * predicate, and the set of stats columns appears in the column stats predicate.
- *
- * @param expr            The transformed expression for column stats filter.
- * @param referencedStats Columns appears in [[expr]].
- */
-private[internal] case class ColumnStatsPredicate(
-    expr: Expression,
-    referencedStats: Set[ReferencedStats])
 
 private[internal] object DataSkippingUtils {
 
@@ -181,15 +160,9 @@ private[internal] object DataSkippingUtils {
     (fileStats, columnStats)
   }
 
-  /** Helper function of building [[ReferencedStats]] */
-  def refStatsBuilder(
-      statsType: String,
-      columnName: String,
-      dataType: DataType): ReferencedStats = {
-    ReferencedStats(
-      Seq(statsType, columnName),
-      new Column(statsType + "." + columnName, dataType))
-  }
+  /** Helper function of building [[Column]] referencing stats value */
+  def statsColumnBuilder(statsType: String, columnName: String, dataType: DataType): Column =
+    new Column(statsType + "." + columnName, dataType)
 
   /**
    * Build the column stats filter based on query predicate and non-partition schema.
@@ -202,70 +175,40 @@ private[internal] object DataSkippingUtils {
    *
    * @param dataSchema      The schema contains non-partition columns in table.
    * @param dataConjunction The non-partition column query predicate.
-   * @return columnStatsPredicate: Return the column stats filter predicate, and the set of stat
-   *         columns that are referenced in the predicate, please see [[ColumnStatsPredicate]].
-   *         Or it will return None if met missing stats, unsupported data type, or unsupported
-   *         expression type issues.
+   * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
+   *         if met missing stats, unsupported data type, or unsupported expression type issues.
    */
   def constructDataFilters(
       dataSchema: StructType,
-      dataConjunction: Expression): Option[ColumnStatsPredicate] =
+      dataConjunction: Option[Expression]): Option[Expression] =
     dataConjunction match {
-      case eq: EqualTo => (eq.getLeft, eq.getRight) match {
+      case Some(eq: EqualTo) => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
           if (!(dataSchema.contains(columnPath) &&
             dataSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
               // Only accepting the LongType column for now.
               return None
-            }
-          val minColumn = refStatsBuilder(MIN, columnPath, new LongType)
-          val maxColumn = refStatsBuilder(MAX, columnPath, new LongType)
+          }
+          val minColumn = statsColumnBuilder(MIN, columnPath, new LongType)
+          val maxColumn = statsColumnBuilder(MAX, columnPath, new LongType)
 
-          Some(ColumnStatsPredicate(
-            new And(
-              new LessThanOrEqual(minColumn.column, e2),
-              new GreaterThanOrEqual(maxColumn.column, e2)),
-            Set(minColumn, maxColumn)))
+          Some(new And(
+              new LessThanOrEqual(minColumn, e2),
+              new GreaterThanOrEqual(maxColumn, e2)))
         case _ => None
       }
-      case and: And =>
-        val e1 = constructDataFilters(dataSchema, and.getLeft)
-        val e2 = constructDataFilters(dataSchema, and.getRight)
+      case Some(and: And) =>
+        val e1 = constructDataFilters(dataSchema, Some(and.getLeft))
+        val e2 = constructDataFilters(dataSchema, Some(and.getRight))
 
         if (e1.isDefined && e2.isDefined) {
-          Some(ColumnStatsPredicate(
-            new And(e1.get.expr, e2.get.expr),
-            e1.get.referencedStats ++ e2.get.referencedStats))
-        } else None
+            Some(new And(e1.get, e2.get))
+        } else {
+          None
+        }
 
       // TODO: support full types of Expression
       case _ => None
     }
-
-  /**
-   * This expression ensures if ANY stats column in column stats filter is missing in one table
-   * metadata file, disable the column stats filter for this file.
-   *
-   * @param   referencedStats All of stats column exists in the column stats filter.
-   * @return  The verification expression, evaluated as true if the column stats filter and stats
-   *          value in current table metadata file is valid, false when it is invalid.
-   */
-  def verifyStatsForFilter(
-      referencedStats: Set[ReferencedStats]): Expression = {
-    referencedStats.map { refStats =>
-      val pathToColumn = refStats.pathToColumn
-      pathToColumn.head match {
-        case MAX | MIN if pathToColumn.length == columnStatsPathLength =>
-          // We would allow MIN or MAX missing only if the corresponding data column value are all
-          // NULL, e.g.: NUM_RECORDS == NULL_COUNT
-          val nullCount = new Column(NULL_COUNT + "." + refStats.pathToColumn.last, new LongType())
-          val numRecords = new Column(NUM_RECORDS, new LongType())
-          new Or(new IsNotNull(refStats.column), new EqualTo(nullCount, numRecords))
-
-        case _ if pathToColumn.length == fileStatsPathLength => new IsNotNull(refStats.column)
-        case _ => return Literal.False
-      }
-    }.reduceLeft(new And(_, _))
-  }
 }

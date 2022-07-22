@@ -54,16 +54,8 @@ final private[internal] class FilteredDeltaScanImpl(
    * Sometimes this is evaluated as `null` because stats are invalid, then we accept and return this
    * file to client.
    */
-  private val columnStatsFilter: Option[Expression] = dataConjunction match {
-    case Some(e: Expression) =>
-      // Transform the query predicate based on filter, see
-      // `DataSkippingUtils.constructDataFilters`.
-      //
-      // Meanwhile, generate the column stats verification expression. If the stats in AddFile is
-      // missing but referenced in the column stats filter, we will accept this file.
-      DataSkippingUtils.constructDataFilters(dataSchema, e).map(_.expr)
-    case _ => None
-  }
+  private val columnStatsFilter: Option[Expression] =
+    DataSkippingUtils.constructDataFilters(dataSchema, dataConjunction)
 
   private val statsSchema = DataSkippingUtils.buildStatsSchema(dataSchema)
 
