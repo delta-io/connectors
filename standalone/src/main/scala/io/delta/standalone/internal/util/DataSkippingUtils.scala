@@ -24,8 +24,8 @@ import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
 /**
  * The referenced stats column in column stats filter, used in [[ColumnStatsPredicate]].
  *
- * @param pathToColumn The column name parsed by dot
- * @param column       The stats column
+ * @param pathToColumn The stats column name separated by dot.
+ * @param column       The stats column.
  */
 private [internal] case class ReferencedStats(
     pathToColumn: Seq[String],
@@ -134,7 +134,7 @@ private[internal] object DataSkippingUtils {
    * Currently nested column is not supported, only [[LongType]] is the supported data type.
    *
    * @param nonPartitionSchema The schema contains non-partition columns in table.
-   * @param statsString        The json-formatted stats in raw string type in table metadata files.
+   * @param statsString        The JSON-formatted stats in raw string type in table metadata files.
    * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
    *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
    *         [[MAX]], [[NULL_COUNT]].
@@ -156,8 +156,8 @@ private[internal] object DataSkippingUtils {
         }
       } else {
         // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
-        // table schema and fill the column-specific stats map column-by-column if the column name
-        // appears in json string.
+        // non-partition schema and fill the column-specific stats map column-by-column if the
+        // column name appears in JSON string.
         dataColumns.filter(col => statsObj.has(col.getName)).foreach { dataColumn =>
           // Get stats value by column name, if the column is missing in this stat's struct, the
           val columnName = dataColumn.getName
@@ -200,22 +200,22 @@ private[internal] object DataSkippingUtils {
    * - constructDataFilters(expr1 AND expr2) ->
    *      constructDataFilters(expr1) AND constructDataFilters(expr2)
    *
-   * @param statsSchema      The schema describes the structure of stats columns.
-   * @param dataConjunction  The non-partition column query predicate.
+   * @param nonPartitionSchema  The schema describes the structure of non-partition columns.
+   * @param dataConjunction     The non-partition column query predicate.
    * @return columnStatsPredicate: Return the column stats filter predicate, and the set of stat
    *         columns that are referenced in the predicate, please see [[ColumnStatsPredicate]].
    *         Or it will return None if met missing stats, unsupported data type, or unsupported
    *         expression type issues.
    */
   def constructDataFilters(
-      statsSchema: StructType,
+      nonPartitionSchema: StructType,
       dataConjunction: Expression): Option[ColumnStatsPredicate] =
     dataConjunction match {
       case eq: EqualTo => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
-          if (!(statsSchema.contains(columnPath) &&
-            statsSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
+          if (!(nonPartitionSchema.contains(columnPath) &&
+            nonPartitionSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
               // Only accepting the LongType column for now.
               return None
             }
@@ -230,8 +230,8 @@ private[internal] object DataSkippingUtils {
         case _ => None
       }
       case and: And =>
-        val e1 = constructDataFilters(statsSchema, and.getLeft)
-        val e2 = constructDataFilters(statsSchema, and.getRight)
+        val e1 = constructDataFilters(nonPartitionSchema, and.getLeft)
+        val e2 = constructDataFilters(nonPartitionSchema, and.getRight)
 
         if (e1.isDefined && e2.isDefined) {
           Some(ColumnStatsPredicate(

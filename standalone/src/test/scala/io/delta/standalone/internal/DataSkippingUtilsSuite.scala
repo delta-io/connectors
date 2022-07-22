@@ -146,7 +146,7 @@ class DataSkippingUtilsSuite extends FunSuite {
         targetExpr: Expression,
         targetRefStats: Set[ReferencedStats]): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        statsSchema = schema, dataConjunction = input)
+        nonPartitionSchema = schema, dataConjunction = input)
 
       assert(targetExpr == output.get.expr)
       assert(targetRefStats == output.get.referencedStats)
@@ -158,7 +158,7 @@ class DataSkippingUtilsSuite extends FunSuite {
      */
     def failConstructDataFilterTests(input: Expression): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        statsSchema = schema, dataConjunction = input)
+        nonPartitionSchema = schema, dataConjunction = input)
       assert(output.isEmpty)
     }
 
