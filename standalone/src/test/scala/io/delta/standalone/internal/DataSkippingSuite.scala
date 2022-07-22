@@ -353,9 +353,4 @@ class DataSkippingSuite extends FunSuite {
     filePruningTest(expr = new EqualTo(nestedSchema.column("normalCol"), Literal.of(1L)),
       target = Seq("nested"), isNestedSchema = true)
   }
-
-  test("dwe") {
-    val prr = new PartitionRowRecord(partitionSchema, Map("partitionCol" -> "123"))
-    print((new Column("qqq", new LongType)).eval(prr).toString)
-  }
 }
