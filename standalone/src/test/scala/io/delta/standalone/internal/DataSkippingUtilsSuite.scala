@@ -91,7 +91,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       isNestedSchema: Boolean = false): Unit = {
     val s = if (isNestedSchema) nestedSchema else schema
     val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
-      nonPartitionSchema = s, statsString = statsString)
+      dataSchema = s, statsString = statsString)
     assert(fileStats == fileStatsTarget)
     assert(columnStats == columnStatsTarget)
   }
@@ -146,7 +146,7 @@ class DataSkippingUtilsSuite extends FunSuite {
         targetExpr: Expression,
         targetRefStats: Set[ReferencedStats]): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        nonPartitionSchema = schema, dataConjunction = input)
+        dataSchema = schema, dataConjunction = input)
 
       assert(targetExpr == output.get.expr)
       assert(targetRefStats == output.get.referencedStats)
@@ -158,7 +158,7 @@ class DataSkippingUtilsSuite extends FunSuite {
      */
     def failConstructDataFilterTests(input: Expression): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
-        nonPartitionSchema = schema, dataConjunction = input)
+        dataSchema = schema, dataConjunction = input)
       assert(output.isEmpty)
     }
 

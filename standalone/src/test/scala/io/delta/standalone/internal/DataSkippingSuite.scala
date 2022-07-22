@@ -20,10 +20,11 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, EqualTo, Expression, LessThanOrEqual, Literal}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, LessThanOrEqual, Literal}
 import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -136,6 +137,9 @@ class DataSkippingSuite extends FunSuite {
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = wrappedColumnStats)
   }
 
+  private val statsWithMissingType =
+    s"""{"$NULL_COUNT": {"partitionCol": 0,"col1": 0,"col2": 0,"stringCol": 1},"$NUM_RECORDS":1}"""
+
   def withDeltaLog(actions: Seq[Action], isNested: Boolean) (l: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
       val m = if (isNested) nestedMetadata else metadata
@@ -235,30 +239,16 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (i <= 5 AND i % 3 == 2)
-   * Output: i = 1 or 2 or 3 or 4 or 5 (i % 3 == 2 not work)
+   * Filter: (i % 3 == 2)
+   * Output: i = 1 to 20 (i % 3 == 2 not work)
    * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    * But the partition column filter still works here.
    */
-  test("integration test: missing stats type") {
-    val incompleteColumnStats =
-      s"""
-         | {
-         |   "${NULL_COUNT}": {
-         |     "partitionCol": 0,
-         |     "col1": 0,
-         |     "col2": 0,
-         |     "stringCol": 1
-         |   },
-         |   "${NUM_RECORDS}":1
-         | }
-         |"""
+  test("integration test: some stats type missing") {
     filePruningTest(
-      expr = new And(
-        iLessThan5,
-        new EqualTo(schema.column("col2"), Literal.of(2L))),
-      target = Seq("1", "2", "3", "4", "5"), Some(_ => incompleteColumnStats))
+      expr = new EqualTo(schema.column("col2"), Literal.of(2L)),
+      target = (1 to 20).map(_.toString).toSeq, Some(_ => statsWithMissingType))
   }
 
   /**
@@ -267,7 +257,7 @@ class DataSkippingSuite extends FunSuite {
    * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    */
-  test("integration test: missing column in stats") {
+  test("integration test: missing stats for some column") {
     val incompleteColumnStats = (i: Int) =>
       s"""
          | {
@@ -362,5 +352,10 @@ class DataSkippingSuite extends FunSuite {
   test("integration test: unsupported nested column") {
     filePruningTest(expr = new EqualTo(nestedSchema.column("normalCol"), Literal.of(1L)),
       target = Seq("nested"), isNestedSchema = true)
+  }
+
+  test("dwe") {
+    val prr = new PartitionRowRecord(partitionSchema, Map("partitionCol" -> "123"))
+    print((new Column("qqq", new LongType)).eval(prr).toString)
   }
 }

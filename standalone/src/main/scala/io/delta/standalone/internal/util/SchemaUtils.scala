@@ -238,6 +238,7 @@ private[standalone] object SchemaUtils {
    * @param name The column name to parse
    * @return The sequence of string representing the path to column, or return None if failed.
    */
+  // scalastyle:on
   def parseAndValidateColumn(name: String): Option[Seq[String]] = {
     val nameParts = mutable.ArrayBuffer.empty[String]
     val tmp = mutable.ArrayBuffer.empty[Char]

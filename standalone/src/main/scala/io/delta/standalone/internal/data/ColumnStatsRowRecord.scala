@@ -127,12 +127,8 @@ private[internal] class ColumnStatsRowRecord(
   }
 
   /**
-   * If a column not exists in both stats map, then it is missing, will return true.
-   *
-   * Since [[ColumnStatsRowRecord.isNullAt]] is used in the evaluation of IsNull and IsNotNull
-   * expressions, it will return TRUE for IsNull(missingStats), which could be an incorrect
-   * result. Here we avoid this problem by not using IsNull expression as a part of any column
-   * stats filter.
+   * Check if a column exists in either of 2 stats maps. Return true if it is missing, return
+   * false if it is not.
    */
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty
