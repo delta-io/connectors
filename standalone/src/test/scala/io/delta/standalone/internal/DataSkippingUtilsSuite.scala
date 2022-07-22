@@ -79,10 +79,10 @@ class DataSkippingUtilsSuite extends FunSuite {
 
   /**
    * The unit test method for [[DataSkippingUtils.constructDataFilters]].
-   * @param statsString       the stats string in JSON format
-   * @param fileStatsTarget   the target output of file-specific stats
-   * @param columnStatsTarget the target output of column-specific stats
-   * @param isNestedSchema    if we will use nested schema for column stats
+   * @param statsString       The stats string in JSON format.
+   * @param fileStatsTarget   The target output of file-specific stats.
+   * @param columnStatsTarget The target output of column-specific stats.
+   * @param isNestedSchema    If we will use nested schema for column stats.
    */
   def parseColumnStatsTest(
       statsString: String,
@@ -137,9 +137,9 @@ class DataSkippingUtilsSuite extends FunSuite {
   test("unit test: filter construction") {
     /**
      * The unit test method for successful constructDataFilter with valid output.
-     * @param input           the query predicate as input
-     * @param targetExpr      the target column stats filter as output
-     * @param targetRefStats  the target referenced stats appears in the [[targetExpr]]
+     * @param input           The query predicate as input.
+     * @param targetExpr      The target column stats filter as output.
+     * @param targetRefStats  The target referenced stats appears in the [[targetExpr]].
      */
     def successConstructDataFilterTests(
         input: Expression,
@@ -154,7 +154,7 @@ class DataSkippingUtilsSuite extends FunSuite {
 
     /**
      * The unit test method for failed constructDataFilter.
-     * @param input the query predicate as input
+     * @param input The query predicate as input.
      */
     def failConstructDataFilterTests(input: Expression): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
@@ -162,7 +162,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       assert(output.isEmpty)
     }
 
-    /** Helper function for building the column stats filter from equalTo operation */
+    /** Helper function for building the column stats filter from equalTo operation. */
     def eqCast(colName: String, colType: DataType, l: Literal): Expression = {
       val colMin = new Column(s"$MIN.$colName", colType)
       val colMax = new Column(s"$MAX.$colName", colType)
@@ -214,9 +214,9 @@ class DataSkippingUtilsSuite extends FunSuite {
 
   test("unit test: verifyStatsForFilter") {
     /**
-     * Unit test method for method `verifyStatsFilter`
-     * @param refStatsNames the referenced columns in stats
-     * @param target        the target expression in string format
+     * Unit test method for method `verifyStatsFilter`.
+     * @param refStatsNames The referenced columns in stats.
+     * @param target        The target expression in string format.
      */
     def verifyStatsFilterTest(refStatsNames: Set[Seq[String]], target: Expression): Unit = {
       val refStats = refStatsNames.map { refStatsName =>
@@ -226,7 +226,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       val output = DataSkippingUtils.verifyStatsForFilter(refStats)
       assert(output == target)
     }
-    /** Helper method for generating verifying expression for MIN/MAX stats */
+    /** Helper method for generating verifying expression for MIN/MAX stats. */
     def verifyMinMax(statsType: String, colName: String, colType: DataType): Expression = {
       val notNullExpr = verifyStatsCol(statsType, Some(colName), colType)
       val nullCountCol = new Column(s"$NULL_COUNT.$colName", new LongType)
@@ -234,7 +234,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       new Or(notNullExpr, new EqualTo(nullCountCol, numRecordsCol))
     }
 
-    /** Helper method for generating verifying expression */
+    /** Helper method for generating verifying expression. */
     def verifyStatsCol(
         statsType: String,
         colName: Option[String],

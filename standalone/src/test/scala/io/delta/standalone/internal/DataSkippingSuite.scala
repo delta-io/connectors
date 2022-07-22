@@ -148,11 +148,11 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * The method for integration tests with different query predicate.
-   * @param expr              the input query predicate
-   * @param target            the file list that is not skipped by evaluating column stats
-   * @param customStats       the customized stats string. If none, use default stats
-   * @param isStrColHasValue  whether testing with a non-null string value
-   * @param isNestedSchema    whether using nested schema
+   * @param expr              The input query predicate.
+   * @param target            The file list that is not skipped by evaluating column stats.
+   * @param customStats       The customized stats string. If none, use default stats.
+   * @param isStrColHasValue  Whether testing with a non-null string value.
+   * @param isNestedSchema    Whether using nested schema.
    */
   def filePruningTest(
       expr: Expression,
