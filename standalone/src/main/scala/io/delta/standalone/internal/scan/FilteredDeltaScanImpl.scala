@@ -20,7 +20,7 @@ import java.util.Optional
 
 import scala.util.control.NonFatal
 
-import io.delta.standalone.expressions.{Expression, Not, Or}
+import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}

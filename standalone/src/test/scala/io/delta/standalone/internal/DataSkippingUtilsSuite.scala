@@ -21,7 +21,7 @@ import java.sql.{Date, Timestamp}
 import com.fasterxml.jackson.core.io.JsonEOFException
 import org.scalatest.FunSuite
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, IsNotNull, LessThanOrEqual, Literal}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DataType, DateType, DecimalType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.data.ColumnStatsRowRecord
@@ -129,9 +129,17 @@ class DataSkippingUtilsSuite extends FunSuite {
     parseColumnStatsTest(duplicatedStats, fileStatsTarget, columnStatsTarget)
 
     // parse column stats: conflict stats type
-    // Error will not raise because `minValues` will not used as the file-specific stats
-    val conflictStatsType = s"""{"$MIN":{"col1":1,"col1":2},"$MIN":3}"""
+    // Error will not raise because `minValues` will not be stored in the file-specific stats map.
+    val conflictStatsType = s"""{"$MIN":{"col1":1,"col2":2},"$MIN":3}"""
     parseColumnStatsTest(conflictStatsType, Map[String, Long](), Map[String, Long]())
+
+    // parse column stats: wrong data type for a known stats type
+    // NUM_RECORDS should be LongType but is StringType here. The method raise error and should be
+    // handle by caller.
+    val wrongStatsDataType = s"""{"$MIN":{"col1":1,"col2":2},"$NUM_RECORDS":"a"}"""
+    testException[NumberFormatException](
+      parseColumnStatsTest(wrongStatsDataType, Map[String, Long](), Map[String, Long]()),
+      "For input string: ")
   }
 
   test("unit test: filter construction") {

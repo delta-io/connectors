@@ -85,7 +85,7 @@ private[internal] object DataSkippingUtils {
   }
 
   /**
-   * Parse the stats in data metadata files to two maps. The output contains two map
+   * Parse the stats in data metadata files to two maps. The output contains two maps
    * distinguishing the file-specific stats and column-specific stats.
    *
    * For file-specific stats, like NUM_RECORDS, it only contains one value per file. The key
@@ -110,7 +110,9 @@ private[internal] object DataSkippingUtils {
    * fileStats = Map("[[NUM_RECORDS]]" -> 3)
    * columnStats = Map("[[MIN]].a" -> 2, "[[MIN]].b" -> 1)
    *
-   * Currently nested column is not supported, only [[LongType]] is the supported data type.
+   * Currently nested column is not supported, only [[LongType]] is the supported data type, if
+   * encountered a wrong data type with a known stats type, the method will raise error and should
+   * be handled by caller.
    *
    * @param dataSchema  The schema contains non-partition columns in table.
    * @param statsString The JSON-formatted stats in raw string type in table metadata files.
