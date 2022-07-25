@@ -157,10 +157,12 @@ class DataSkippingSuite extends FunSuite {
    *    (i % 3 <= 1 && i % 3 + 2 >= 1) (1 <= i <= 20)
    */
   test("integration test: column stats filter on 1 non-partition column") {
+    // When build the column stats filter based on query predicate,
+    // we follow the rule `(col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)`
     val expectedResult = (1 to 20)
       .filter { i =>
         i % 3 <= 1 &&
-          i % 3 + 2 >= 1 // Followed the rule `(col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)`
+          i % 3 + 2 >= 1
       }
       .map(_.toString)
     columnStatsBasedFilePruningTest(
@@ -173,6 +175,9 @@ class DataSkippingSuite extends FunSuite {
    * Column stats filter: (i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
    */
   test("integration test: column stats filter on 2 non-partition column") {
+    // When build the column stats filter based on query predicate,
+    // we follow the rule `(col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)`
+    // And the rule `cast(expr1 AND expr2) -> cast(expr1) AND cast(expr2)`
     val expectedResult = (1 to 20)
       .filter { i =>
         i % 3 <= 1 &&
