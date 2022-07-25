@@ -56,7 +56,7 @@ private[internal] object DataSkippingUtils {
    * }
    *
    * @param dataSchema The schema of data columns in table.
-   * @return [[statsSchema]] The schema storing the layout of stats columns.
+   * @return The schema storing the layout of stats columns.
    */
   def buildStatsSchema(dataSchema: StructType): StructType = {
     // TODO: add partial stats support as config `DATA_SKIPPING_NUM_INDEXED_COLS`

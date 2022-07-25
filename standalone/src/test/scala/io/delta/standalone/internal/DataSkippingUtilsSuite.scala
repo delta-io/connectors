@@ -54,7 +54,6 @@ class DataSkippingUtilsSuite extends FunSuite {
     assert(e.contains(messageContains))
   }
 
-
   test("unit test: build stats schema") {
     // build stats schema: basic table schema
     var output = DataSkippingUtils.buildStatsSchema(schema)
@@ -254,7 +253,8 @@ class DataSkippingUtilsSuite extends FunSuite {
       (new DoubleType, (x: ColumnStatsRowRecord) => x.getDouble("test"), 0L, 0.0))
 
     primTypes.foreach {
-      case (dataType: DataType, f: (ColumnStatsRowRecord => Any), l: Long, v) =>
+      case (dataType: DataType, f: (ColumnStatsRowRecord => Any), l: Long, _) =>
+        // reserves a dummy parameter for adding data type support later.
         testException[UnsupportedOperationException](
           f(buildColumnStatsRowRecord(dataType, nullable = true, l, l)),
           s"${dataType.getTypeName} is not a supported column stats type.")
