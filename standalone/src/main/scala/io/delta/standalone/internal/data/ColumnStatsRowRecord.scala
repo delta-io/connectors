@@ -30,24 +30,24 @@ import io.delta.standalone.internal.util.SchemaUtils
  * Exposes the column stats in a Delta table file as [[RowRecord]]. This is used to evaluate the
  * predicate in column stats based file pruning.
  *
- * Example: Assume we have a table schema like this: table1(col1: long, col2:long)),
+ * Example: Assume we have a table schema like this: table1(col1: int, col2: string)),
  * with the supported stats types NUM_RECORDS, MAX, MIN, NULL_COUNT.
  *
  * [[statsSchema]] will be:
  * {
  *    "MIN": {
- *      "col1": LongType,
- *      "col2": LongType,
+ *      "col1": IntegerType,
+ *      "col2": StringType,
  *    },
  *    "MAX": {
- *      "col1": LongType,
- *      "col2": LongType,
+ *      "col1": IntegerType,
+ *      "col2": StringType,
  *    },
  *    "NULL_COUNT": {
  *      "col1": LongType,
  *      "col2": LongType,
  *    },
- *    "NUM_RECORD": 1
+ *    "NUM_RECORD": LongType
  * }
  * [[fileStats]] will be: {"NUM_RECORDS": 1}
  * [[columnStats]] will be:
@@ -69,12 +69,6 @@ private[internal] class ColumnStatsRowRecord(
     statsSchema: StructType,
     fileStats: Map[String, Long],
     columnStats: Map[String, Long]) extends RowRecordJ {
-  // `getLong` is expected to return a non-null value. It is the responsibility of the caller to
-  // call `isNullAt` first before calling `getLong`. Similarly for the APIs fetching different
-  // data types such as int, boolean etc.
-  //
-  // It is also guaranteed that the `IsNull` or `IsNotNull` won't exists in column stats
-  // predicate, so `isNullAt` will only work for pre-checking when evaluating the column.
 
   // TODO: support BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType,
   //  ShortType
@@ -87,7 +81,7 @@ private[internal] class ColumnStatsRowRecord(
    * Check whether there is a column with supported data type in the stats schema.
    * This method is used for checking column-specific stats.
    *
-   * Return TRUE if $statsType.$columnName exists in stats schema.
+   * Return TRUE if $statsType.$columnName exists in stats schema and with the correct data type.
    * Return FALSE if it not exists or the data type is not supported.
    */
   private def isValidColumnNameAndType(columnName: String, statsType: String): Boolean = {
@@ -109,7 +103,9 @@ private[internal] class ColumnStatsRowRecord(
     statsStruct.get(columnName).getDataType.equals(new LongType)
   }
 
-  /** Return None if the stats in given filedName is not found, return Some(Long) if found. */
+  /**
+   * Return None if the stats in given filedName is not found, return Some(Long) if found.
+   */
   private def getLongOrNone(fieldName: String): Option[Long] = {
     // Parse column name with stats type: MAX.a => Seq(MAX, a)
     // The first element in `pathToColumn` is stats type, and the second element should be
@@ -118,7 +114,7 @@ private[internal] class ColumnStatsRowRecord(
       return None
     }
 
-    // In stats column the last element is stats type
+    // In stats column the first element is stats type.
     val statsType = pathToColumn.head
 
     statsType match {
@@ -129,17 +125,18 @@ private[internal] class ColumnStatsRowRecord(
         fileStats.get(fieldName)
 
       // For the column-level stats type, like MIN or MAX or NULL_COUNT, we get value from
-      // columnStats map by the COMPLETE column name with stats type, like `a.MAX`.
+      // columnStats map by the COMPLETE column name with stats type, like `MAX.a`.
       case NULL_COUNT if pathToColumn.length == columnStatsPathLength =>
         // Currently we only support non-nested columns, so the `pathToColumn` should only contain
         // 2 parts: the column name and the stats type.
         columnStats.get(fieldName)
 
       case MIN | MAX if pathToColumn.length == columnStatsPathLength =>
-          val columnName = pathToColumn.last
-          if (isValidColumnNameAndType(columnName, statsType)) {
-            columnStats.get(fieldName)
-          } else None
+        // In stats column the second element is data column name.
+        val columnName = pathToColumn.last
+        if (isValidColumnNameAndType(columnName, statsType)) {
+          columnStats.get(fieldName)
+        } else None
 
       case _ => None
     }
@@ -147,7 +144,9 @@ private[internal] class ColumnStatsRowRecord(
 
   /**
    * Checks if the statistics do not exist for the given fieldName. Returns true if missing, else
-   * returns false.
+   * returns false. This method only handles the stats value missing issues, but if data type of
+   * stats mismatched the data format in stats map, the exception will be raised from
+   * `get${dataType}`. And it should be handled by the caller.
    */
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty
@@ -157,7 +156,11 @@ private[internal] class ColumnStatsRowRecord(
     throw new UnsupportedOperationException("integer is not a supported column stats type.")
   }
 
-  /** getLongOrNone must return the field name here as we have pre-checked by [[isNullAt]] */
+  /**
+   * Return the non-null value from map by the given fieldName. It is the responsibility of the
+   * caller to call `isNullAt` first before calling `get${dataType}`. Similarly for the APIs
+   * fetching different data types such as int, boolean etc.
+   */
   override def getLong(fieldName: String): Long = getLongOrNone(fieldName).getOrElse {
     throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
   }
