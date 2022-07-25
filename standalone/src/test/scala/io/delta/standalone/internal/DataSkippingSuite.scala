@@ -58,7 +58,7 @@ class DataSkippingSuite extends FunSuite {
     val partitionValues = Map("partitionCol" -> i.toString)
     val fullColumnStats = s"""
       | {
-      |   "$NUM_RECORDS":1,
+      |   "$NUM_RECORDS":2,
       |   "$MIN": {
       |     "col1":${(i % 3).toString},
       |     "col2":${(i % 4).toString},
@@ -151,7 +151,8 @@ class DataSkippingSuite extends FunSuite {
    * - table schema: (partitionCol: long, col1: long, col2: long, stringCol: string)
    *
    * - `files`: rows of data in table, for the i-th file in `files`,
-   *      file.path = i, file.partitionCol = i, file.col1 = i % 3, file.col2 = i % 4
+   *      path = i, partitionCol = i, MIN.col1 = i % 3, MAX.col1 = i % 3 + 2,
+   *      MIN.col2 = i % 4, MAX.col2 = i % 4 + 1
    *
    * - range of `i` is from 1 to 20.
    *
@@ -160,7 +161,7 @@ class DataSkippingSuite extends FunSuite {
    * - data column predicate: the non-partition predicate expr, is `col1 == 1` here
    *
    * - the accepted files' number should meet the condition:
-   *    (i % 3 <= 1 && i % 3 + 2 >= 1) (1 <= i <= 20)
+   *    (MIN.col1 <= 1 && MAX.col1 >= 1) (1 <= i <= 20)
    */
   test("integration test: column stats filter on 1 non-partition column") {
     val expectedResult = (1 to 20)
@@ -176,7 +177,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Query: (col1 == 1 && col2 == 1) (1 <= i <= 20)
-   * Column stats filter: (i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
+   * Column stats filter: (MIN.col1 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: column stats filter on 2 non-partition column") {
     val expectedResult = (1 to 20)
@@ -196,14 +197,12 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col2 == 1 && col2 == 1) (1 <= i <= 20)
-   * Column stats filter: (i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
+   * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
     val expectedResult = (1 to 20)
       .filter { i =>
         col2Min(i) <= 1 &&
-          col2Max(i) >= 1 &&
-          col2Min(i) <= 1 &&
           col2Max(i) >= 1
       }
       .map(_.toString)
@@ -216,7 +215,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col2 == 1 AND col2 == 2) (1 <= i <= 20)
-   * Column stats filter: (i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 2 && i % 4 + 1 >= 2)
+   * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 2 && MAX.col2 >= 2)
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
     val expectedResult = (1 to 20)
@@ -236,7 +235,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col1 == 2)
-   * Column stats filter: (i % 3 <= 2 && i % 3 + 2 >= 2)
+   * Column stats filter: (MIN.col1 <= 2 && MAX.col1 >= 2)
    * Output: Return all files. (Column stats filter not work)
    * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
@@ -252,7 +251,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col1 == 1 AND col2 == 1)
-   * Column stats filter: (i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
+   * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
@@ -285,7 +284,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col2 == 1)
-   * Column stats filter: (i % 4 <= 1 && i % 4 + 1 >= 1)
+   * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because stats string is empty, we can't evaluate column stats predicate and will skip
    * column stats filter. But the partition column still works here.
@@ -298,7 +297,7 @@ class DataSkippingSuite extends FunSuite {
 
   /**
    * Filter: (col2 == 1)
-   * Column stats filter: (i % 4 <= 1 && i % 4 + 1 >= 1)
+   * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because stats string is broken, we can't evaluate column stats predicate and will skip
    * column stats filter. But the partition column still works here. The JSON parser error is caught
