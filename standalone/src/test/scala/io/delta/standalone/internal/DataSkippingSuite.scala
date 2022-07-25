@@ -28,8 +28,11 @@ import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT
 import io.delta.standalone.internal.util.TestUtils._
 
 /**
- * The integration test of column stats based file pruning in
- * [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl]].
+ * The integration tests of column stats based file pruning implemented in
+ * [[io.delta.standalone.internal.scan.FilteredDeltaScanImpl]]. This class tested the common cases
+ * and some edge cases, like missing stats, nested columns, supported or unsupported data type or
+ * expression type. This class also tested the behavior of column stats filter with or without
+ * partition filter.
  */
 class DataSkippingSuite extends FunSuite {
   private val op = new Operation(Operation.Name.WRITE)
