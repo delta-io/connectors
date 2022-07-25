@@ -96,7 +96,10 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Integration tests with given query predicate, target output and configurations.
+   * Integration tests with given query predicate, target output and configurations. For each method
+   * call, this method will test twice. Once with only the column stats filter, and once with column
+   * stats filter and partition filter.
+   *
    * @param expr              The input query predicate.
    * @param target            The file list that is not skipped by evaluating column stats.
    * @param customStats       The customized stats string. If none, use default stats.
@@ -108,15 +111,31 @@ class DataSkippingSuite extends FunSuite {
       customStats: Option[Int => String] = None,
       isStrColHasValue: Boolean = false): Unit = {
     val logFiles = buildFiles(customStats, isStrColHasValue)
+
+    // Case 1: Test with only column stats predicates.
     withDeltaLog(logFiles) { log =>
       val scan = log.update().scan(expr)
       val iter = scan.getFiles
       var resFiles: Seq[String] = Seq()
       while (iter.hasNext) {
-        // get the index of accepted files
+        // Get the index of accepted files.
         resFiles = resFiles :+ iter.next().getPath
       }
       assert(resFiles == target)
+    }
+
+    // Case 2: Test with column stats predicates and partition filter `partitionCol <= 10`.
+    withDeltaLog(logFiles) { log =>
+      val scan = log.update().scan(new And(
+        new LessThanOrEqual(schema.column("partitionCol"), Literal.of(10L)),
+        expr))
+      val iter = scan.getFiles
+      var resFiles: Seq[String] = Seq()
+      while (iter.hasNext) {
+        // Get the index of accepted files.
+        resFiles = resFiles :+ iter.next().getPath
+      }
+      assert(resFiles == target.filter(_.toLong <= 10L))
     }
   }
 
