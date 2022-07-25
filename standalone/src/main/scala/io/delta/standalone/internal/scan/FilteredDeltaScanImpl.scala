@@ -101,7 +101,7 @@ final private[internal] class FilteredDeltaScanImpl(
       // Since `ColumnStatsRowRecord.isNullAt` will return null as evaluation result when stats
       // missing, it will make `IsNull` return true wrongly when `IsNull` is the parent expression
       // of some expression used `isNullAt`.
-      // For example, `IsNull(col1.MIN)` will be true if col1.MIN is missing. Meanwhile, `col1` can
+      // For example, `IsNull(MIN.col1)` will be true if MIN.col1 is missing. Meanwhile, `col1` can
       // be all non-null value.
       // We avoid this problem by not using `IsNull` expression in any column stats filter.
       columnStatsFilterResult match {

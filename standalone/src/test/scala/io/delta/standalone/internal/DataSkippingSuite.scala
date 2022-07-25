@@ -48,7 +48,6 @@ class DataSkippingSuite extends FunSuite {
     new StructField("stringCol", new StringType(), true)
   ))
 
-
   val metadata: Metadata = Metadata(partitionColumns = partitionSchema.getFieldNames,
     schemaString = schema.toJson)
 
@@ -159,7 +158,7 @@ class DataSkippingSuite extends FunSuite {
    * - the accepted files' number should meet the condition:
    *    (i <= 5 && i % 3 <= 1 && i % 3 + 2 >= 1) (1 <= i <= 20)
    */
-  test("integration test: column stats filter on 1 partition and 1 non-partition column") {
+  test("integration test: column stats filter on 1 non-partition column") {
     val expectedResult = (1 to 20)
       .filter { i => i <= 5 && i % 3 <= 1 && i % 3 + 2 >= 1 }
       .map(_.toString)
@@ -217,7 +216,7 @@ class DataSkippingSuite extends FunSuite {
    * Filter: (col1 == 2)
    * Column stats filter: (i % 3 <= 2 && i % 3 + 2 >= 2)
    * Output: Return all files. (Column stats filter not work)
-   * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
+   * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    * But the partition column filter still works here.
    */
@@ -233,7 +232,7 @@ class DataSkippingSuite extends FunSuite {
    * Filter: (col1 == 1 AND col2 == 1)
    * Column stats filter: (i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
    * Output: All files. (Column stats filter not work)
-   * Reason: Because col2.MIN and col2.MAX is used in column stats predicate while not appears in
+   * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not appears in
    * the stats string, we can't evaluate column stats predicate and will skip column stats filter.
    */
   test("integration test: missing stats for some column") {
