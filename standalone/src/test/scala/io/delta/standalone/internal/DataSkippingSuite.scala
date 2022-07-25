@@ -86,8 +86,6 @@ class DataSkippingSuite extends FunSuite {
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = wrappedColumnStats)
   }
 
-  private val col1EqualTo1 = new EqualTo(schema.column("col1"), Literal.of(1L))
-
   def withDeltaLog(actions: Seq[Action], m: Option[Metadata] = None) (f: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -151,19 +149,22 @@ class DataSkippingSuite extends FunSuite {
    *
    * - range of `i` is from 1 to 20.
    *
-   * - the query predicate is `partitionCol <= 5 AND col1 = 1`
-   * - partition column predicate: the partition predicate expr, which is `partitionCol <= 5`
-   * - data column predicate: the non-partition predicate expr, which is `col1 == 1`
+   * - the query predicate is `col1 = 1`
+   * - partition column predicate: the partition predicate expr, is empty here
+   * - data column predicate: the non-partition predicate expr, is `col1 == 1` here
    *
    * - the accepted files' number should meet the condition:
-   *    (i <= 5 && i % 3 <= 1 && i % 3 + 2 >= 1) (1 <= i <= 20)
+   *    (i % 3 <= 1 && i % 3 + 2 >= 1) (1 <= i <= 20)
    */
   test("integration test: column stats filter on 1 non-partition column") {
     val expectedResult = (1 to 20)
-      .filter { i => i <= 5 && i % 3 <= 1 && i % 3 + 2 >= 1 }
+      .filter { i =>
+        i % 3 <= 1 &&
+          i % 3 + 2 >= 1 // Followed the rule `(col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)`
+      }
       .map(_.toString)
-    columnStatsBasedFilePruningTest(expr = new And(
-      new LessThanOrEqual(schema.column("partitionCol"), Literal.of(5L)), col1EqualTo1),
+    columnStatsBasedFilePruningTest(
+      expr = new EqualTo(schema.column("col1"), Literal.of(1L)),
       expectedResult)
   }
 
@@ -173,7 +174,12 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: column stats filter on 2 non-partition column") {
     val expectedResult = (1 to 20)
-      .filter { i => i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1 }
+      .filter { i =>
+        i % 3 <= 1 &&
+          i % 3 + 2 >= 1 &&
+          i % 4 <= 1 &&
+          i % 4 + 1 >= 1
+      }
       .map(_.toString)
     columnStatsBasedFilePruningTest(
       expr = new And(
@@ -183,12 +189,17 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 AND col2 == 1) (1 <= i <= 20)
+   * Filter: (col2 == 1 && col2 == 1) (1 <= i <= 20)
    * Column stats filter: (i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1)
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
     val expectedResult = (1 to 20)
-      .filter { i => i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1 }
+      .filter { i =>
+        i % 4 <= 1 &&
+          i % 4 + 1 >= 1 &&
+          i % 4 <= 1 &&
+          i % 4 + 1 >= 1
+      }
       .map(_.toString)
     columnStatsBasedFilePruningTest(
       expr = new And(
@@ -203,7 +214,12 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
     val expectedResult = (1 to 20)
-      .filter { i => i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 2 && i % 4 + 1 >= 2 }
+      .filter { i =>
+        i % 4 <= 1 &&
+          i % 4 + 1 >= 1 &&
+          i % 4 <= 2 &&
+          i % 4 + 1 >= 2
+      }
       .map(_.toString)
     columnStatsBasedFilePruningTest(
       expr = new And(
@@ -222,7 +238,7 @@ class DataSkippingSuite extends FunSuite {
    */
   test("integration test: some stats type missing") {
     val statsWithMissingType =
-      s"""{"$NULL_COUNT":{"partitionCol": 0,"col1": 0,"col2": 0,"stringCol": 1},"$NUM_RECORDS":1}"""
+      s"""{"$NULL_COUNT":{"col1": 0,"col2": 0,"stringCol": 1},"$NUM_RECORDS":1}"""
     columnStatsBasedFilePruningTest(
       expr = new EqualTo(schema.column("col1"), Literal.of(2L)),
       target = (1 to 20).map(_.toString), Some(_ => statsWithMissingType))
