@@ -28,6 +28,7 @@ import io.delta.standalone.internal.data.ColumnStatsRowRecord
 import io.delta.standalone.internal.util.DataSkippingUtils
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 
+/** The unit tests of helper methods in [[DataSkippingUtils]]. */
 class DataSkippingUtilsSuite extends FunSuite {
   private val schema = new StructType(Array(
     new StructField("col1", new LongType(), true),
@@ -77,78 +78,76 @@ class DataSkippingUtilsSuite extends FunSuite {
     assert(output.length() == 0)
   }
 
-  /**
-   * The unit test method for [[DataSkippingUtils.constructDataFilters]].
-   * @param statsString       The stats string in JSON format.
-   * @param fileStatsTarget   The target output of file-specific stats.
-   * @param columnStatsTarget The target output of column-specific stats.
-   * @param isNestedSchema    If we will use nested schema for column stats.
-   */
-  def parseColumnStatsTest(
-      statsString: String,
-      fileStatsTarget: Map[String, Long],
-      columnStatsTarget: Map[String, Long],
-      isNestedSchema: Boolean = false): Unit = {
-    val s = if (isNestedSchema) nestedSchema else schema
-    val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
-      dataSchema = s, statsString = statsString)
-    assert(fileStats == fileStatsTarget)
-    assert(columnStats == columnStatsTarget)
-  }
-
   test("unit test: parse column stats") {
+    /**
+     * @param statsString       The stats string in JSON format.
+     * @param fileStatsTarget   The target output of file-specific stats.
+     * @param columnStatsTarget The target output of column-specific stats.
+     * @param isNestedSchema    If we will use nested schema for column stats.
+     */
+    def testParseColumnStats(
+        statsString: String,
+        fileStatsTarget: Map[String, Long],
+        columnStatsTarget: Map[String, Long],
+        isNestedSchema: Boolean = false): Unit = {
+      val s = if (isNestedSchema) nestedSchema else schema
+      val (fileStats, columnStats) = DataSkippingUtils.parseColumnStats(
+        dataSchema = s, statsString = statsString)
+      assert(fileStats == fileStatsTarget)
+      assert(columnStats == columnStatsTarget)
+    }
+
     var fileStatsTarget = Map("numRecords" -> 3L)
     var columnStatsTarget = Map("minValues.col2" -> 2L, "minValues.col1" -> 1L)
     // Though `stringCol` is not LongType, its `nullCount` stats will be documented
     // while `minValues` and `maxValues` won't be.
-    parseColumnStatsTest(columnStats, fileStatsTarget, columnStatsTarget)
+    testParseColumnStats(columnStats, fileStatsTarget, columnStatsTarget)
 
     // parse column stats: ignore nested column
     fileStatsTarget = Map[String, Long]()
     columnStatsTarget = Map[String, Long]()
-    parseColumnStatsTest(
+    testParseColumnStats(
       nestedColStats, fileStatsTarget, columnStatsTarget, isNestedSchema = true)
 
     // parse column stats: wrong JSON format
     fileStatsTarget = Map[String, Long]()
     columnStatsTarget = Map[String, Long]()
     val e = intercept[JsonEOFException] {
-      parseColumnStatsTest(statsString = brokenStats, fileStatsTarget, columnStatsTarget)
+      testParseColumnStats(statsString = brokenStats, fileStatsTarget, columnStatsTarget)
     }
     assert(e.getMessage.contains("Unexpected end-of-input in field name"))
 
     // parse column stats: missing stats from schema
     fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 2)
     columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 1)
-    parseColumnStatsTest(missingColumnStats, fileStatsTarget, columnStatsTarget)
+    testParseColumnStats(missingColumnStats, fileStatsTarget, columnStatsTarget)
 
     // parse column stats: duplicated stats name
     val duplicatedStats = s"""{"$MIN":{"col1":1,"col1":2},"numRecords":3}"""
     fileStatsTarget = Map[String, Long](s"$NUM_RECORDS" -> 3)
     columnStatsTarget = Map[String, Long](s"$MIN.col1" -> 2)
-    parseColumnStatsTest(duplicatedStats, fileStatsTarget, columnStatsTarget)
+    testParseColumnStats(duplicatedStats, fileStatsTarget, columnStatsTarget)
 
     // parse column stats: conflict stats type
     // Error will not raise because `minValues` will not be stored in the file-specific stats map.
     val conflictStatsType = s"""{"$MIN":{"col1":1,"col2":2},"$MIN":3}"""
-    parseColumnStatsTest(conflictStatsType, Map[String, Long](), Map[String, Long]())
+    testParseColumnStats(conflictStatsType, Map[String, Long](), Map[String, Long]())
 
     // parse column stats: wrong data type for a known stats type
     // NUM_RECORDS should be LongType but is StringType here. The method raise error and should be
     // handle by caller.
     val wrongStatsDataType = s"""{"$MIN":{"col1":1,"col2":2},"$NUM_RECORDS":"a"}"""
     testException[NumberFormatException](
-      parseColumnStatsTest(wrongStatsDataType, Map[String, Long](), Map[String, Long]()),
+      testParseColumnStats(wrongStatsDataType, Map[String, Long](), Map[String, Long]()),
       "For input string: ")
   }
 
   test("unit test: filter construction") {
     /**
-     * The unit test method for constructDataFilter.
      * @param input  The query predicate as input.
      * @param target The target column stats filter as output.
      */
-    def constructDataFilterTests(
+    def testConstructDataFilter(
         input: Option[Expression],
         target: Option[Expression]): Unit = {
       val output = DataSkippingUtils.constructDataFilters(
@@ -157,7 +156,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       assert(target == output)
     }
 
-    /** Helper function for building the column stats filter from equalTo operation. */
+    /** Building the column stats filter from equalTo operation. */
     def eqCast(colName: String, colType: DataType, l: Literal): Expression = {
       val colMin = new Column(s"$MIN.$colName", colType)
       val colMax = new Column(s"$MAX.$colName", colType)
@@ -173,12 +172,12 @@ class DataSkippingUtilsSuite extends FunSuite {
     val long2 = Literal.of(2L)
 
     // col1 == 1
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new EqualTo(col1, long1)),
       target = Some(eqCast("col1", new LongType, long1)))
 
     // col1 == 1 AND col2 == 1
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new And(
         new EqualTo(col1, long1),
         new EqualTo(col2, long2))),
@@ -187,27 +186,35 @@ class DataSkippingUtilsSuite extends FunSuite {
         eqCast("col2", new LongType, long2))))
 
     // col1 >= 1, `>=` is not supported
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new GreaterThanOrEqual(col1, long1)),
       target = None)
 
     // `col1 IS NOT NULL` is not supported
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new IsNotNull(col1)),
       target = None)
 
     // stringCol = 1, StringType is not supported
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new EqualTo(new Column("stringCol", new StringType), Literal.of("1"))),
       target = None)
 
     // empty expression will return if stats is missing
-    constructDataFilterTests(
+    testConstructDataFilter(
       input = Some(new EqualTo(new Column("col3", new LongType), long1)),
       target = None)
   }
 
   test("unit test: column stats row record") {
+    /**
+     * @param dataType         The data type of testing field.
+     * @param nullable         Whether this field is nullable.
+     * @param fileStatsValue   The value of file-specific stats.
+     * @param columnStatsValue The value of column-specific stats.
+     * @param name             The field name.
+     * @return
+     */
     def buildColumnStatsRowRecord(
         dataType: DataType,
         nullable: Boolean,
@@ -277,5 +284,4 @@ class DataSkippingUtilsSuite extends FunSuite {
       testStatsRowRecord.getMap("test"),
       "Map is not a supported column stats type.")
   }
-
 }

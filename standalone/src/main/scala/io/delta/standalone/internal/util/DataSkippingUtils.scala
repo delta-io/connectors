@@ -40,7 +40,7 @@ private[internal] object DataSkippingUtils {
   final val columnStatsPathLength = 2
 
   /**
-   * Build stats schema based on the table schema with only non-partition columns, the first layer
+   * Build stats schema based on the schema of data columns, the first layer
    * of stats schema is stats type. If it is a column-specific stats, it nested a second layer,
    * which contains the column name in table schema. Or if it is a column-specific stats, contains
    * a non-nested data type.
@@ -55,9 +55,7 @@ private[internal] object DataSkippingUtils {
    *   }, ... // other stats
    * }
    *
-   * We don't need this to prevent missing stats as they are prevented by [[verifyStatsForFilter]].
-   *
-   * @param dataSchema The schema with only non-partition columns in table.
+   * @param dataSchema The schema of data columns in table.
    * @return [[statsSchema]] The schema storing the layout of stats columns.
    */
   def buildStatsSchema(dataSchema: StructType): StructType = {
@@ -114,7 +112,7 @@ private[internal] object DataSkippingUtils {
    * encountered a wrong data type with a known stats type, the method will raise error and should
    * be handled by caller.
    *
-   * @param dataSchema  The schema contains non-partition columns in table.
+   * @param dataSchema  The schema of data columns in table.
    * @param statsString The JSON-formatted stats in raw string type in table metadata files.
    * @return file-specific stats map:   The map stores file-specific stats, like [[NUM_RECORDS]].
    *         column-specific stats map: The map stores column-specific stats, like [[MIN]],
@@ -137,10 +135,10 @@ private[internal] object DataSkippingUtils {
         }
       } else {
         // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
-        // non-partition schema and fill the column-specific stats map column-by-column if the
+        // schema of data columns and fill the column-specific stats map column-by-column if the
         // column name appears in JSON string.
         dataColumns.filter(col => statsObj.has(col.getName)).foreach { dataColumn =>
-          // Get stats value by column name, if the column is missing in this stat's struct, the
+          // Get stats value by column in data schema.
           val columnName = dataColumn.getName
           val statsVal = statsObj.get(columnName)
           if (statsVal != null) {
@@ -167,18 +165,18 @@ private[internal] object DataSkippingUtils {
     new Column(statsType + "." + columnName, dataType)
 
   /**
-   * Build the column stats filter based on query predicate and non-partition schema.
+   * Build the column stats filter based on query predicate and the schema of data columns.
    *
-   * Assume `col1` and `col2` are columns in query predicate, `literal1` and `literal2` are two
-   * literal values in query predicate. Now two rules are applied:
-   * - (col1 == literal2) -> (MIN.col1 <= literal2 AND MAX.col1 >= literal2)
-   * - constructDataFilters(expr1 AND expr2) ->
-   *      constructDataFilters(expr1) AND constructDataFilters(expr2)
+   * Assume `col1` and `col2` are columns in query predicate, `l1` and `l2` are two
+   * literal values in query predicate. Let `f` be this method `constructDataFilters`.
+   * Now two rules are applied:
+   * - (col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)
+   * - f(expr1 AND expr2) -> f(expr1) AND f(expr2)
    *
-   * @param dataSchema      The schema contains non-partition columns in table.
+   * @param dataSchema      The schema of data columns in table.
    * @param dataConjunction The non-partition column query predicate.
    * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
-   *         if met missing stats, unsupported data type, or unsupported expression type issues.
+   *         if met unsupported data type, or unsupported expression type issues.
    */
   def constructDataFilters(
       dataSchema: StructType,
@@ -204,10 +202,9 @@ private[internal] object DataSkippingUtils {
         val e1 = constructDataFilters(dataSchema, Some(and.getLeft))
         val e2 = constructDataFilters(dataSchema, Some(and.getRight))
 
-        if (e1.isDefined && e2.isDefined) {
-            Some(new And(e1.get, e2.get))
-        } else {
-          None
+        (e1, e2) match {
+          case (Some(e1), Some(e2)) => Some(new And(e1, e2))
+          case _ => None
         }
 
       // TODO: support full types of Expression

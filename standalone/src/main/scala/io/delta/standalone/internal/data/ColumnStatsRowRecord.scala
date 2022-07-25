@@ -33,6 +33,22 @@ import io.delta.standalone.internal.util.SchemaUtils
  * Example: Assume we have a table schema like this: table1(col1: long, col2:long)),
  * with the supported stats types NUM_RECORDS, MAX, MIN, NULL_COUNT.
  *
+ * [[statsSchema]] will be:
+ * {
+ *    "MIN": {
+ *      "col1": LongType,
+ *      "col2": LongType,
+ *    },
+ *    "MAX": {
+ *      "col1": LongType,
+ *      "col2": LongType,
+ *    },
+ *    "NULL_COUNT": {
+ *      "col1": LongType,
+ *      "col2": LongType,
+ *    },
+ *    "NUM_RECORD": 1
+ * }
  * [[fileStats]] will be: {"NUM_RECORDS": 1}
  * [[columnStats]] will be:
  * {
@@ -44,13 +60,6 @@ import io.delta.standalone.internal.util.SchemaUtils
  *  "NULL_COUNT.col2": 0,
  * }
  *
- * [[getLong]] is expected to return a non-null value. It is the responsibility of the caller to
- * call [[isNullAt]] first before calling [[getLong]]. Similarly for the APIs fetching different
- * data types such as int, boolean etc.
- *
- * It is also guaranteed that the [[IsNull]] or [[IsNotNull]] won't exists in column stats
- * predicate, so [[isNullAt]] will only work for pre-checking when evaluating the column.
- *
  * @param statsSchema The schema of the stats column, the first level is stats type, and the
  *                    secondary level is data column name.
  * @param fileStats   File-specific stats, like NUM_RECORDS.
@@ -60,6 +69,13 @@ private[internal] class ColumnStatsRowRecord(
     statsSchema: StructType,
     fileStats: Map[String, Long],
     columnStats: Map[String, Long]) extends RowRecordJ {
+  // `getLong` is expected to return a non-null value. It is the responsibility of the caller to
+  // call `isNullAt` first before calling `getLong`. Similarly for the APIs fetching different
+  // data types such as int, boolean etc.
+  //
+  // It is also guaranteed that the `IsNull` or `IsNotNull` won't exists in column stats
+  // predicate, so `isNullAt` will only work for pre-checking when evaluating the column.
+
   // TODO: support BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType,
   //  ShortType
 
@@ -69,28 +85,31 @@ private[internal] class ColumnStatsRowRecord(
 
   /**
    * Check whether there is a column with supported data type in the stats schema.
+   * This method is used for checking column-specific stats.
+   *
    * Return TRUE if $statsType.$columnName exists in stats schema.
    * Return FALSE if it not exists or the data type is not supported.
    */
   private def isValidColumnNameAndType(columnName: String, statsType: String): Boolean = {
     if (!statsSchema.contains(statsType)) {
-      // ensure that such column name exists in table schema
+      // Ensure that such stats type exists in table schema.
       return false
     }
     val statType = statsSchema.get(statsType).getDataType
     if (!statType.isInstanceOf[StructType]) {
+      // Ensure that the column-specific stats type contains multiple columns in stats schema.
       return false
     }
-    // Ensure that the data type in table schema is supported.
-    val colType = statType.asInstanceOf[StructType]
-    if (!colType.contains(columnName)) {
+    val statsStruct = statType.asInstanceOf[StructType]
+    if (!statsStruct.contains(columnName)) {
+      // Ensure that the data type in table schema is supported.
       return false
     }
     // For now we only accept LongType.
-    colType.get(columnName).getDataType.equals(new LongType)
+    statsStruct.get(columnName).getDataType.equals(new LongType)
   }
 
-  /** Return a None if the stats is not found, return Some(Long) if it's found. */
+  /** Return None if the stats in given filedName is not found, return Some(Long) if found. */
   private def getLongOrNone(fieldName: String): Option[Long] = {
     // Parse column name with stats type: MAX.a => Seq(MAX, a)
     // The first element in `pathToColumn` is stats type, and the second element should be
@@ -127,8 +146,8 @@ private[internal] class ColumnStatsRowRecord(
   }
 
   /**
-   * Check if a column exists in either of 2 stats maps. Return true if it is missing, return
-   * false if it is not.
+   * Checks if the statistics do not exist for the given fieldName. Returns true if missing, else
+   * returns false.
    */
   override def isNullAt(fieldName: String): Boolean = {
     getLongOrNone(fieldName).isEmpty

@@ -222,10 +222,8 @@ private[standalone] object SchemaUtils {
   }
 
   // scalastyle:off line.size.limit
-
   /**
-   * The column name parser from `org/apache/spark/sql/catalyst/analysis/unresolved.scala`
-   * (See https://javadoc.io/doc/org.apache.spark/spark-catalyst_2.11/2.2.3/index.html#org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute$)
+   * https://github.com/apache/spark/blob/7358253755762f9bfe6cedc1a50ec14616cfeace/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/analysis/unresolved.scala#L183
    *
    * Used to split attribute name by dot with backticks rule.
    * Backticks must appear in pairs, and the quoted string must be a complete name part,
@@ -238,7 +236,7 @@ private[standalone] object SchemaUtils {
    * @param name The column name to parse
    * @return The sequence of string representing the path to column, or return None if failed.
    */
-  // scalastyle:on
+  // scalastyle:on line.size.limit
   def parseAndValidateColumn(name: String): Option[Seq[String]] = {
     val nameParts = mutable.ArrayBuffer.empty[String]
     val tmp = mutable.ArrayBuffer.empty[Char]

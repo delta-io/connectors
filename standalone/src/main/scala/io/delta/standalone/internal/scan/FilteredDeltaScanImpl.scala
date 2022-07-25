@@ -91,7 +91,6 @@ final private[internal] class FilteredDeltaScanImpl(
       // Instantiate the evaluate function based on the parsed column stats.
       val columnStatsRecord = new ColumnStatsRowRecord(statsSchema, fileStats, columnStats)
 
-      // Evaluate the filter, this guarantees that all stats can be found in row record.
       val columnStatsFilterResult = columnStatsFilter.get.eval(columnStatsRecord)
 
       // During the evaluation, all the stats values will be checked by
@@ -99,14 +98,15 @@ final private[internal] class FilteredDeltaScanImpl(
       // filter is missing, the evaluation result will be null. In that case the file will be
       // accepted.
       //
-      // Since `ColumnStatsRowRecord.isNullAt` is used in the evaluation of IsNull expression, it
-      // will return true for IsNull(missingStats), which could be an incorrect
-      // result. We avoid this problem by not using IsNull expression as a part of any column
-      // stats filter.
-      if (columnStatsFilterResult.isInstanceOf[Boolean]) {
-        columnStatsFilterResult.asInstanceOf[Boolean]
-      } else {
-        true
+      // Since `ColumnStatsRowRecord.isNullAt` will return null as evaluation result when stats
+      // missing, it will make `IsNull` return true wrongly when `IsNull` is the parent expression
+      // of some expression used `isNullAt`.
+      // For example, `IsNull(col1.MIN)` will be true if col1.MIN is missing. Meanwhile, `col1` can
+      // be all non-null value.
+      // We avoid this problem by not using `IsNull` expression in any column stats filter.
+      columnStatsFilterResult match {
+        case null => true
+        case result => result.asInstanceOf[Boolean]
       }
     } else {
       partitionFilterResult
