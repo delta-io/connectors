@@ -95,25 +95,11 @@ class DataSkippingSuite extends FunSuite {
     }
   }
 
-  /**
-   * Integration tests with given query predicate, target output and configurations. For each method
-   * call, this method will test twice. Once with only the column stats filter, and once with column
-   * stats filter and partition filter.
-   *
-   * @param expr              The input query predicate.
-   * @param target            The file list that is not skipped by evaluating column stats.
-   * @param customStats       The customized stats string. If none, use default stats.
-   * @param isStrColHasValue  Whether testing with a non-null string value.
-   */
   def filePruningTest(
       expr: Expression,
       target: Seq[String],
-      customStats: Option[Int => String] = None,
-      isStrColHasValue: Boolean = false): Unit = {
-    val logFiles = buildFiles(customStats, isStrColHasValue)
-
-    // Case 1: Test with only column stats predicates.
-    withDeltaLog(logFiles) { log =>
+      files: Seq[AddFile]): Unit = {
+    withDeltaLog(files) { log =>
       val scan = log.update().scan(expr)
       val iter = scan.getFiles
       var resFiles: Seq[String] = Seq()
@@ -123,20 +109,32 @@ class DataSkippingSuite extends FunSuite {
       }
       assert(resFiles == target)
     }
+  }
+
+  /**
+   * Integration tests with given query predicate, target output and configurations. For each method
+   * call, this method will test twice. Once with only the column stats filter, and once with column
+   * stats filter and partition filter.
+   *
+   * @param expr              The input query predicate.
+   * @param target            The file list that is not skipped by evaluating column stats.
+   * @param customStats       The customized stats string. If none, use default stats.
+   * @param strColHasValue    Whether testing with a non-null string value.
+   */
+  def columnStatsBasedFilePruningTest(
+      expr: Expression,
+      target: Seq[String],
+      customStats: Option[Int => String] = None,
+      strColHasValue: Boolean = false): Unit = {
+    val logFiles = buildFiles(customStats, strColHasValue)
+
+    // Case 1: Test with only column stats predicates.
+    filePruningTest(expr, target, logFiles)
 
     // Case 2: Test with column stats predicates and partition filter `partitionCol <= 10`.
-    withDeltaLog(logFiles) { log =>
-      val scan = log.update().scan(new And(
-        new LessThanOrEqual(schema.column("partitionCol"), Literal.of(10L)),
-        expr))
-      val iter = scan.getFiles
-      var resFiles: Seq[String] = Seq()
-      while (iter.hasNext) {
-        // Get the index of accepted files.
-        resFiles = resFiles :+ iter.next().getPath
-      }
-      assert(resFiles == target.filter(_.toLong <= 10L))
-    }
+    val compositeExpr = new And(expr,
+      new LessThanOrEqual(schema.column("partitionCol"), Literal.of(10L)))
+    filePruningTest(compositeExpr, target.filter(_.toLong <= 10L), logFiles)
   }
 
   /**
@@ -162,7 +160,7 @@ class DataSkippingSuite extends FunSuite {
     val expectedResult = (1 to 20)
       .filter { i => i <= 5 && i % 3 <= 1 && i % 3 + 2 >= 1 }
       .map(_.toString)
-    filePruningTest(expr = new And(
+    columnStatsBasedFilePruningTest(expr = new And(
       new LessThanOrEqual(schema.column("partitionCol"), Literal.of(5L)), col1EqualTo1),
       expectedResult)
   }
@@ -175,7 +173,7 @@ class DataSkippingSuite extends FunSuite {
     val expectedResult = (1 to 20)
       .filter { i => i % 3 <= 1 && i % 3 + 2 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1 }
       .map(_.toString)
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new And(
         new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
@@ -190,7 +188,7 @@ class DataSkippingSuite extends FunSuite {
     val expectedResult = (1 to 20)
       .filter { i => i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 1 && i % 4 + 1 >= 1 }
       .map(_.toString)
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new And(
         new EqualTo(schema.column("col2"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
@@ -205,7 +203,7 @@ class DataSkippingSuite extends FunSuite {
     val expectedResult = (1 to 20)
       .filter { i => i % 4 <= 1 && i % 4 + 1 >= 1 && i % 4 <= 2 && i % 4 + 1 >= 2 }
       .map(_.toString)
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new And(
         new EqualTo(schema.column("col2"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(2L))),
@@ -223,7 +221,7 @@ class DataSkippingSuite extends FunSuite {
   test("integration test: some stats type missing") {
     val statsWithMissingType =
       s"""{"$NULL_COUNT":{"partitionCol": 0,"col1": 0,"col2": 0,"stringCol": 1},"$NUM_RECORDS":1}"""
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new EqualTo(schema.column("col1"), Literal.of(2L)),
       target = (1 to 20).map(_.toString), Some(_ => statsWithMissingType))
   }
@@ -254,7 +252,7 @@ class DataSkippingSuite extends FunSuite {
          |   "$NUM_RECORDS":1
          | }
          |"""
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new And(
         new EqualTo(schema.column("col1"), Literal.of(1L)),
         new EqualTo(schema.column("col2"), Literal.of(1L))),
@@ -269,7 +267,7 @@ class DataSkippingSuite extends FunSuite {
    * column stats filter. But the partition column still works here.
    */
   test("integration test: empty stats str") {
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new EqualTo(schema.column("col1"), Literal.of(1L)),
       target = (1 to 20).map(_.toString), customStats = Some(_ => "\"\""))
   }
@@ -290,7 +288,7 @@ class DataSkippingSuite extends FunSuite {
 
     val brokenStats = unwrappedStats.substring(0, 10)
 
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new EqualTo(schema.column("col1"), Literal.of(1L)),
       target = (1 to 20).map(_.toString), customStats = Some(_ => brokenStats))
   }
@@ -303,9 +301,9 @@ class DataSkippingSuite extends FunSuite {
    * predicate and will skip column stats filter.
    */
   test("integration test: unsupported stats data type") {
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new EqualTo(schema.column("stringCol"), Literal.of("a")),
-      target = (1 to 20).map(_.toString), isStrColHasValue = true)
+      target = (1 to 20).map(_.toString), strColHasValue = true)
   }
 
   /**
@@ -316,7 +314,7 @@ class DataSkippingSuite extends FunSuite {
    * the column stats filter will be empty and return all the files.
    */
   test("integration test: unsupported expression type") {
-    filePruningTest(
+    columnStatsBasedFilePruningTest(
       expr = new LessThanOrEqual(schema.column("col1"), Literal.of(1L)),
       target = (1 to 20).map(_.toString))
   }
