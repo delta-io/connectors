@@ -404,7 +404,9 @@ class DataSkippingSuite extends FunSuite {
   }
 
   test("integration test: data type support") {
-    val fullTypeSchema = new StructType(Array(
+    def prefixMax(s: String): String = s"$MAX.$s"
+
+    var fullTypeSchema = new StructType(Array(
       new StructField("binaryCol", new BinaryType, true),
       new StructField("booleanCol", new BooleanType, true),
       new StructField("byteCol", new ByteType, true),
@@ -417,8 +419,6 @@ class DataSkippingSuite extends FunSuite {
       new StructField("stringCol", new StringType, true),
       new StructField("timestampCol", new TimestampType, true),
     ))
-
-    def prefixMax(s: String): String = s"$MAX.$s"
 
     val fullTypeColumnStats = Map[String, String](
       prefixMax("binaryCol") -> "ab\"d",
