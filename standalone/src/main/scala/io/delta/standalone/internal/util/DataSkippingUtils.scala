@@ -21,6 +21,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, LessThanOrEqual, Literal}
 import io.delta.standalone.types.{BooleanType, ByteType, DataType, DoubleType, FloatType, IntegerType, LongType, ShortType, StructField, StructType}
 
+import io.delta.standalone.internal.exception.DeltaErrors
+
 private[internal] object DataSkippingUtils {
 
   // TODO: add extensible storage of column stats name and their data type.
@@ -133,8 +135,10 @@ private[internal] object DataSkippingUtils {
       val statsObj = stats._2
       if (!statsObj.isObject) {
         // This is an file-specific stats, like ROW_RECORDS.
+        val statsVal = statsObj.asText
+        checkValueFormat(statsType, statsVal, new LongType)
         if (statsType == NUM_RECORDS) {
-          fileStats += (statsType -> statsObj.asText)
+          fileStats += (statsType -> statsVal)
         }
       } else {
         // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
@@ -145,15 +149,18 @@ private[internal] object DataSkippingUtils {
           val columnName = dataColumn.getName
           val statsVal = statsObj.get(columnName)
           if (statsVal != null) {
+            val statsValStr = statsVal.asText
             val statsName = statsType + "." + dataColumn.getName
             statsType match {
               case MIN | MAX =>
                 // Check the stats type for MIN and MAX.
-                if (isSupported(dataColumn.getDataType)) {
-                  columnStats += (statsName -> statsVal.asText)
+                if (isValidType(dataColumn.getDataType)) {
+                  checkValueFormat(statsType, statsValStr, dataColumn.getDataType)
+                  columnStats += (statsName -> statsValStr)
                 }
               case NULL_COUNT =>
-                columnStats += (statsName -> statsVal.asText)
+                checkValueFormat(statsType, statsValStr, new LongType)
+                columnStats += (statsName -> statsValStr)
               case _ =>
             }
           }
@@ -188,10 +195,12 @@ private[internal] object DataSkippingUtils {
       case Some(eq: EqualTo) => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
-          val dataType = dataSchema.get(columnPath).getDataType
-          if (!(dataSchema.contains(columnPath) &&
-            isSupported(dataType))) {
+          if (!dataSchema.contains(columnPath)) {
               return None
+          }
+          val dataType = dataSchema.get(columnPath).getDataType
+          if (!isValidType(dataType)) {
+            return None
           }
           val minColumn = statsColumnBuilder(MIN, columnPath, dataType)
           val maxColumn = statsColumnBuilder(MAX, columnPath, dataType)
@@ -217,5 +226,20 @@ private[internal] object DataSkippingUtils {
   /**
    * Return true if the give data type is supported in column stats filter, otherwise return false.
    */
-  def isSupported(dataType: DataType): Boolean = supportedDataType.contains(dataType)
+  def isValidType(dataType: DataType): Boolean = supportedDataType.contains(dataType)
+
+  /**
+   * Checking stats value format with the given data type. Will raise wrong format exception if
+   * stats value is in wrong format. The exception should be handled by the caller.
+   */
+  def checkValueFormat(fieldName: String, v: String, dataType: DataType): Unit = dataType match {
+    case _: BooleanType => v.toBoolean
+    case _: ByteType => v.toByte
+    case _: DoubleType => v.toDouble
+    case _: FloatType => v.toFloat
+    case _: IntegerType => v.toInt
+    case _: LongType => v.toLong
+    case _: ShortType => v.toShort
+    case _ => throw DeltaErrors.fieldTypeMismatch(fieldName, dataType, "Unknown Type")
+  }
 }

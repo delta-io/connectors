@@ -97,7 +97,7 @@ private[internal] class ColumnStatsRowRecord(
       return false
     }
     // Ensure the data type of stats is supported.
-    DataSkippingUtils.isSupported(statsStruct.get(columnName).getDataType)
+    DataSkippingUtils.isValidType(statsStruct.get(columnName).getDataType)
   }
 
   /**
