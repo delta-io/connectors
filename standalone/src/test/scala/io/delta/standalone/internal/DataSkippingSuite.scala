@@ -403,10 +403,8 @@ class DataSkippingSuite extends FunSuite {
     }
   }
 
-  /** Testing data type support for stats values. */
   test("integration test: data type support") {
     def prefixMax(s: String): String = s"$MAX.$s"
-
     val fullTypeSchema = new StructType(Array(
       new StructField("binaryCol", new BinaryType, true),
       new StructField("booleanCol", new BooleanType, true),
@@ -418,7 +416,7 @@ class DataSkippingSuite extends FunSuite {
       new StructField("longCol", new LongType, true),
       new StructField("shortCol", new ShortType, true),
       new StructField("stringCol", new StringType, true),
-      new StructField("timestampCol", new TimestampType, true),
+      new StructField("timestampCol", new TimestampType, true)
     ))
 
     val fullTypeColumnStats = Map[String, String](
@@ -480,7 +478,7 @@ class DataSkippingSuite extends FunSuite {
       new EqualTo(new Column(prefixMax("longCol"), new LongType),
         Literal.of(4400000000L)),
       new EqualTo(new Column(prefixMax("shortCol"), new ShortType),
-        Literal.of(32100.toShort)),
+        Literal.of(32100.toShort))
     )
 
     val misses = Seq(
@@ -497,7 +495,7 @@ class DataSkippingSuite extends FunSuite {
       new EqualTo(new Column(prefixMax("longCol"), new LongType),
         Literal.of(3300000000L)),
       new EqualTo(new Column(prefixMax("shortCol"), new ShortType),
-        Literal.of(32000.toShort)),
+        Literal.of(32000.toShort))
     )
     columnStatsDataTypeTest(hits, misses)
   }
