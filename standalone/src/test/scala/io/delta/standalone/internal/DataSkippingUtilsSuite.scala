@@ -93,7 +93,7 @@ class DataSkippingUtilsSuite extends FunSuite {
 
     var expectedFileStats = Map("numRecords" -> "3")
     var expectedColumnStats = Map("minValues.col2" -> "2", "minValues.col1" -> "1")
-    // Though `stringCol` is not LongType, its `nullCount` stats will be documented
+    // Though StringType is not supported, its `nullCount` stats will be documented
     // while `minValues` and `maxValues` won't be.
     testParseColumnStats(columnStats, expectedFileStats, expectedColumnStats)
 

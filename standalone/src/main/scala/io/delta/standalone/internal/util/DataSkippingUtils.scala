@@ -136,8 +136,8 @@ private[internal] object DataSkippingUtils {
       if (!statsObj.isObject) {
         // This is an file-specific stats, like ROW_RECORDS.
         val statsVal = statsObj.asText
-        checkValueFormat(statsType, statsVal, new LongType)
         if (statsType == NUM_RECORDS) {
+          checkValueFormat(statsType, statsVal, new LongType)
           fileStats += (statsType -> statsVal)
         }
       } else {
@@ -229,7 +229,7 @@ private[internal] object DataSkippingUtils {
   def isValidType(dataType: DataType): Boolean = supportedDataType.contains(dataType)
 
   /**
-   * Checking stats value format with the given data type. Will raise wrong format exception if
+   * Checking stats value format with the given data type. Will raise wrong data format exception if
    * stats value is in wrong format. The exception should be handled by the caller.
    */
   def checkValueFormat(fieldName: String, v: String, dataType: DataType): Unit = dataType match {
