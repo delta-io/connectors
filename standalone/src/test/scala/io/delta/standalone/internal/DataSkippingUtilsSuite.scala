@@ -201,8 +201,6 @@ class DataSkippingUtilsSuite extends FunSuite {
   }
 
   test("unit test: column stats row record") {
-    def prefixMin(s: String): String = s"$MIN.$s"
-
     /**
      * @param dataType         The data type of testing field.
      * @param nullable         Whether this field is nullable.
@@ -221,7 +219,7 @@ class DataSkippingUtilsSuite extends FunSuite {
       val dataSchema = DataSkippingUtils.buildStatsSchema(statsColumn)
       new ColumnStatsRowRecord(
         dataSchema,
-        Map(), Map(prefixMin(name) -> columnStatsValue))
+        Map(), Map(s"$MIN.$name" -> columnStatsValue))
     }
 
     val testStatsRowRecord = buildColumnStatsRowRecord(
@@ -261,7 +259,7 @@ class DataSkippingUtilsSuite extends FunSuite {
 
     primTypes.foreach {
       case (d: DataType, f: ((ColumnStatsRowRecord, String) => Any), s: String, v, n: String) =>
-        assert(f(buildColumnStatsRowRecord(d, nullable = true, s, s, n), prefixMin(n)) == v)
+        assert(f(buildColumnStatsRowRecord(d, nullable = true, s, s, n), s"$MIN.$n") == v)
     }
 
     val nonPrimTypes = Seq(

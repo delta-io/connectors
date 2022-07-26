@@ -402,7 +402,6 @@ class DataSkippingSuite extends FunSuite {
   }
 
   test("integration test: data type support") {
-    def prefixMax(s: String): String = s"$MAX.$s"
     val fullTypeSchema = new StructType(Array(
       new StructField("binaryCol", new BinaryType, true),
       new StructField("booleanCol", new BooleanType, true),
@@ -418,25 +417,25 @@ class DataSkippingSuite extends FunSuite {
     ))
 
     val fullTypeColumnStats = Map[String, String](
-      prefixMax("binaryCol") -> "ab\"d",
-      prefixMax("booleanCol") -> "false",
-      prefixMax("byteCol") -> "121",
-      prefixMax("dateCol") -> "2022-07-17",
-      prefixMax("doubleCol") -> "11.1",
-      prefixMax("floatCol") -> "12.2",
-      prefixMax("integerCol") -> "123456",
-      prefixMax("longCol") -> "4400000000",
-      prefixMax("shortCol") -> "32100",
-      prefixMax("stringCol") -> "ab\"d",
-      prefixMax("timestampCol") -> "2022-05-16 09:00:00"
-    )
+      "binaryCol" -> "ab\"d",
+      "booleanCol" -> "false",
+      "byteCol" -> "121",
+      "dateCol" -> "2022-07-17",
+      "doubleCol" -> "11.1",
+      "floatCol" -> "12.2",
+      "integerCol" -> "123456",
+      "longCol" -> "4400000000",
+      "shortCol" -> "32100",
+      "stringCol" -> "ab\"d",
+      "timestampCol" -> "2022-05-16 09:00:00"
+    ).map { case (k, v) => s"$MAX.$k" -> v }
 
     val rowRecord = new ColumnStatsRowRecord(
       DataSkippingUtils.buildStatsSchema(fullTypeSchema),
       Map(),
       fullTypeColumnStats)
 
-    def evalDateTypeTest(expr: Expression): Boolean = {
+    def evalDataTypeTest(expr: Expression): Boolean = {
       val result = expr.eval(rowRecord)
       assert(result != null)
       assert(result.isInstanceOf[Boolean])
@@ -455,44 +454,44 @@ class DataSkippingSuite extends FunSuite {
       // For each date type, it will test the stats value in `fileStatsMap` first, then test in
       // `columnStatsMap`.
       hits.foreach { hit =>
-        assert(evalDateTypeTest(hit))
+        assert(evalDataTypeTest(hit))
       }
       misses.foreach { miss =>
-        assert(!evalDateTypeTest(miss))
+        assert(!evalDataTypeTest(miss))
       }
     }
 
     val hits = Seq(
-      new EqualTo(new Column(prefixMax("booleanCol"), new BooleanType),
+      new EqualTo(new Column(s"$MAX.booleanCol", new BooleanType),
         Literal.of(false)),
-      new EqualTo(new Column(prefixMax("byteCol"), new ByteType),
+      new EqualTo(new Column(s"$MAX.byteCol", new ByteType),
         Literal.of(121.toByte)),
-      new EqualTo(new Column(prefixMax("doubleCol"), new DoubleType),
+      new EqualTo(new Column(s"$MAX.doubleCol", new DoubleType),
         Literal.of(11.1D)),
-      new EqualTo(new Column(prefixMax("floatCol"), new FloatType),
+      new EqualTo(new Column(s"$MAX.floatCol", new FloatType),
         Literal.of(12.2F)),
-      new EqualTo(new Column(prefixMax("integerCol"), new IntegerType),
+      new EqualTo(new Column(s"$MAX.integerCol", new IntegerType),
         Literal.of(123456)),
-      new EqualTo(new Column(prefixMax("longCol"), new LongType),
+      new EqualTo(new Column(s"$MAX.longCol", new LongType),
         Literal.of(4400000000L)),
-      new EqualTo(new Column(prefixMax("shortCol"), new ShortType),
+      new EqualTo(new Column(s"$MAX.shortCol", new ShortType),
         Literal.of(32100.toShort))
     )
 
     val misses = Seq(
-      new EqualTo(new Column(prefixMax("booleanCol"), new BooleanType),
+      new EqualTo(new Column(s"$MAX.booleanCol", new BooleanType),
         Literal.of(true)),
-      new EqualTo(new Column(prefixMax("byteCol"), new ByteType),
+      new EqualTo(new Column(s"$MAX.byteCol", new ByteType),
         Literal.of(-120.toByte)),
-      new EqualTo(new Column(prefixMax("doubleCol"), new DoubleType),
+      new EqualTo(new Column(s"$MAX.doubleCol", new DoubleType),
         Literal.of(11.0D)),
-      new EqualTo(new Column(prefixMax("floatCol"), new FloatType),
+      new EqualTo(new Column(s"$MAX.floatCol", new FloatType),
         Literal.of(12.0F)),
-      new EqualTo(new Column(prefixMax("integerCol"), new IntegerType),
+      new EqualTo(new Column(s"$MAX.integerCol", new IntegerType),
         Literal.of(654321)),
-      new EqualTo(new Column(prefixMax("longCol"), new LongType),
+      new EqualTo(new Column(s"$MAX.longCol", new LongType),
         Literal.of(3300000000L)),
-      new EqualTo(new Column(prefixMax("shortCol"), new ShortType),
+      new EqualTo(new Column(s"$MAX.shortCol", new ShortType),
         Literal.of(32000.toShort))
     )
     columnStatsDataTypeTest(hits, misses)

@@ -149,44 +149,28 @@ private[internal] class ColumnStatsRowRecord(
     getStringOrNone(fieldName).isEmpty
   }
 
+  def getValue(fieldName: String): String =
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }
+
   /**
    * For all `get${dataType}` method: Return the non-null value from map by the given fieldName. It
    * is the responsibility of the caller to call `isNullAt` first before calling `get${dataType}`.
    */
-  override def getInt(fieldName: String): Int =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toInt
+  override def getInt(fieldName: String): Int = getValue(fieldName).toInt
 
-  override def getLong(fieldName: String): Long =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toLong
+  override def getLong(fieldName: String): Long = getValue(fieldName).toLong
 
-  override def getByte(fieldName: String): Byte =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toByte
+  override def getByte(fieldName: String): Byte = getValue(fieldName).toByte
 
-  override def getShort(fieldName: String): Short =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toShort
+  override def getShort(fieldName: String): Short = getValue(fieldName).toShort
 
-  override def getBoolean(fieldName: String): Boolean =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toBoolean
+  override def getBoolean(fieldName: String): Boolean = getValue(fieldName).toBoolean
 
-  override def getFloat(fieldName: String): Float =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toFloat
+  override def getFloat(fieldName: String): Float = getValue(fieldName).toFloat
 
-  override def getDouble(fieldName: String): Double =
-    getStringOrNone(fieldName).getOrElse {
-      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-    }.toDouble
+  override def getDouble(fieldName: String): Double = getValue(fieldName).toDouble
 
   override def getString(fieldName: String): String =
     throw new UnsupportedOperationException("string is not a supported column stats type.")
