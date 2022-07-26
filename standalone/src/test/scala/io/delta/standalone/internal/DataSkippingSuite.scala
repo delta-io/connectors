@@ -16,8 +16,6 @@
 
 package io.delta.standalone.internal
 
-import java.sql.{Date, Timestamp}
-
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
