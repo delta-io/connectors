@@ -20,14 +20,14 @@ import java.sql.{Date, Timestamp}
 import java.util
 
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
-import io.delta.standalone.types.{LongType, StructType}
+import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.util.{DataSkippingUtils, SchemaUtils}
 import io.delta.standalone.internal.util.DataSkippingUtils.{columnStatsPathLength, fileStatsPathLength, MAX, MIN, NULL_COUNT, NUM_RECORDS}
-import io.delta.standalone.internal.util.SchemaUtils
 
 /**
- * Exposes the column stats in a Delta table file as [[RowRecord]]. This is used to evaluate the
+ * Exposes the column stats in a Delta table file as row record. This is used to evaluate the
  * predicate in column stats based file pruning.
  *
  * Example: Assume we have a table schema like this: table1(col1: int, col2: string)),
@@ -67,11 +67,8 @@ import io.delta.standalone.internal.util.SchemaUtils
  */
 private[internal] class ColumnStatsRowRecord(
     statsSchema: StructType,
-    fileStats: Map[String, Long],
-    columnStats: Map[String, Long]) extends RowRecordJ {
-
-  // TODO: support BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType,
-  //  ShortType
+    fileStats: Map[String, String],
+    columnStats: Map[String, String]) extends RowRecordJ {
 
   override def getSchema: StructType = statsSchema
 
@@ -99,14 +96,14 @@ private[internal] class ColumnStatsRowRecord(
       // Ensure that the data type in table schema is supported.
       return false
     }
-    // For now we only accept LongType.
-    statsStruct.get(columnName).getDataType.equals(new LongType)
+    // Ensure the data type of stats is supported.
+    DataSkippingUtils.isSupported(statsStruct.get(columnName).getDataType)
   }
 
   /**
-   * Return None if the stats in given filedName is not found, return Some(Long) if found.
+   * Return None if the stats in given filedName is not found, return Some(String) if found.
    */
-  private def getLongOrNone(fieldName: String): Option[Long] = {
+  private def getStringOrNone(fieldName: String): Option[String] = {
     // Parse column name with stats type: MAX.a => Seq(MAX, a)
     // The first element in `pathToColumn` is stats type, and the second element should be
     // the data column name.
@@ -149,36 +146,47 @@ private[internal] class ColumnStatsRowRecord(
    * `get${dataType}`. And it should be handled by the caller.
    */
   override def isNullAt(fieldName: String): Boolean = {
-    getLongOrNone(fieldName).isEmpty
-  }
-
-  override def getInt(fieldName: String): Int = {
-    throw new UnsupportedOperationException("integer is not a supported column stats type.")
+    getStringOrNone(fieldName).isEmpty
   }
 
   /**
-   * Return the non-null value from map by the given fieldName. It is the responsibility of the
-   * caller to call `isNullAt` first before calling `get${dataType}`. Similarly for the APIs
-   * fetching different data types such as int, boolean etc.
+   * For all `get${dataType}` method: Return the non-null value from map by the given fieldName. It
+   * is the responsibility of the caller to call `isNullAt` first before calling `get${dataType}`.
    */
-  override def getLong(fieldName: String): Long = getLongOrNone(fieldName).getOrElse {
-    throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
-  }
+  override def getInt(fieldName: String): Int =
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toInt
+
+  override def getLong(fieldName: String): Long =
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toLong
 
   override def getByte(fieldName: String): Byte =
-    throw new UnsupportedOperationException("byte is not a supported column stats type.")
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toByte
 
   override def getShort(fieldName: String): Short =
-    throw new UnsupportedOperationException("short is not a supported column stats type.")
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toShort
 
   override def getBoolean(fieldName: String): Boolean =
-    throw new UnsupportedOperationException("boolean is not a supported column stats type.")
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toBoolean
 
   override def getFloat(fieldName: String): Float =
-    throw new UnsupportedOperationException("float is not a supported column stats type.")
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toFloat
 
   override def getDouble(fieldName: String): Double =
-    throw new UnsupportedOperationException("double is not a supported column stats type.")
+    getStringOrNone(fieldName).getOrElse {
+      throw DeltaErrors.nullValueFoundForPrimitiveTypes(fieldName)
+    }.toDouble
 
   override def getString(fieldName: String): String =
     throw new UnsupportedOperationException("string is not a supported column stats type.")

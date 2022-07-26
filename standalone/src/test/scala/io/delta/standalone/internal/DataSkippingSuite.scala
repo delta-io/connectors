@@ -16,14 +16,17 @@
 
 package io.delta.standalone.internal
 
+import java.sql.{Date, Timestamp}
+
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, EqualTo, Expression, LessThanOrEqual, Literal}
-import io.delta.standalone.types.{LongType, StringType, StructField, StructType}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, LessThanOrEqual, Literal}
+import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import io.delta.standalone.internal.data.ColumnStatsRowRecord
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -397,5 +400,111 @@ class DataSkippingSuite extends FunSuite {
       }
       assert(resFiles == matchedFilePaths)
     }
+  }
+
+  test("integration test: primitive data type support") {
+    val fullTypeSchema = new StructType(Array(
+      new StructField("booleanCol", new BooleanType, true),
+      new StructField("byteCol", new ByteType, true),
+      new StructField("doubleCol", new DoubleType, true),
+      new StructField("floatCol", new FloatType, true),
+      new StructField("integerCol", new IntegerType, true),
+      new StructField("longCol", new LongType, true),
+      new StructField("shortCol", new ShortType, true)))
+
+    def postfixMax(s: String): String = s"$s.$MAX"
+    def postfixMin(s: String): String = s"$s.$MIN"
+
+    val fullTypeColumnStats = Map[String, String](
+      postfixMax("binaryCol") -> "ab\"d",
+      postfixMax("booleanCol") -> "false",
+      postfixMax("byteCol") -> "121",
+      postfixMax("dateCol") -> "2022-07-17",
+      postfixMax("doubleCol") -> "11.1",
+      postfixMax("floatCol") -> "12.2",
+      postfixMax("integerCol") -> "123456",
+      postfixMax("longCol") -> "4400000000",
+      postfixMax("shortCol") -> "32100",
+      postfixMax("stringCol") -> "ab\"d",
+      postfixMax("timestampCol") -> "2022-05-16 09:00:00"
+    )
+
+    /**
+     * Test expression evaluation with all supported data types.
+     * Type list: Boolean, Byte, Double, Float, Integer, Long, Short
+     *
+     * @param hits   The expression evaluated as true
+     * @param misses The expression evaluated as false
+     */
+    def dataTypeSupportTest(
+                             hits: Seq[Expression],
+                             misses: Seq[Expression]): Unit = {
+
+      val rowRecord = new ColumnStatsRowRecord(fullTypeSchema, Map(), fullTypeColumnStats)
+      hits foreach { hit =>
+        val result = hit.eval(rowRecord)
+        print(hit)
+        assert(result != null)
+        assert(result.isInstanceOf[Boolean])
+        assert(result.asInstanceOf[Boolean])
+      }
+      misses foreach { miss =>
+        val result = miss.eval(rowRecord)
+        assert(result != null)
+        assert(result.isInstanceOf[Boolean])
+        assert(!result.asInstanceOf[Boolean])
+      }
+    }
+
+    val hits = Seq(
+      new EqualTo(new Column(postfixMax("binaryCol"), new BinaryType),
+        Literal.of("ab\"d".map(_.toByte).toArray)),
+      new EqualTo(new Column(postfixMax("booleanCol"), new BooleanType),
+        Literal.of(false)),
+      new EqualTo(new Column(postfixMax("byteCol"), new ByteType),
+        Literal.of(121.toByte)),
+      new EqualTo(new Column(postfixMax("dateCol"), new DateType),
+        Literal.of(Date.valueOf("2022-07-17"))),
+      new EqualTo(new Column(postfixMax("doubleCol"), new DoubleType),
+        Literal.of(11.1D)),
+      new EqualTo(new Column(postfixMax("floatCol"), new FloatType),
+        Literal.of(12.2F)),
+      new EqualTo(new Column(postfixMax("integerCol"), new IntegerType),
+        Literal.of(123456)),
+      new EqualTo(new Column(postfixMax("longCol"), new LongType),
+        Literal.of(4400000000L)),
+      new EqualTo(new Column(postfixMax("shortCol"), new ShortType),
+        Literal.of(32100.toShort)),
+      new EqualTo(new Column(postfixMax("stringCol"), new StringType),
+        Literal.of("ab\"d")),
+      new EqualTo(new Column(postfixMax("timestampCol"), new TimestampType),
+        Literal.of(Timestamp.valueOf("2022-05-16 09:00:00"))),
+    )
+
+    val misses = Seq(
+      new EqualTo(new Column(postfixMax("binaryCol"), new BinaryType),
+        Literal.of("ab\"c".map(_.toByte).toArray)),
+      new EqualTo(new Column(postfixMax("booleanCol"), new BooleanType),
+        Literal.of(true)),
+      new EqualTo(new Column(postfixMax("byteCol"), new ByteType),
+        Literal.of(-120.toByte)),
+      new EqualTo(new Column(postfixMax("dateCol"), new DateType),
+        Literal.of(Date.valueOf("2022-07-19"))),
+      new EqualTo(new Column(postfixMax("doubleCol"), new DoubleType),
+        Literal.of(11.0D)),
+      new EqualTo(new Column(postfixMax("floatCol"), new FloatType),
+        Literal.of(12.0F)),
+      new EqualTo(new Column(postfixMax("integerCol"), new IntegerType),
+        Literal.of(654321)),
+      new EqualTo(new Column(postfixMax("longCol"), new LongType),
+        Literal.of(3300000000L)),
+      new EqualTo(new Column(postfixMax("shortCol"), new ShortType),
+        Literal.of(32000.toShort)),
+      new EqualTo(new Column(postfixMax("stringCol"), new StringType),
+        Literal.of("ab\"de")),
+      new EqualTo(new Column(postfixMax("timestampCol"), new TimestampType),
+        Literal.of(Timestamp.valueOf("2022-07-16 19:00:00"))),
+    )
+    dataTypeSupportTest(hits, misses)
   }
 }

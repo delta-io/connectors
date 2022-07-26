@@ -19,7 +19,7 @@ package io.delta.standalone.internal.util
 import com.fasterxml.jackson.databind.JsonNode
 
 import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThanOrEqual, LessThanOrEqual, Literal}
-import io.delta.standalone.types.{DataType, LongType, StructField, StructType}
+import io.delta.standalone.types.{BooleanType, ByteType, DataType, DoubleType, FloatType, IntegerType, LongType, ShortType, StructField, StructType}
 
 private[internal] object DataSkippingUtils {
 
@@ -38,6 +38,10 @@ private[internal] object DataSkippingUtils {
   final val fileStatsPathLength = 1
   /* The column-specific stats column contains column type and column name. e.g.: MIN.col1 */
   final val columnStatsPathLength = 2
+
+  /* Supported data types in column stats filter */
+  final val supportedDataType = Seq(new BooleanType, new ByteType, new DoubleType,
+    new FloatType, new IntegerType, new LongType, new ShortType)
 
   /**
    * Build stats schema based on the schema of data columns, the first layer
@@ -108,9 +112,8 @@ private[internal] object DataSkippingUtils {
    * fileStats = Map("[[NUM_RECORDS]]" -> 3)
    * columnStats = Map("[[MIN]].a" -> 2, "[[MIN]].b" -> 1)
    *
-   * Currently nested column is not supported, only [[LongType]] is the supported data type, if
-   * encountered a wrong data type with a known stats type, the method will raise error and should
-   * be handled by caller.
+   * If encountered a wrong data type with a known stats type, the method will raise error and
+   * should be handled by caller.
    *
    * @param dataSchema  The schema of data columns in table.
    * @param statsString The JSON-formatted stats in raw string type in table metadata files.
@@ -120,9 +123,9 @@ private[internal] object DataSkippingUtils {
    */
   def parseColumnStats(
       dataSchema: StructType,
-      statsString: String): (Map[String, Long], Map[String, Long]) = {
-    var fileStats = Map[String, Long]()
-    var columnStats = Map[String, Long]()
+      statsString: String): (Map[String, String], Map[String, String]) = {
+    var fileStats = Map[String, String]()
+    var columnStats = Map[String, String]()
 
     val dataColumns = dataSchema.getFields
     JsonUtils.fromJson[Map[String, JsonNode]](statsString).foreach { stats =>
@@ -131,7 +134,7 @@ private[internal] object DataSkippingUtils {
       if (!statsObj.isObject) {
         // This is an file-specific stats, like ROW_RECORDS.
         if (statsType == NUM_RECORDS) {
-          fileStats += (statsType -> statsObj.asText.toLong)
+          fileStats += (statsType -> statsObj.asText)
         }
       } else {
         // This is an column-specific stats, like MIN_VALUE and MAX_VALUE, iterator through the
@@ -145,12 +148,12 @@ private[internal] object DataSkippingUtils {
             val statsName = statsType + "." + dataColumn.getName
             statsType match {
               case MIN | MAX =>
-                // Check the stats type for MIN and MAX, as we only accepting the LongType for now.
-                if (dataColumn.getDataType.isInstanceOf[LongType]) {
-                  columnStats += (statsName -> statsVal.asText.toLong)
+                // Check the stats type for MIN and MAX.
+                if (isSupported(dataColumn.getDataType)) {
+                  columnStats += (statsName -> statsVal.asText)
                 }
               case NULL_COUNT =>
-                columnStats += (statsName -> statsVal.asText.toLong)
+                columnStats += (statsName -> statsVal.asText)
               case _ =>
             }
           }
@@ -185,13 +188,13 @@ private[internal] object DataSkippingUtils {
       case Some(eq: EqualTo) => (eq.getLeft, eq.getRight) match {
         case (e1: Column, e2: Literal) =>
           val columnPath = e1.name
+          val dataType = dataSchema.get(columnPath).getDataType
           if (!(dataSchema.contains(columnPath) &&
-            dataSchema.get(columnPath).getDataType.isInstanceOf[LongType])) {
-              // Only accepting the LongType column for now.
+            isSupported(dataType))) {
               return None
           }
-          val minColumn = statsColumnBuilder(MIN, columnPath, new LongType)
-          val maxColumn = statsColumnBuilder(MAX, columnPath, new LongType)
+          val minColumn = statsColumnBuilder(MIN, columnPath, dataType)
+          val maxColumn = statsColumnBuilder(MAX, columnPath, dataType)
 
           Some(new And(
               new LessThanOrEqual(minColumn, e2),
@@ -210,4 +213,9 @@ private[internal] object DataSkippingUtils {
       // TODO: support full types of Expression
       case _ => None
     }
+
+  /**
+   * Return true if the give data type is supported in column stats filter, otherwise return false.
+   */
+  def isSupported(dataType: DataType): Boolean = supportedDataType.contains(dataType)
 }
