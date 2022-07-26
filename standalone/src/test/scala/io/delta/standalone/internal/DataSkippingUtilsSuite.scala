@@ -212,8 +212,8 @@ class DataSkippingUtilsSuite extends FunSuite {
     def buildColumnStatsRowRecord(
         dataType: DataType,
         nullable: Boolean,
-        fileStatsValue: Long,
-        columnStatsValue: Long,
+        fileStatsValue: String,
+        columnStatsValue: String,
         name: String = "test"): ColumnStatsRowRecord = {
       new ColumnStatsRowRecord(
         new StructType(Array(new StructField(name, dataType, nullable))),
@@ -221,12 +221,12 @@ class DataSkippingUtilsSuite extends FunSuite {
     }
 
     val testStatsRowRecord = buildColumnStatsRowRecord(
-      new LongType(), nullable = true, fileStatsValue = 10L, columnStatsValue = 5L)
-    assert(buildColumnStatsRowRecord(new LongType(), nullable = true, fileStatsValue = 5L,
-      columnStatsValue = 10L).isNullAt("test"))
+      new LongType(), nullable = true, fileStatsValue = "10", columnStatsValue = "5")
+    assert(buildColumnStatsRowRecord(new LongType(), nullable = true, fileStatsValue = "5",
+      columnStatsValue = "10").isNullAt("test"))
     // non-nullable field
-    assert(buildColumnStatsRowRecord(new LongType(), nullable = false, fileStatsValue = 5L,
-      columnStatsValue = 5L).isNullAt("test"))
+    assert(buildColumnStatsRowRecord(new LongType(), nullable = false, fileStatsValue = "5",
+      columnStatsValue = "5").isNullAt("test"))
 
     assert(testStatsRowRecord.isNullAt("test"))
 
@@ -240,19 +240,23 @@ class DataSkippingUtilsSuite extends FunSuite {
     // primitive types can't be null
     // for primitive type T: (DataType, getter: ColumnStatsRowRecord => T, value: String, value: T)
     val primTypes = Seq(
-      (new IntegerType, (x: ColumnStatsRowRecord) => x.getInt("test"), 0L, 0),
-      (new ByteType, (x: ColumnStatsRowRecord) => x.getByte("test"), 0L, 0.toByte),
-      (new ShortType, (x: ColumnStatsRowRecord) => x.getShort("test"), 0L, 0.toShort),
-      (new BooleanType, (x: ColumnStatsRowRecord) => x.getBoolean("test"), 0L, true),
-      (new FloatType, (x: ColumnStatsRowRecord) => x.getFloat("test"), 0L, 0.0F),
-      (new DoubleType, (x: ColumnStatsRowRecord) => x.getDouble("test"), 0L, 0.0))
+      (new IntegerType, (x: ColumnStatsRowRecord) => x.getInt("testInt"), "0", 0),
+      (new LongType, (x: ColumnStatsRowRecord) => x.getInt("testLong"), "0", 0L),
+      (new ByteType, (x: ColumnStatsRowRecord) => x.getByte("testByte"), "0", 0.toByte),
+      (new ShortType, (x: ColumnStatsRowRecord) => x.getShort("testShort"), "0", 0.toShort),
+      (new BooleanType, (x: ColumnStatsRowRecord) => x.getBoolean("testBoolean"), "0", true),
+      (new FloatType, (x: ColumnStatsRowRecord) => x.getFloat("testFloat"), "0", 0.0F),
+      (new DoubleType, (x: ColumnStatsRowRecord) => x.getDouble("testDouble"), "0", 0.0))
 
     primTypes.foreach {
-      case (dataType: DataType, f: (ColumnStatsRowRecord => Any), l: Long, _) =>
+      case (dataType: DataType, f: (ColumnStatsRowRecord => Any), s: String, v) =>
+        assert(f(buildColumnStatsRowRecord(dataType, nullable = true, s, s)) == v)
         // reserves a dummy parameter for adding data type support later.
+        /*
         testException[UnsupportedOperationException](
-          f(buildColumnStatsRowRecord(dataType, nullable = true, l, l)),
+          f(buildColumnStatsRowRecord(dataType, nullable = true, s, v)),
           s"${dataType.getTypeName} is not a supported column stats type.")
+         */
     }
 
     val nonPrimTypes = Seq(
@@ -265,7 +269,7 @@ class DataSkippingUtilsSuite extends FunSuite {
     nonPrimTypes.foreach {
       case (dataType: DataType, f: (ColumnStatsRowRecord => Any), _) =>
         testException[UnsupportedOperationException](
-          f(buildColumnStatsRowRecord(dataType, nullable = true, 0L, 0L)),
+          f(buildColumnStatsRowRecord(dataType, nullable = true, "0", "0")),
           s"${dataType.getTypeName} is not a supported column stats type.")
     }
 
