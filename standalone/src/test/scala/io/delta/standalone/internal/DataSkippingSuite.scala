@@ -403,10 +403,11 @@ class DataSkippingSuite extends FunSuite {
     }
   }
 
+  /** Testing data type support for stats values. */
   test("integration test: data type support") {
     def prefixMax(s: String): String = s"$MAX.$s"
 
-    var fullTypeSchema = new StructType(Array(
+    val fullTypeSchema = new StructType(Array(
       new StructField("binaryCol", new BinaryType, true),
       new StructField("booleanCol", new BooleanType, true),
       new StructField("byteCol", new ByteType, true),
