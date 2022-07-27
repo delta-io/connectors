@@ -194,12 +194,17 @@ private[internal] object DataSkippingUtils {
    * Specifically, this method will apply one of the rules in parameter based on the expression
    * type of left and right children.
    *
+   * Supported expressions are: LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, EqualTo
+   *
+   * We only handle the case when `Column` or `Literal` value is the child of binary comparator.
+   * Because they are the only two leaf expression types.
+   *
    * @param dataSchema The schema of data columns in table.
    * @param expr       The expression from query predicate.
-   * @param ccRule     The building clRule when left and right children are both columns.
-   * @param clRule     The building clRule when left child is a column and right child is a literal
+   * @param ccRule     The building rule when left and right children are both columns.
+   * @param clRule     The building rule when left child is a column and right child is a literal
    *                   value.
-   * @param lcRule     The building clRule when left child is a literal value and left child is a
+   * @param lcRule     The building rule when left child is a literal value and left child is a
    *                   column.
    * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
    *         if met unsupported data type, or unsupported expression type issues.
@@ -227,94 +232,115 @@ private[internal] object DataSkippingUtils {
     }
   }
 
+  // scalastyle:off line.size.limit
   /**
    * Build the column stats filter based on query predicate and the schema of data columns.
-   *
-   * Assume `col1`, `col2` are columns in query predicate, `l1` is a literal values in query
-   * predicate, and `expr1`, `expr2` are two predicates in the query predicate. Let `f` be this
-   * method `constructDataFilters`.
-   *
-   * Now applied rules:
-   * (col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)
-   * (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
-   * (col1 < l1) -> (MIN.col1 < l1)
-   * (col1 < col2) -> (MIN.col1 < MAX.col2)
-   * (col1 <= l1) -> (MIN.col1 <= l1)
-   * (col1 <= col2) -> (MIN.col1 <= MAX.col2)
-   * (col1 > l1) -> (MAX.col1 > l1)
-   * (col1 > col2) -> (MAX.col1 > MIN.col2)
-   * (col1 >= l1) -> (MAX.col1 >= l1)
-   * (col1 >= col2) -> (MAX.col1 >= MIN.col2)
-   * f(expr1 AND expr2) -> f(expr1) AND f(expr2)
-   * f(expr1 OR expr2) -> f(expr1) OR f(expr2)
+   * Rules are derived from:
+   * https://github.com/delta-io/delta/blob/master/core/src/main/scala/org/apache/spark/sql/delta/stats/DataSkippingReader.scala
    *
    * @param dataSchema      The schema of data columns in table.
    * @param dataConjunction The non-partition column query predicate.
    * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
    *         if met unsupported data type, or unsupported expression type issues.
    */
+  // scalastyle:on line.size.limit
   def constructDataFilters(
       dataSchema: StructType,
-      dataConjunction: Option[Expression]): Option[Expression] =
-    dataConjunction match {
-      case Some(eq: EqualTo) =>
+      dataConjunction: Option[Expression]): Option[Expression] = {
+    // For the following comments, assume `col1`, `col2` are columns in query predicate, `l1` is a
+    // literal values in query predicate, and `expr1`, `expr2` are two predicates in the query
+    // predicate. Let `f` be this method `constructDataFilters`.
+    val expr = dataConjunction.getOrElse{ return None }
+    expr match {
+      case eq: EqualTo =>
+        // (col1 == l1) -> (MIN.col1 <= l1 AND MAX.col1 >= l1)
         val clRule = (minCol: Column, maxCol: Column, e2: Literal) =>
           new And(
             new LessThanOrEqual(minCol, e2),
             new GreaterThanOrEqual(maxCol, e2))
+
+        // (l1 == col1) -> (col1 == l1)
         val lcRule = (e1: Literal, e2: Column) => new EqualTo(e2, e1)
+
+        // (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
         val ccRule = (e1Min: Column, e1Max: Column, e2Min: Column, e2Max: Column) =>
           new And(
             new LessThanOrEqual(e1Min, e2Max),
             new GreaterThanOrEqual(e1Max, e2Min))
         buildBinaryComparatorFilter(dataSchema, eq, ccRule, clRule, lcRule)
 
-      case Some(lt: LessThan) =>
+      case lt: LessThan =>
+        // (col1 < l1) -> (MIN.col1 < l1)
         val clRule = (minCol: Column, _: Column, e2: Literal) =>
           new LessThan(minCol, e2)
+
+        // (l1 < col1) -> (col1 > l1)
         val lcRule = (e1: Literal, e2: Column) => new GreaterThan(e2, e1)
+
+        // (col1 < col2) -> (MIN.col1 < MAX.col2)
         val ccRule = (e1Min: Column, _: Column, _: Column, e2Max: Column) =>
           new LessThan(e1Min, e2Max)
         buildBinaryComparatorFilter(dataSchema, lt, ccRule, clRule, lcRule)
 
-      case Some(gt: GreaterThan) =>
+      case gt: GreaterThan =>
+        // (col1 > l1) -> (MAX.col1 > l1)
         val clRule = (_: Column, maxCol: Column, e2: Literal) =>
           new GreaterThan(maxCol, e2)
+
+        // (l1 > col1) -> (col1 < l1)
         val lcRule = (e1: Literal, e2: Column) => new LessThan(e2, e1)
+
+        // (col1 > col2) -> (MAX.col1 > MIN.col2)
         val ccRule = (_: Column, e1Max: Column, e2Min: Column, _: Column) =>
           new GreaterThan(e1Max, e2Min)
         buildBinaryComparatorFilter(dataSchema, gt, ccRule, clRule, lcRule)
 
-      case Some(leq: LessThanOrEqual) =>
+      case leq: LessThanOrEqual =>
+        // (col1 <= l1) -> (MIN.col1 <= l1)
         val clRule = (minCol: Column, _: Column, e2: Literal) =>
           new LessThanOrEqual(minCol, e2)
+
+        // (l1 <= col1) -> (col1 >= l1)
         val lcRule = (e1: Literal, e2: Column) => new GreaterThanOrEqual(e2, e1)
+
+        // (col1 <= col2) -> (MIN.col1 <= MAX.col2)
         val ccRule = (e1Min: Column, _: Column, _: Column, e2Max: Column) =>
           new LessThanOrEqual(e1Min, e2Max)
         buildBinaryComparatorFilter(dataSchema, leq, ccRule, clRule, lcRule)
 
-      case Some(geq: GreaterThanOrEqual) =>
+      case geq: GreaterThanOrEqual =>
+        // (col1 >= l1) -> (MAX.col1 >= l1)
         val clRule = (_: Column, maxCol: Column, e2: Literal) =>
           new GreaterThanOrEqual(maxCol, e2)
+
+        // (l1 >= col1) -> (col1 <= l1)
         val lcRule = (e1: Literal, e2: Column) => new LessThanOrEqual(e2, e1)
+
+        // (col1 >= col2) -> (MAX.col1 >= MIN.col2)
         val ccRule = (_: Column, e1Max: Column, e2Min: Column, _: Column) =>
           new GreaterThanOrEqual(e1Max, e2Min)
         buildBinaryComparatorFilter(dataSchema, geq, ccRule, clRule, lcRule)
 
-      case Some(and: And) =>
+      case and: And =>
         val e1 = constructDataFilters(dataSchema, Some(and.getLeft))
         val e2 = constructDataFilters(dataSchema, Some(and.getRight))
         (e1, e2) match {
+          // f(expr1 AND expr2) -> f(expr1) AND f(expr2)
           case (Some(e1), Some(e2)) => Some(new And(e1, e2))
+
+          // f(expr1 AND null) -> f(expr1)
           case (Some(e1), _) => Some(e1)
+
+          // f(null AND expr2) -> f(expr2)
           case (_, Some(e2)) => Some(e2)
           case _ => None
         }
 
-      case Some(or: Or) =>
+      case or: Or =>
         val e1 = constructDataFilters(dataSchema, Some(or.getLeft))
         val e2 = constructDataFilters(dataSchema, Some(or.getRight))
         (e1, e2) match {
+          // f(expr1 OR expr2) -> f(expr1) OR f(expr2)
           case (Some(e1), Some(e2)) => Some(new Or(e1, e2))
           case _ => None
         }
@@ -322,6 +348,7 @@ private[internal] object DataSkippingUtils {
       // TODO: support full types of Expression
       case _ => None
     }
+  }
 
   /**
    * Return true if the give data type is supported in column stats filter, otherwise return false.

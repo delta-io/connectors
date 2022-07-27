@@ -178,7 +178,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Query: (col1 == 1 && col2 == 1) (1 <= i <= 20)
+   * Query: (col1 == 1 && col2 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: column stats filter on 2 non-partition column") {
@@ -198,7 +198,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 && col2 == 1) (1 <= i <= 20)
+   * Filter: (col2 == 1 && col2 == 1)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
@@ -216,7 +216,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 && col2 == 2) (1 <= i <= 20)
+   * Filter: (col2 == 1 && col2 == 2)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 2 && MAX.col2 >= 2)
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
@@ -498,7 +498,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Query: (col1 == 1 || col2 == 1) (1 <= i <= 20)
+   * Query: (col1 == 1 || col2 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 || MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: OR operation") {
