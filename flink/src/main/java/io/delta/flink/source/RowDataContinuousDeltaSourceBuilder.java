@@ -18,6 +18,13 @@ import static io.delta.flink.source.internal.DeltaSourceOptions.LOADED_SCHEMA_SN
  * A builder class for {@link DeltaSource} for a stream of {@link RowData} where the created source
  * instance will operate in Continuous mode.
  * <p>
+ * In Continuous mode, the {@link DeltaSource} will, by default, load the full state of the latest
+ * table version, and then start monitoring for changes. If you use either the
+ * @link RowDataContinuousDeltaSourceBuilder#startingVersion} or
+ * {@link RowDataContinuousDeltaSourceBuilder#startingTimestamp} APIs, then the {@link DeltaSource}
+ * will start monitoring for changes from that historical version. It will not load the full table
+ * state at that historical table version.
+ * <p>
  * For most common use cases use {@link DeltaSource#forContinuousRowData} utility method to
  * instantiate the source. After instantiation of this builder you can either call {@link
  * RowDataBoundedDeltaSourceBuilder#build()} method to get the instance of a {@link DeltaSource} or
@@ -42,7 +49,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * Specifies a {@link List} of column names that should be read from Delta table. If this method
      * is not used, Source will read all columns from Delta table.
      * <p>
-     * Is provided List is null or contains null, empty or blank elements it will cause to throw a
+     * If provided List is null or contains null, empty or blank elements it will throw a
      * {@code DeltaSourceValidationException} by builder after calling {@code build()} method.
      *
      * @param columnNames column names that should be read.
@@ -56,7 +63,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * Specifies an array of column names that should be read from Delta table. If this method
      * is not used, Source will read all columns from Delta table.
      * <p>
-     * Is provided List is null or contains null, empty or blank elements it will cause to throw a
+     * If provided List is null or contains null, empty or blank elements it will throw a
      * {@code DeltaSourceValidationException} by builder after calling {@code build()} method.
      *
      * @param columnNames column names that should be read.
@@ -66,10 +73,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingVersion" option. Applicable for
-     * {@link org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED}
-     * mode only. This option specifies the {@link io.delta.standalone.Snapshot} version from which
-     * we want to start reading the changes.
+     * Sets value of "startingVersion" option. This option specifies the
+     * {@link io.delta.standalone.Snapshot} version from which we want to start reading changes.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
@@ -85,10 +90,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingVersion" option. Applicable for
-     * {@link org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED}
-     * mode only. This option specifies the {@link io.delta.standalone.Snapshot} version from which
-     * we want to start reading the changes.
+     * Sets value of "startingVersion" option. This option specifies the
+     * {@link io.delta.standalone.Snapshot} version from which we want to start reading changes.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
@@ -102,10 +105,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingTimestamp" option. Applicable for {@link
-     * org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED} mode only. This
-     * option is used to read only changes from {@link io.delta.standalone.Snapshot} that was
-     * generated at or before given timestamp.
+     * Sets value of "startingTimestamp" option. This option is used to read only changes from the
+     * {@link io.delta.standalone.Snapshot} that was generated at or before given timestamp.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingVersion(String)} and {@link
@@ -128,10 +129,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the value for "updateCheckIntervalMillis" option. Applicable for {@link
-     * org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED} mode only. This
-     * option is used to specify the check interval (in milliseconds) used for periodic Delta table
-     * changes checks.
+     * Sets the value for "updateCheckIntervalMillis" option. This option is used to specify the
+     * check interval (in milliseconds) used for periodic Delta table changes checks.
      *
      * <p>
      * The default value for this option is 5000 ms.
@@ -145,10 +144,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreDeletes" option. Applicable for
-     * {@link org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED}
-     * mode only. This option allows processing Delta table versions containing only {@link
-     * io.delta.standalone.actions.RemoveFile} actions.
+     * Sets the "ignoreDeletes" option. This option allows processing Delta table versions
+     * containing only {@link io.delta.standalone.actions.RemoveFile} actions.
      *
      * <p> If this option is set to true, Source connector will not throw an exception when
      * processing version containing only {@link io.delta.standalone.actions.RemoveFile} actions
@@ -163,11 +160,10 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreChanges" option. Applicable for
-     * {@link org.apache.flink.api.connector.source.Boundedness#CONTINUOUS_UNBOUNDED}
-     * mode only. This option allows processing Delta table versions containing both {@link
-     * io.delta.standalone.actions.RemoveFile} and {@link io.delta.standalone.actions.AddFile}
-     * actions. This option subsumes {@link #ignoreDeletes} option.
+     * Sets the "ignoreChanges" option. This option allows processing Delta table versions
+     * containing both {@link io.delta.standalone.actions.RemoveFile} and
+     * {@link io.delta.standalone.actions.AddFile} actions. This option subsumes
+     * {@link #ignoreDeletes} option.
      *
      * <p> If this option is set to true, Source connector will not
      * throw an exception when processing version containing combination of {@link
