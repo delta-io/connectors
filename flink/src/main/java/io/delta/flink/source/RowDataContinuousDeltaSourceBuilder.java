@@ -147,7 +147,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * Sets the "ignoreDeletes" option. This option allows processing Delta table versions where
      * data is deleted.
      * <p>
-     * The default value for these option is false.
+     * The default value for this option is false.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder ignoreDeletes(boolean ignoreDeletes) {
@@ -161,7 +161,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * deletions or updates to the source table.
      *
      * <p>
-     * The default value for these option is false.
+     * The default value for this option is false.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder ignoreChanges(boolean ignoreChanges) {
