@@ -144,15 +144,10 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreDeletes" option. This option allows processing Delta table versions
-     * containing only {@link io.delta.standalone.actions.RemoveFile} actions.
-     *
-     * <p> If this option is set to true, Source connector will not throw an exception when
-     * processing version containing only {@link io.delta.standalone.actions.RemoveFile} actions
-     * regardless of {@link io.delta.standalone.actions.RemoveFile#isDataChange()} flag.
-     *
+     * Sets the "ignoreDeletes" option. This option allows processing Delta table versions where
+     * data is deleted.
      * <p>
-     * The default value for these options is false.
+     * The default value for these option is false.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder ignoreDeletes(boolean ignoreDeletes) {
@@ -160,15 +155,13 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreChanges" option. This option allows processing Delta table versions
-     * containing both {@link io.delta.standalone.actions.RemoveFile} and
-     * {@link io.delta.standalone.actions.AddFile} actions. This option subsumes
-     * {@link #ignoreDeletes} option.
+     * Sets the "ignoreChanges" option. This option allows processing Delta table versions where
+     * data is changed (i.e. updated), or deleted. This option subsumes {@link #ignoreDeletes}
+     * option. Therefore if you use ignoreChanges, your stream will not be disrupted by either
+     * deletions or updates to the source table.
      *
-     * <p> If this option is set to true, Source connector will not
-     * throw an exception when processing version containing combination of {@link
-     * io.delta.standalone.actions.RemoveFile} and {@link io.delta.standalone.actions.AddFile}
-     * actions regardless of {@link io.delta.standalone.actions.RemoveFile#isDataChange()} flag.
+     * <p>
+     * The default value for these option is false.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder ignoreChanges(boolean ignoreChanges) {
