@@ -212,7 +212,7 @@ private[internal] object DataSkippingUtils {
    *                   MIN of right child, MAX of right child.
    * @param colLitRule The building rule when left child is a column and right child is a literal
    *                   value. The 3 parameters from left to right are: MIN of left child, MAX of
-   *                   left child, the literal value (at the right child).
+   *                   left child, the literal value at the right child.
    * @param litColRule The building rule when left child is a literal value and right child is a
    *                   column. The 3 parameters from left to right are: the literal value at the
    *                   left child. the column at the right child.
@@ -227,13 +227,18 @@ private[internal] object DataSkippingUtils {
       litColRule: (Literal, Column) => Expression): Option[Expression] = {
     (expr.getLeft, expr.getRight) match {
       case (e1: Column, e2: Column) =>
+        // Apply `colColRule` with MIN and MAX from both children.
         val leftMinMaxCol = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
         val rightMinMaxCol = getMinMaxColumn(dataSchema, e2.name).getOrElse { return None }
         Some(colColRule(leftMinMaxCol._1, leftMinMaxCol._2, rightMinMaxCol._1, rightMinMaxCol._2))
       case (e1: Column, e2: Literal) =>
+        // Apply `colLitRule` with MIN and MAX of the column at left child and the literal value
+        // at the right child.
         val leftMinMaxCol = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
         Some(colLitRule(leftMinMaxCol._1, leftMinMaxCol._2, e2))
       case (e1: Literal, e2: Column) =>
+        // Apply `litColRule` by swap the left and right child. Then `constructDataFilters` will use
+        // `colLitRule` to solve this problem.
         constructDataFilters(dataSchema, Some(litColRule(e1, e2)))
 
       // If left and right children are both literal value, we return the original expression.
