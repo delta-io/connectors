@@ -20,7 +20,7 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, IsNull, LessThan, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNull, LessThan, LessThanOrEqual, Literal, Not, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
@@ -332,15 +332,16 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: IsNull(col1)
+   * Filter: col1.IN(col2)
    * Column stats filter: None
    * Output: All files.
-   * Reason: Because `IsNull` is currently unsupported in building column stats predicate,
+   * Reason: Because `IN` is currently unsupported in building column stats predicate,
    * the column stats filter will be empty and return all the files.
    */
   test("integration test: unsupported expression type") {
+    import scala.collection.JavaConverters._
     columnStatsBasedFilePruningTest(
-      expr = new IsNull(schema.column("col1")),
+      expr = new In(schema.column("col1"), List(schema.column("col2")).asJava),
       matchedFilePaths = (1 to 20).map(_.toString))
   }
 

@@ -21,7 +21,7 @@ import java.sql.{Date, Timestamp}
 import com.fasterxml.jackson.core.io.JsonEOFException
 import org.scalatest.FunSuite
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, IsNotNull, LessThan, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNotNull, LessThan, LessThanOrEqual, Literal, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DataType, DateType, DecimalType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.data.ColumnStatsRowRecord
@@ -182,18 +182,22 @@ class DataSkippingUtilsSuite extends FunSuite {
         eqCast("col1", new LongType, long1),
         eqCast("col2", new LongType, long2))))
 
-    // partial `And`: `IsNotNull` is not supported, only return one child as output.
+    // partial `And`: Since `IN` is not supported, it will return empty expression. So the other
+    // child will be the output.
+    // Rules: f(expr1 AND null) -> f(expr1)    f(null AND expr1) -> f(expr1)
+    // See `DataSkippingUtils.constructDataFilters` for details.
+    import scala.collection.JavaConverters._
     testConstructDataFilter(
       inputExpr = Some(
         new And(
           new EqualTo(col1, long1),
-          new IsNotNull(col2))),
+          new In(col1, List(col2).asJava))),
       expectedOutputExpr = Some(
         eqCast("col1", new LongType, long1)))
     testConstructDataFilter(
       inputExpr = Some(
         new And(
-          new IsNotNull(col2),
+          new In(col1, List(col2).asJava),
           new EqualTo(col1, long1))),
       expectedOutputExpr = Some(
         eqCast("col1", new LongType, long1)))
