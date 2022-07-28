@@ -79,10 +79,9 @@ public class RowDataContinuousDeltaSourceBuilder
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
      *
-     * @param startingVersion Delta {@link io.delta.standalone.Snapshot} version to start reading
-     *                        changes from. The values can be string numbers like "1", "10" etc. or
-     *                        keyword "latest", where in that case, changes from the latest Delta
-     *                        table version will be read.
+     * @param startingVersion Delta table version to start reading changes from. The values can be
+     *                        string numbers like "1", "10" etc. or keyword "latest", where in that
+     *                        case, changes from the latest Delta table version will be read.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder startingVersion(String startingVersion) {
@@ -96,8 +95,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
      *
-     * @param startingVersion Delta {@link io.delta.standalone.Snapshot} version to start reading
-     *                        changes from.
+     * @param startingVersion Delta table version to start reading changes from.
      */
     @Override
     public RowDataContinuousDeltaSourceBuilder startingVersion(long startingVersion) {
@@ -106,14 +104,14 @@ public class RowDataContinuousDeltaSourceBuilder
 
     /**
      * Sets value of "startingTimestamp" option. This option is used to read only changes starting
-     * from the table version that was generated at or before the given timestamp.
+     * from the table version that was generated at or after the given timestamp.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingVersion(String)} and {@link
      * #startingVersion(long)} option.
      *
-     * @param startingTimestamp The timestamp of {@link io.delta.standalone.Snapshot} that we start
-     *                          reading changes from. Supported formats are:
+     * @param startingTimestamp The timestamp of the table from which we start reading changes.
+     *                          Supported formats are:
      *                          <ul>
      *                                <li>2022-02-24</li>
      *                                <li>2022-02-24 04:55:00</li>
@@ -144,8 +142,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreDeletes" option. This option allows processing Delta table versions where
-     * data is deleted.
+     * Sets the "ignoreDeletes" option. When set to true, this option allows processing Delta table
+     * versions where data is deleted.
      * <p>
      * The default value for this option is false.
      */
@@ -155,11 +153,15 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets the "ignoreChanges" option. This option allows processing Delta table versions where
-     * data is changed (i.e. updated), or deleted. This option subsumes {@link #ignoreDeletes}
-     * option. Therefore if you use ignoreChanges, your stream will not be disrupted by either
-     * deletions or updates to the source table.
-     *
+     * Sets the "ignoreChanges" option. When set to true, this option allows processing Delta table
+     * versions where data is changed (i.e. updated) or deleted.
+     * <p>
+     * Note that setting this option to true can lead to duplicate processing of data, as, in the
+     * case of updates, existing rows are rewritten in new files, and those new files will be
+     * treated as new data and be fully reprocessed.
+     * <p>
+     * This option subsumes {@link #ignoreDeletes} option. Therefore, if you set "ignoreChanges" to
+     * true, your stream will not be disrupted by either deletions or updates to the source table.
      * <p>
      * The default value for this option is false.
      */

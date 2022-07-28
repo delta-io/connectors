@@ -66,13 +66,13 @@ public class RowDataBoundedDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "versionAsOf" option. With this option we will load the given
-     * {@link io.delta.standalone.Snapshot} version and read from it.
+     * Sets value of "versionAsOf" option. With this option we will load the given table version and
+     * read from it.
      *
      * <p>
      * This option is mutually exclusive with {@link #timestampAsOf(String)} option.
      *
-     * @param snapshotVersion Delta {@link io.delta.standalone.Snapshot} version to time travel to.
+     * @param snapshotVersion Delta table version to time travel to.
      */
     @Override
     public RowDataBoundedDeltaSourceBuilder versionAsOf(long snapshotVersion) {
@@ -80,8 +80,8 @@ public class RowDataBoundedDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "timestampAsOf" option. With this option we will load the latest
-     * {@link io.delta.standalone.Snapshot} that was generated at or before the given timestamp.
+     * Sets value of "timestampAsOf" option. With this option we will load the latest table version
+     * that was generated at or before the given timestamp.
      * <p>
      * This option is mutually exclusive with {@link #versionAsOf(long)} option.
      *
@@ -146,7 +146,7 @@ public class RowDataBoundedDeltaSourceBuilder
 
     /**
      * Creates an instance of {@link DeltaSource} for a stream of {@link RowData}. Created source
-     * will work in Bounded mode, meaning it will read the content of the configured Delta Snapshot
+     * will work in Bounded mode, meaning it will read the content of the configured Delta snapshot
      * at the fixed version, ignoring all changes done to this table after starting this source.
      *
      * <p>
