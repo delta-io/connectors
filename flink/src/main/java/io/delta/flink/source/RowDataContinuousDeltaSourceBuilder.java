@@ -157,7 +157,7 @@ public class RowDataContinuousDeltaSourceBuilder
      * versions where data is changed (i.e. updated) or deleted.
      * <p>
      * Note that setting this option to true can lead to duplicate processing of data, as, in the
-     * case of updates, existing rows are rewritten in new files, and those new files will be
+     * case of updates, existing rows may be rewritten in new files, and those new files will be
      * treated as new data and be fully reprocessed.
      * <p>
      * This option subsumes {@link #ignoreDeletes} option. Therefore, if you set "ignoreChanges" to

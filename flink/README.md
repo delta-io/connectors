@@ -173,7 +173,7 @@ The options relevant to this mode are
 - `startingTimestamp` - Starts reading changes from the table version written at or after the given timestamp.
 - `updateCheckIntervalMillis` - The interval, in milliseconds, at which we will check the underlying Delta table for any changes.
 - `ignoreDeletes` - When set to `true`, the Delta Source will be able to process table versions where data is deleted, and skip those deleted records.
-- `ignoreChanges` - When set to `true`, the Delta Source will be able to process table versions where data is changed (i.e. updated), and return those changed records. Note that this can lead to duplicate processing, as some Delta operations, like `UPDATE`, cause existing rows to be rewritten in new files. Those new files will be treated as new data and be reprocessed. This options subsumes `ignoreDeletes`. Therefore, if you set `ignoreChanges` to `true`, your stream will not be disrupted by either deletions or updates to the source table.
+- `ignoreChanges` - When set to `true`, the Delta Source will be able to process table versions where data is changed (i.e. updated), and return those changed records. Note that this can lead to duplicate processing, as some Delta operations, like `UPDATE`, may cause existing rows to be rewritten in new files. Those new files will be treated as new data and be reprocessed. This options subsumes `ignoreDeletes`. Therefore, if you set `ignoreChanges` to `true`, your stream will not be disrupted by either deletions or updates to the source table.
 - `columnNames` - Which columns to read. If not provided, the Delta Source source will read all columns.
 
 #### Table schema discovery
