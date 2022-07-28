@@ -73,8 +73,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingVersion" option. This option specifies the
-     * {@link io.delta.standalone.Snapshot} version from which we want to start reading changes.
+     * Sets value of "startingVersion" option. This option specifies the starting table version from
+     * which we want to start reading changes.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
@@ -90,8 +90,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingVersion" option. This option specifies the
-     * {@link io.delta.standalone.Snapshot} version from which we want to start reading changes.
+     * Sets value of "startingVersion" option. This option specifies the starting table version from
+     * which we want to start reading changes.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingTimestamp(String)} option.
@@ -105,8 +105,8 @@ public class RowDataContinuousDeltaSourceBuilder
     }
 
     /**
-     * Sets value of "startingTimestamp" option. This option is used to read only changes from the
-     * {@link io.delta.standalone.Snapshot} that was generated at or before given timestamp.
+     * Sets value of "startingTimestamp" option. This option is used to read only changes starting
+     * from the table version that was generated at or before the given timestamp.
      *
      * <p>
      * This option is mutually exclusive with {@link #startingVersion(String)} and {@link
