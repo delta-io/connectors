@@ -46,6 +46,26 @@ private[internal] object DataSkippingUtils {
     new FloatType, new IntegerType, new LongType, new ShortType)
 
   /**
+   * The building rule when left and right children are both columns. The 4 parameters from left to
+   * right are: MIN of left child, MAX of left child, MIN of right child, MAX of right child.
+   */
+  private type ColColRule = (Column, Column, Column, Column) => Expression
+
+  /**
+   * The building rule when left child is a column and right child is a literal value. The 3
+   * parameters from left to right are: MIN of left child, MAX of left child, the literal value
+   * at the right child.
+   */
+  private type ColLitRule = (Column, Column, Literal) => Expression
+
+  /**
+   * The building rule when left child is a literal value and right child is a column. The 3
+   * parameters from left to right are: the literal value at the left child. the column at the
+   * right child.
+   */
+  private type LitColRule = (Literal, Column) => Expression
+
+  /**
    * Build stats schema based on the schema of data columns, the first layer
    * of stats schema is stats type. If it is a column-specific stats, it nested a second layer,
    * which contains the column name in table schema. Or if it is a column-specific stats, contains
@@ -207,24 +227,20 @@ private[internal] object DataSkippingUtils {
    *
    * @param dataSchema The schema of data columns in table.
    * @param expr       The expression from query predicate.
-   * @param colColRule The building rule when left and right children are both columns. The 4
-   *                   parameters from left to right are: MIN of left child, MAX of left child,
-   *                   MIN of right child, MAX of right child.
+   * @param colColRule The building rule when left and right children are both columns.
    * @param colLitRule The building rule when left child is a column and right child is a literal
-   *                   value. The 3 parameters from left to right are: MIN of left child, MAX of
-   *                   left child, the literal value at the right child.
+   *                   value.
    * @param litColRule The building rule when left child is a literal value and right child is a
-   *                   column. The 3 parameters from left to right are: the literal value at the
-   *                   left child. the column at the right child.
+   *                   column.
    * @return columnStatsPredicate: Return the column stats filter predicate. Or it will return None
    *         if met unsupported data type, or unsupported expression type issues.
    */
   def buildBinaryComparatorFilter(
       dataSchema: StructType,
       expr: BinaryComparison,
-      colColRule: (Column, Column, Column, Column) => Expression,
-      colLitRule: (Column, Column, Literal) => Expression,
-      litColRule: (Literal, Column) => Expression): Option[Expression] = {
+      colColRule: ColColRule,
+      colLitRule: ColLitRule,
+      litColRule: LitColRule): Option[Expression] = {
     (expr.getLeft, expr.getRight) match {
       case (e1: Column, e2: Column) =>
         // Apply `colColRule` with MIN and MAX from both children.
