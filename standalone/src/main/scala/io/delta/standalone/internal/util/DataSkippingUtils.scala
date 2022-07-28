@@ -310,8 +310,7 @@ private[internal] object DataSkippingUtils {
         val litColRule = (r: LitColRule) => new GreaterThan(r.right, r.left)
 
         // (col1 < col2) -> (MIN.col1 < MAX.col2)
-        val colColRule = (r: ColColRule) =>
-          new LessThan(r.leftMin, r.rightMax)
+        val colColRule = (r: ColColRule) => new LessThan(r.leftMin, r.rightMax)
         buildBinaryComparatorFilter(dataSchema, lt, colColRule, colLitRule, litColRule)
 
       case gt: GreaterThan =>
@@ -322,8 +321,7 @@ private[internal] object DataSkippingUtils {
         val litColRule = (r: LitColRule) => new LessThan(r.right, r.left)
 
         // (col1 > col2) -> (MAX.col1 > MIN.col2)
-        val colColRule = (r: ColColRule) =>
-          new GreaterThan(r.leftMax, r.rightMin)
+        val colColRule = (r: ColColRule) => new GreaterThan(r.leftMax, r.rightMin)
         buildBinaryComparatorFilter(dataSchema, gt, colColRule, colLitRule, litColRule)
 
       case leq: LessThanOrEqual =>
@@ -334,8 +332,7 @@ private[internal] object DataSkippingUtils {
         val litColRule = (r: LitColRule) => new GreaterThanOrEqual(r.right, r.left)
 
         // (col1 <= col2) -> (MIN.col1 <= MAX.col2)
-        val colColRule = (r: ColColRule) =>
-          new LessThanOrEqual(r.leftMin, r.rightMax)
+        val colColRule = (r: ColColRule) => new LessThanOrEqual(r.leftMin, r.rightMax)
         buildBinaryComparatorFilter(dataSchema, leq, colColRule, colLitRule, litColRule)
 
       case geq: GreaterThanOrEqual =>
@@ -346,8 +343,7 @@ private[internal] object DataSkippingUtils {
         val litColRule = (r: LitColRule) => new LessThanOrEqual(r.right, r.left)
 
         // (col1 >= col2) -> (MAX.col1 >= MIN.col2)
-        val colColRule = (r: ColColRule) =>
-          new GreaterThanOrEqual(r.leftMax, r.rightMin)
+        val colColRule = (r: ColColRule) => new GreaterThanOrEqual(r.leftMax, r.rightMin)
         buildBinaryComparatorFilter(dataSchema, geq, colColRule, colLitRule, litColRule)
 
       case and: And =>
