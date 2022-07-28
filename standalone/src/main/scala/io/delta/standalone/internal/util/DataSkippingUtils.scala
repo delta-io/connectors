@@ -59,7 +59,7 @@ private[internal] object DataSkippingUtils {
   private type ColLitRule = (Column, Column, Literal) => Expression
 
   /**
-   * The building rule when left child is a literal value and right child is a column. The 3
+   * The building rule when left child is a literal value and right child is a column. The 2
    * parameters from left to right are: the literal value at the left child. the column at the
    * right child.
    */
