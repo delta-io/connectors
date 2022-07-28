@@ -14,9 +14,7 @@ Official Delta Lake connector for [Apache Flink](https://flink.apache.org/).
 - [Delta Source](#delta-source)
   - [Modes](#modes)
     - [Bounded Mode](#bounded-mode)
-      - [Bounded Mode Options](#bounded-mode-options)
     - [Continuous Mode](#continuous-mode)
-      - [Continuous Mode Options](#continuous-mode-options)
   - [Examples](#delta-source-examples)
 - [Usage](#usage)
   - [Maven](#maven)
@@ -160,8 +158,7 @@ The `DeltaSource` class provides factory methods to create sources for both mode
 ### Bounded Mode
 Suitable for batch jobs, where we want to read content of Delta table for specific table version only. Create a source of this mode using the `DeltaSource.forBoundedRowData` API.
 
-#### Bounded Mode Options
-The relevant options for this mode are
+The options relevant to this mode are
 - `versionAsOf` - Loads the state of the Delta table at that version.
 - `timestampAsOf` - Loads the state of the Delta table at the table version written at or before the given timestamp.
 - `columnNames` - Which columns to read. If not provided, the Delta Source source will read all columns.
@@ -171,8 +168,7 @@ Suitable for streaming jobs, where we want to continuously check the Delta table
 
 Note that by default, the Delta Source will load the full state of the latest Delta table, and then start streaming changes. When you use the `startingTimestamp` or `startingVersion` APIs on the `ContinuousDeltaSourceBuilder`, then the Delta Source will process changes only from that corresponding historical version.
 
-#### Continuous Mode Options
-The relevant options for this mode are
+The options relevant to this mode are
 - `startingVersion` - Starts reading changes from this table version.
 - `startingTimestamp` - Starts reading changes from the table version written at or after the given timestamp.
 - `updateCheckIntervalMillis` - The interval, in milliseconds, at which we will check the underlying Delta table for any changes.
