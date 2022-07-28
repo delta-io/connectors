@@ -20,7 +20,7 @@ import static io.delta.flink.source.internal.DeltaSourceOptions.LOADED_SCHEMA_SN
  * <p>
  * In Continuous mode, the {@link DeltaSource} will, by default, load the full state of the latest
  * table version, and then start monitoring for changes. If you use either the
- * @link RowDataContinuousDeltaSourceBuilder#startingVersion} or
+ * {@link RowDataContinuousDeltaSourceBuilder#startingVersion} or
  * {@link RowDataContinuousDeltaSourceBuilder#startingTimestamp} APIs, then the {@link DeltaSource}
  * will start monitoring for changes from that historical version. It will not load the full table
  * state at that historical table version.
