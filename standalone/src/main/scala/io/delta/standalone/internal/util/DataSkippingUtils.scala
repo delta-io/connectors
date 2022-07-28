@@ -222,10 +222,10 @@ private[internal] object DataSkippingUtils {
    * Because they are the only two leaf expression types.
    *
    * For example, `col1` is a column and `lit1` is a literal value. When building column stats
-   * predicate with query predicate `col1 < lit1`. This method will follow the `clRule` because left
-   * child is `col1` and right child is `lit1`. It will make the `MIN.col1` and `MAX.col1`, then
-   * pass these columns and the literal value `lit1` into the `clRule` (For operator `<`, the rule
-   * is `${MIN.column} < ${literal}`). So the output expression is `MIN.col1 < lit1`.
+   * predicate with query predicate `col1 < lit1`. This method will follow the `colLitRule` because
+   * left child is `col1` and right child is `lit1`. It will make the `MIN.col1` and `MAX.col1`,
+   * then pass these columns and the literal value `lit1` into the `clRule` (For operator `<`, the
+   * rule is `${MIN.column} < ${literal}`). So the output expression is `MIN.col1 < lit1`.
    *
    * @param dataSchema The schema of data columns in table.
    * @param expr       The expression from query predicate.
