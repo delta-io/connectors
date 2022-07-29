@@ -52,8 +52,13 @@ private[internal] object DataSkippingUtils {
   /** The building rule when left child is a column and right child is a literal value. */
   private case class ColLitWrapper(colMin: Column, colMax: Column, lit: Literal)
 
-  /** The building rule when left child is a literal value and right child is a column. */
-  private case class LitColWrapper(lit: Literal, col: Column)
+  /**
+   * The building rule when left child is a literal value and right child is a column. The
+   * `litColRule` will transform a binary expression from `expr(lit, col)` to `new_expr(col, lit)`.
+   * Afterwards `constructDataFilters` will use `colLitRule` to build the result from
+   * `new_expr(col, lit)` with `colLitRule`.
+   */
+  private case class LitColWrapper(col: Column, lit: Literal)
 
   /**
    * Build stats schema based on the schema of data columns, the first layer
@@ -233,7 +238,7 @@ private[internal] object DataSkippingUtils {
       litColRule: LitColWrapper => Expression): Option[Expression] = {
     (expr.getLeft, expr.getRight) match {
       case (leftCol: Column, rightCol: Column) =>
-        // Apply `colColRule` with MIN and MAX from both children.
+        // Apply `colColRule` with MIN and MAX from both child columns.
         val (leftMin, leftMax) = getMinMaxColumn(dataSchema, leftCol.name).getOrElse { return None }
         val (rightMin, rightMax) =
           getMinMaxColumn(dataSchema, rightCol.name).getOrElse { return None }
@@ -244,9 +249,10 @@ private[internal] object DataSkippingUtils {
         val (leftMin, leftMax) = getMinMaxColumn(dataSchema, col.name).getOrElse { return None }
         Some(colLitRule(ColLitWrapper(leftMin, leftMax, lit)))
       case (lit: Literal, col: Column) =>
-        // The `litColRule` will swap the left and right child with some expression change.
-        // Then `constructDataFilters` will use `colLitRule` to solve the remaining problem.
-        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(lit, col))))
+        // The `litColRule` will transform a binary expression from `expr(lit, col)` to
+        // `new_expr(col, lit)`. Afterwards `constructDataFilters` will use `colLitRule` to build
+        // the result from `new_expr(col, lit)` with `colLitRule`.
+        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(col, lit))))
 
       // If left and right children are both literal value, we return the original expression.
       case (_: Literal, _: Literal) => Some(expr)
