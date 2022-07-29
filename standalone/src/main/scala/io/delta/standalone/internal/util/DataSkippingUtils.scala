@@ -50,7 +50,7 @@ private[internal] object DataSkippingUtils {
       leftMin: Column, leftMax: Column, rightMin: Column, rightMax: Column)
 
   /** The building rule when left child is a column and right child is a literal value. */
-  private case class ColLitWrapper(leftMin: Column, leftMax: Column, lit: Literal)
+  private case class ColLitWrapper(colMin: Column, colMax: Column, lit: Literal)
 
   /** The building rule when left child is a literal value and right child is a column. */
   private case class LitColWrapper(lit: Literal, col: Column)
@@ -232,20 +232,21 @@ private[internal] object DataSkippingUtils {
       colLitRule: ColLitWrapper => Expression,
       litColRule: LitColWrapper => Expression): Option[Expression] = {
     (expr.getLeft, expr.getRight) match {
-      case (e1: Column, e2: Column) =>
+      case (leftCol: Column, rightCol: Column) =>
         // Apply `colColRule` with MIN and MAX from both children.
-        val (leftMin, leftMax) = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
-        val (rightMin, rightMax) = getMinMaxColumn(dataSchema, e2.name).getOrElse { return None }
+        val (leftMin, leftMax) = getMinMaxColumn(dataSchema, leftCol.name).getOrElse { return None }
+        val (rightMin, rightMax) =
+          getMinMaxColumn(dataSchema, rightCol.name).getOrElse { return None }
         Some(colColRule(ColColWrapper(leftMin, leftMax, rightMin, rightMax)))
-      case (e1: Column, e2: Literal) =>
+      case (col: Column, lit: Literal) =>
         // Apply `colLitRule` with MIN and MAX of the column at left child and the literal value
         // at the right child.
-        val (leftMin, leftMax) = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
-        Some(colLitRule(ColLitWrapper(leftMin, leftMax, e2)))
-      case (e1: Literal, e2: Column) =>
-        // Apply `litColRule` by swap the left and right child. Then `constructDataFilters` will use
-        // `colLitRule` to solve this problem.
-        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(e1, e2))))
+        val (leftMin, leftMax) = getMinMaxColumn(dataSchema, col.name).getOrElse { return None }
+        Some(colLitRule(ColLitWrapper(leftMin, leftMax, lit)))
+      case (lit: Literal, col: Column) =>
+        // The `litColRule` will swap the left and right child with some expression change.
+        // Then `constructDataFilters` will use `colLitRule` to solve the remaining problem.
+        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(lit, col))))
 
       // If left and right children are both literal value, we return the original expression.
       case (_: Literal, _: Literal) => Some(expr)
@@ -277,8 +278,8 @@ private[internal] object DataSkippingUtils {
         // (col1 == lit1) -> (MIN.col1 <= lit1 AND MAX.col1 >= lit1)
         val colLitRule = (r: ColLitWrapper) =>
           new And(
-            new LessThanOrEqual(r.leftMin, r.lit),
-            new GreaterThanOrEqual(r.leftMax, r.lit))
+            new LessThanOrEqual(r.colMin, r.lit),
+            new GreaterThanOrEqual(r.colMax, r.lit))
 
         // (lit1 == col1) -> (col1 == lit1)
         val litColRule = (r: LitColWrapper) => new EqualTo(r.col, r.lit)
@@ -292,7 +293,7 @@ private[internal] object DataSkippingUtils {
 
       case lt: LessThan =>
         // (col1 < lit1) -> (MIN.col1 < lit1)
-        val colLitRule = (r: ColLitWrapper) => new LessThan(r.leftMin, r.lit)
+        val colLitRule = (r: ColLitWrapper) => new LessThan(r.colMin, r.lit)
 
         // (lit1 < col1) -> (col1 > lit1)
         val litColRule = (r: LitColWrapper) => new GreaterThan(r.col, r.lit)
@@ -303,7 +304,7 @@ private[internal] object DataSkippingUtils {
 
       case gt: GreaterThan =>
         // (col1 > lit1) -> (MAX.col1 > lit1)
-        val colLitRule = (r: ColLitWrapper) => new GreaterThan(r.leftMax, r.lit)
+        val colLitRule = (r: ColLitWrapper) => new GreaterThan(r.colMax, r.lit)
 
         // (lit1 > col1) -> (col1 < lit1)
         val litColRule = (r: LitColWrapper) => new LessThan(r.col, r.lit)
@@ -314,7 +315,7 @@ private[internal] object DataSkippingUtils {
 
       case leq: LessThanOrEqual =>
         // (col1 <= lit1) -> (MIN.col1 <= lit1)
-        val colLitRule = (r: ColLitWrapper) => new LessThanOrEqual(r.leftMin, r.lit)
+        val colLitRule = (r: ColLitWrapper) => new LessThanOrEqual(r.colMin, r.lit)
 
         // (lit1 <= col1) -> (col1 >= lit1)
         val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.col, r.lit)
@@ -325,7 +326,7 @@ private[internal] object DataSkippingUtils {
 
       case geq: GreaterThanOrEqual =>
         // (col1 >= lit1) -> (MAX.col1 >= lit1)
-        val colLitRule = (r: ColLitWrapper) => new GreaterThanOrEqual(r.leftMax, r.lit)
+        val colLitRule = (r: ColLitWrapper) => new GreaterThanOrEqual(r.colMax, r.lit)
 
         // (lit1 >= col1) -> (col1 <= lit1)
         val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.col, r.lit)
