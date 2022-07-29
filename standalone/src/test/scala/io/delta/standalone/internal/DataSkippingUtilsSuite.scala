@@ -21,7 +21,7 @@ import java.sql.{Date, Timestamp}
 import com.fasterxml.jackson.core.io.JsonEOFException
 import org.scalatest.FunSuite
 
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNotNull, LessThan, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNotNull, IsNull, LessThan, LessThanOrEqual, Literal, Not, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DataType, DateType, DecimalType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.data.ColumnStatsRowRecord
@@ -167,6 +167,9 @@ class DataSkippingUtilsSuite extends FunSuite {
     val col2Max = new Column(s"$MAX.col2", new LongType)
     val long1 = Literal.of(1L)
     val long2 = Literal.of(2L)
+    val col1NullCount = new Column(s"$NULL_COUNT.col1", new LongType)
+    val numRecord = new Column(s"$NUM_RECORDS", new LongType)
+
 
     // col1 == 1
     testConstructDataFilter(
@@ -265,7 +268,21 @@ class DataSkippingUtilsSuite extends FunSuite {
       new GreaterThanOrEqual(col1, long1) -> new GreaterThanOrEqual(col1Max, long1),
       new GreaterThanOrEqual(long1, col1) -> new LessThanOrEqual(col1Min, long1),
       new GreaterThanOrEqual(col1, col2) -> new GreaterThanOrEqual(col1Max, col2Min),
-      new GreaterThanOrEqual(long1, long2) -> new GreaterThanOrEqual(long1, long2)
+      new GreaterThanOrEqual(long1, long2) -> new GreaterThanOrEqual(long1, long2),
+
+      new IsNull(col1) -> new GreaterThan(col1NullCount, Literal.of(0L)),
+      new IsNotNull(col1) -> new LessThan(col1NullCount, numRecord),
+
+      new Not(new EqualTo(col1, long1)) ->
+        new Or(
+          new LessThan(col1Min, long1),
+          new GreaterThan(col1Max, long1)),
+      new Not(new LessThan(col1, long1)) -> new GreaterThanOrEqual(col1Max, long1),
+      new Not(new GreaterThan(col1, long1)) -> new LessThanOrEqual(col1Min, long1),
+      new Not(new LessThanOrEqual(col1, long1)) -> new GreaterThan(col1Max, long1),
+      new Not(new GreaterThanOrEqual(col1, long1)) -> new LessThan(col1Min, long1),
+      new Not(new IsNull(col1)) -> new LessThan(col1NullCount, numRecord),
+      new Not(new IsNotNull(col1)) -> new GreaterThan(col1NullCount, Literal.of(0L))
     )
 
     rules.foreach { case (input, expected) =>

@@ -20,7 +20,7 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, LessThan, LessThanOrEqual, Literal, Not, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNotNull, IsNull, LessThan, LessThanOrEqual, Literal, Not, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
@@ -548,7 +548,19 @@ class DataSkippingSuite extends FunSuite {
       new GreaterThanOrEqual(col1, long1) -> ((i: Int) => col1Max(i) >= 1),
       new GreaterThanOrEqual(long1, col1) -> ((i: Int) => col1Min(i) <= 1),
       new GreaterThanOrEqual(col1, col2) -> ((i: Int) => col1Max(i) >= col2Min(i)),
-      new GreaterThanOrEqual(long1, long2) -> ((_: Int) => false)
+      new GreaterThanOrEqual(long1, long2) -> ((_: Int) => false),
+
+      // `col1` are not null in all the files.
+      new IsNull(col1) -> ((_: Int) => false),
+      new IsNotNull(col1) -> ((_: Int) => true),
+
+      new Not(new EqualTo(col1, long1)) -> ((i: Int) => col1Max(i) > 1 || col1Min(i) < 1),
+      new Not(new LessThan(col1, long1)) -> ((i: Int) => col1Max(i) >= 1),
+      new Not(new GreaterThan(col1, long1)) -> ((i: Int) => col1Min(i) <= 1),
+      new Not(new LessThanOrEqual(col1, long1)) -> ((i: Int) => col1Max(i) > 1),
+      new Not(new GreaterThanOrEqual(col1, long1)) -> ((i: Int) => col1Min(i) < 1),
+      new Not(new IsNull(col1)) -> ((_: Int) => true),
+      new Not(new IsNotNull(col1)) -> ((_: Int) => false)
     )
 
     rules.foreach { case (expr, filter) =>
