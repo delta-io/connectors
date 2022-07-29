@@ -45,27 +45,15 @@ private[internal] object DataSkippingUtils {
   final val supportedDataType = Seq(new BooleanType, new ByteType, new DoubleType,
     new FloatType, new IntegerType, new LongType, new ShortType)
 
-  /**
-   * The building rule when left and right children are both columns.
-   * The 4 parameters from left to right are: MIN of left child, MAX of left child,
-   * MIN of right child, MAX of right child.
-   */
-  private case class ColColRule(
+  /** The building rule when left and right children are both columns. */
+  private case class ColColWrapper(
       leftMin: Column, leftMax: Column, rightMin: Column, rightMax: Column)
 
-  /**
-   * The building rule when left child is a column and right child is a literal value.
-   * The 3 parameters from left to right are: MIN of left child, MAX of left child,
-   * the literal value at the right child.
-   */
-  private case class ColLitRule(leftMin: Column, leftMax: Column, right: Literal)
+  /** The building rule when left child is a column and right child is a literal value. */
+  private case class ColLitWrapper(leftMin: Column, leftMax: Column, lit: Literal)
 
-  /**
-   * The building rule when left child is a literal value and right child is a column.
-   * The 2 parameters from left to right are: the literal value at the left child,
-   * the column at the right child.
-   */
-  private case class LitColRule(left: Literal, right: Column)
+  /** The building rule when left child is a literal value and right child is a column. */
+  private case class LitColWrapper(leftCol: Literal, lit: Column)
 
   /**
    * Build stats schema based on the schema of data columns, the first layer
@@ -240,24 +228,24 @@ private[internal] object DataSkippingUtils {
   def buildBinaryComparatorFilter(
       dataSchema: StructType,
       expr: BinaryComparison,
-      colColRule: ColColRule => Expression,
-      colLitRule: ColLitRule => Expression,
-      litColRule: LitColRule => Expression): Option[Expression] = {
+      colColRule: ColColWrapper => Expression,
+      colLitRule: ColLitWrapper => Expression,
+      litColRule: LitColWrapper => Expression): Option[Expression] = {
     (expr.getLeft, expr.getRight) match {
       case (e1: Column, e2: Column) =>
         // Apply `colColRule` with MIN and MAX from both children.
         val (leftMin, leftMax) = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
         val (rightMin, rightMax) = getMinMaxColumn(dataSchema, e2.name).getOrElse { return None }
-        Some(colColRule(ColColRule(leftMin, leftMax, rightMin, rightMax)))
+        Some(colColRule(ColColWrapper(leftMin, leftMax, rightMin, rightMax)))
       case (e1: Column, e2: Literal) =>
         // Apply `colLitRule` with MIN and MAX of the column at left child and the literal value
         // at the right child.
         val (leftMin, leftMax) = getMinMaxColumn(dataSchema, e1.name).getOrElse { return None }
-        Some(colLitRule(ColLitRule(leftMin, leftMax, e2)))
+        Some(colLitRule(ColLitWrapper(leftMin, leftMax, e2)))
       case (e1: Literal, e2: Column) =>
         // Apply `litColRule` by swap the left and right child. Then `constructDataFilters` will use
         // `colLitRule` to solve this problem.
-        constructDataFilters(dataSchema, Some(litColRule(LitColRule(e1, e2))))
+        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(e1, e2))))
 
       // If left and right children are both literal value, we return the original expression.
       case (_: Literal, _: Literal) => Some(expr)
@@ -287,16 +275,16 @@ private[internal] object DataSkippingUtils {
     expr match {
       case eq: EqualTo =>
         // (col1 == lit1) -> (MIN.col1 <= lit1 AND MAX.col1 >= lit1)
-        val colLitRule = (r: ColLitRule) =>
+        val colLitRule = (r: ColLitWrapper) =>
           new And(
-            new LessThanOrEqual(r.leftMin, r.right),
-            new GreaterThanOrEqual(r.leftMax, r.right))
+            new LessThanOrEqual(r.leftMin, r.lit),
+            new GreaterThanOrEqual(r.leftMax, r.lit))
 
         // (lit1 == col1) -> (col1 == lit1)
-        val litColRule = (r: LitColRule) => new EqualTo(r.right, r.left)
+        val litColRule = (r: LitColWrapper) => new EqualTo(r.lit, r.leftCol)
 
         // (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
-        val colColRule = (r: ColColRule) =>
+        val colColRule = (r: ColColWrapper) =>
           new And(
             new LessThanOrEqual(r.leftMin, r.rightMax),
             new GreaterThanOrEqual(r.leftMax, r.rightMin))
@@ -304,46 +292,46 @@ private[internal] object DataSkippingUtils {
 
       case lt: LessThan =>
         // (col1 < lit1) -> (MIN.col1 < lit1)
-        val colLitRule = (r: ColLitRule) => new LessThan(r.leftMin, r.right)
+        val colLitRule = (r: ColLitWrapper) => new LessThan(r.leftMin, r.lit)
 
         // (lit1 < col1) -> (col1 > lit1)
-        val litColRule = (r: LitColRule) => new GreaterThan(r.right, r.left)
+        val litColRule = (r: LitColWrapper) => new GreaterThan(r.lit, r.leftCol)
 
         // (col1 < col2) -> (MIN.col1 < MAX.col2)
-        val colColRule = (r: ColColRule) => new LessThan(r.leftMin, r.rightMax)
+        val colColRule = (r: ColColWrapper) => new LessThan(r.leftMin, r.rightMax)
         buildBinaryComparatorFilter(dataSchema, lt, colColRule, colLitRule, litColRule)
 
       case gt: GreaterThan =>
         // (col1 > lit1) -> (MAX.col1 > lit1)
-        val colLitRule = (r: ColLitRule) => new GreaterThan(r.leftMax, r.right)
+        val colLitRule = (r: ColLitWrapper) => new GreaterThan(r.leftMax, r.lit)
 
         // (lit1 > col1) -> (col1 < lit1)
-        val litColRule = (r: LitColRule) => new LessThan(r.right, r.left)
+        val litColRule = (r: LitColWrapper) => new LessThan(r.lit, r.leftCol)
 
         // (col1 > col2) -> (MAX.col1 > MIN.col2)
-        val colColRule = (r: ColColRule) => new GreaterThan(r.leftMax, r.rightMin)
+        val colColRule = (r: ColColWrapper) => new GreaterThan(r.leftMax, r.rightMin)
         buildBinaryComparatorFilter(dataSchema, gt, colColRule, colLitRule, litColRule)
 
       case leq: LessThanOrEqual =>
         // (col1 <= lit1) -> (MIN.col1 <= lit1)
-        val colLitRule = (r: ColLitRule) => new LessThanOrEqual(r.leftMin, r.right)
+        val colLitRule = (r: ColLitWrapper) => new LessThanOrEqual(r.leftMin, r.lit)
 
         // (lit1 <= col1) -> (col1 >= lit1)
-        val litColRule = (r: LitColRule) => new GreaterThanOrEqual(r.right, r.left)
+        val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.lit, r.leftCol)
 
         // (col1 <= col2) -> (MIN.col1 <= MAX.col2)
-        val colColRule = (r: ColColRule) => new LessThanOrEqual(r.leftMin, r.rightMax)
+        val colColRule = (r: ColColWrapper) => new LessThanOrEqual(r.leftMin, r.rightMax)
         buildBinaryComparatorFilter(dataSchema, leq, colColRule, colLitRule, litColRule)
 
       case geq: GreaterThanOrEqual =>
         // (col1 >= lit1) -> (MAX.col1 >= lit1)
-        val colLitRule = (r: ColLitRule) => new GreaterThanOrEqual(r.leftMax, r.right)
+        val colLitRule = (r: ColLitWrapper) => new GreaterThanOrEqual(r.leftMax, r.lit)
 
         // (lit1 >= col1) -> (col1 <= lit1)
-        val litColRule = (r: LitColRule) => new LessThanOrEqual(r.right, r.left)
+        val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.lit, r.leftCol)
 
         // (col1 >= col2) -> (MAX.col1 >= MIN.col2)
-        val colColRule = (r: ColColRule) => new GreaterThanOrEqual(r.leftMax, r.rightMin)
+        val colColRule = (r: ColColWrapper) => new GreaterThanOrEqual(r.leftMax, r.rightMin)
         buildBinaryComparatorFilter(dataSchema, geq, colColRule, colLitRule, litColRule)
 
       case and: And =>

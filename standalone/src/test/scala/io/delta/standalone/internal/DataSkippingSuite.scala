@@ -20,7 +20,7 @@ import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import io.delta.standalone.{DeltaLog, Operation}
-import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, IsNull, LessThan, LessThanOrEqual, Literal, Not, Or}
+import io.delta.standalone.expressions.{And, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, In, LessThan, LessThanOrEqual, Literal, Not, Or}
 import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, TimestampType}
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
