@@ -18,7 +18,7 @@ package io.delta.standalone.internal.util
 
 import com.fasterxml.jackson.databind.JsonNode
 
-import io.delta.standalone.expressions.{And, BinaryComparison, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, Or}
+import io.delta.standalone.expressions.{And, BinaryComparison, Column, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, IsNotNull, IsNull, LessThan, LessThanOrEqual, Literal, Not, Or}
 import io.delta.standalone.types.{BooleanType, ByteType, DataType, DoubleType, FloatType, IntegerType, LongType, ShortType, StructField, StructType}
 
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -53,7 +53,7 @@ private[internal] object DataSkippingUtils {
   private case class ColLitWrapper(leftMin: Column, leftMax: Column, lit: Literal)
 
   /** The building rule when left child is a literal value and right child is a column. */
-  private case class LitColWrapper(leftCol: Literal, lit: Column)
+  private case class LitColWrapper(lit: Literal, rightCol: Column)
 
   /**
    * Build stats schema based on the schema of data columns, the first layer
@@ -281,7 +281,7 @@ private[internal] object DataSkippingUtils {
             new GreaterThanOrEqual(r.leftMax, r.lit))
 
         // (lit1 == col1) -> (col1 == lit1)
-        val litColRule = (r: LitColWrapper) => new EqualTo(r.lit, r.leftCol)
+        val litColRule = (r: LitColWrapper) => new EqualTo(r.lit, r.lit)
 
         // (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
         val colColRule = (r: ColColWrapper) =>
@@ -295,7 +295,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new LessThan(r.leftMin, r.lit)
 
         // (lit1 < col1) -> (col1 > lit1)
-        val litColRule = (r: LitColWrapper) => new GreaterThan(r.lit, r.leftCol)
+        val litColRule = (r: LitColWrapper) => new GreaterThan(r.lit, r.lit)
 
         // (col1 < col2) -> (MIN.col1 < MAX.col2)
         val colColRule = (r: ColColWrapper) => new LessThan(r.leftMin, r.rightMax)
@@ -306,7 +306,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new GreaterThan(r.leftMax, r.lit)
 
         // (lit1 > col1) -> (col1 < lit1)
-        val litColRule = (r: LitColWrapper) => new LessThan(r.lit, r.leftCol)
+        val litColRule = (r: LitColWrapper) => new LessThan(r.lit, r.lit)
 
         // (col1 > col2) -> (MAX.col1 > MIN.col2)
         val colColRule = (r: ColColWrapper) => new GreaterThan(r.leftMax, r.rightMin)
@@ -317,7 +317,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new LessThanOrEqual(r.leftMin, r.lit)
 
         // (lit1 <= col1) -> (col1 >= lit1)
-        val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.lit, r.leftCol)
+        val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.lit, r.lit)
 
         // (col1 <= col2) -> (MIN.col1 <= MAX.col2)
         val colColRule = (r: ColColWrapper) => new LessThanOrEqual(r.leftMin, r.rightMax)
@@ -328,7 +328,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new GreaterThanOrEqual(r.leftMax, r.lit)
 
         // (lit1 >= col1) -> (col1 <= lit1)
-        val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.lit, r.leftCol)
+        val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.lit, r.lit)
 
         // (col1 >= col2) -> (MAX.col1 >= MIN.col2)
         val colColRule = (r: ColColWrapper) => new GreaterThanOrEqual(r.leftMax, r.rightMin)
@@ -358,7 +358,63 @@ private[internal] object DataSkippingUtils {
           case _ => None
         }
 
-      // TODO: support full types of Expression
+      case isNull: IsNull => isNull.getChild match {
+        case col: Column =>
+          val ncCol = statsColumnBuilder(NULL_COUNT, col.name, new LongType)
+          Some(new GreaterThan(ncCol, Literal.of(0L)))
+        case _ => None
+      }
+      case isNotNull: IsNotNull => isNotNull.getChild match {
+        case col: Column =>
+          val ncCol = statsColumnBuilder(NULL_COUNT, col.name, new LongType)
+          val nrCol = new Column(NUM_RECORDS, new LongType)
+          Some(new LessThan(ncCol, nrCol))
+        case _ => None
+      }
+
+      case not: Not => not.getChild match {
+        case eq: EqualTo =>
+          // (col1 != lit1) -> (MIN.col1 < lit1 OR MAX.col1 > lit1)
+          val colLitRule = (r: ColLitWrapper) =>
+            new Or(
+              new LessThan(r.leftMin, r.lit),
+              new GreaterThan(r.leftMax, r.lit))
+
+          // (lit1 != col1) -> (col1 != lit1)
+          val litColRule = (r: LitColWrapper) => new EqualTo(r.rightCol, r.lit)
+
+          // (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
+          val colColRule = (r: ColColWrapper) =>
+            new And(
+              new LessThan(r.leftMax, r.rightMin),
+              new GreaterThan(r.leftMin, r.rightMax))
+          buildBinaryComparatorFilter(dataSchema, eq, colColRule, colLitRule, litColRule)
+        case lt: LessThan =>
+          constructDataFilters(dataSchema, Some(new GreaterThanOrEqual(lt.getLeft, lt.getRight)))
+        case gt: GreaterThan =>
+          constructDataFilters(dataSchema, Some(new LessThanOrEqual(gt.getLeft, gt.getRight)))
+        case leq: LessThanOrEqual =>
+          constructDataFilters(dataSchema, Some(new GreaterThan(leq.getLeft, leq.getRight)))
+        case geq: GreaterThanOrEqual =>
+          constructDataFilters(dataSchema, Some(new LessThan(geq.getLeft, geq.getRight)))
+        case and: And =>
+          constructDataFilters(
+            dataSchema,
+            Some(new Or(new Not(and.getLeft), new Not(and.getRight))))
+        case or: Or =>
+          constructDataFilters(
+            dataSchema,
+            Some(new And(new Not(or.getLeft), new Not(or.getRight))))
+        case isNull: IsNull =>
+          constructDataFilters(dataSchema, Some(new IsNotNull(isNull.getChild)))
+        case isNotNull: IsNotNull =>
+          constructDataFilters(dataSchema, Some(new IsNull(isNotNull.getChild)))
+        case not1: Not =>
+          constructDataFilters(dataSchema, Some(not1.getChild))
+        case _ => None
+      }
+
+      // TODO: support `IN`, `LIKE`
       case _ => None
     }
   }
