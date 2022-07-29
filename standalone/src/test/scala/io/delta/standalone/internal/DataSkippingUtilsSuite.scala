@@ -214,14 +214,9 @@ class DataSkippingUtilsSuite extends FunSuite {
         eqCast("col1", new LongType, long1),
         eqCast("col2", new LongType, long2))))
 
-    // IsNotNull(col1), `IsNotNull` is not supported
+    // col1.IN(col2), `IN` is not supported
     testConstructDataFilter(
-      inputExpr = Some(new IsNotNull(col1)),
-      expectedOutputExpr = None)
-
-    // `col1 IS NOT NULL` is not supported
-    testConstructDataFilter(
-      inputExpr = Some(new IsNotNull(col1)),
+      inputExpr = Some(new In(schema.column("col1"), List(schema.column("col2")).asJava)),
       expectedOutputExpr = None)
 
     // stringCol = 1, StringType is not supported
@@ -286,6 +281,7 @@ class DataSkippingUtilsSuite extends FunSuite {
     )
 
     rules.foreach { case (input, expected) =>
+      print(rules.toString + "\n")
       testConstructDataFilter(Some(input), Some(expected))
     }
   }
