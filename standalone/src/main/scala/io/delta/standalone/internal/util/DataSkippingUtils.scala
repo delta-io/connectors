@@ -281,7 +281,7 @@ private[internal] object DataSkippingUtils {
             new GreaterThanOrEqual(r.leftMax, r.lit))
 
         // (lit1 == col1) -> (col1 == lit1)
-        val litColRule = (r: LitColWrapper) => new EqualTo(r.lit, r.lit)
+        val litColRule = (r: LitColWrapper) => new EqualTo(r.col, r.lit)
 
         // (col1 == col2) -> (MIN.col1 <= MAX.col2 AND MAX.col1 >= MIN.col2)
         val colColRule = (r: ColColWrapper) =>
@@ -295,7 +295,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new LessThan(r.leftMin, r.lit)
 
         // (lit1 < col1) -> (col1 > lit1)
-        val litColRule = (r: LitColWrapper) => new GreaterThan(r.lit, r.lit)
+        val litColRule = (r: LitColWrapper) => new GreaterThan(r.col, r.lit)
 
         // (col1 < col2) -> (MIN.col1 < MAX.col2)
         val colColRule = (r: ColColWrapper) => new LessThan(r.leftMin, r.rightMax)
@@ -306,7 +306,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new GreaterThan(r.leftMax, r.lit)
 
         // (lit1 > col1) -> (col1 < lit1)
-        val litColRule = (r: LitColWrapper) => new LessThan(r.lit, r.lit)
+        val litColRule = (r: LitColWrapper) => new LessThan(r.col, r.lit)
 
         // (col1 > col2) -> (MAX.col1 > MIN.col2)
         val colColRule = (r: ColColWrapper) => new GreaterThan(r.leftMax, r.rightMin)
@@ -317,7 +317,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new LessThanOrEqual(r.leftMin, r.lit)
 
         // (lit1 <= col1) -> (col1 >= lit1)
-        val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.lit, r.lit)
+        val litColRule = (r: LitColWrapper) => new GreaterThanOrEqual(r.col, r.lit)
 
         // (col1 <= col2) -> (MIN.col1 <= MAX.col2)
         val colColRule = (r: ColColWrapper) => new LessThanOrEqual(r.leftMin, r.rightMax)
@@ -328,7 +328,7 @@ private[internal] object DataSkippingUtils {
         val colLitRule = (r: ColLitWrapper) => new GreaterThanOrEqual(r.leftMax, r.lit)
 
         // (lit1 >= col1) -> (col1 <= lit1)
-        val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.lit, r.lit)
+        val litColRule = (r: LitColWrapper) => new LessThanOrEqual(r.col, r.lit)
 
         // (col1 >= col2) -> (MAX.col1 >= MIN.col2)
         val colColRule = (r: ColColWrapper) => new GreaterThanOrEqual(r.leftMax, r.rightMin)
