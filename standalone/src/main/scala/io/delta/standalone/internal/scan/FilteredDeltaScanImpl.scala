@@ -18,6 +18,8 @@ package io.delta.standalone.internal.scan
 
 import java.util.Optional
 
+import scala.collection.mutable
+
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 
@@ -37,6 +39,7 @@ final private[internal] class FilteredDeltaScanImpl(
     partitionSchema: StructType) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
+  private val evaluationResults = mutable.Map.empty[Map[String, String], Boolean]
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
@@ -44,9 +47,13 @@ final private[internal] class FilteredDeltaScanImpl(
   override protected def accept(addFile: AddFile): Boolean = {
     if (metadataConjunction.isEmpty) return true
 
+    val cachedResult = evaluationResults.get(addFile.partitionValues)
+    if (cachedResult.isDefined) return cachedResult.get
+
     val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-    val result = metadataConjunction.get.eval(partitionRowRecord)
-    result.asInstanceOf[Boolean]
+    val result = metadataConjunction.get.eval(partitionRowRecord).asInstanceOf[Boolean]
+    evaluationResults(addFile.partitionValues) = result
+    result
   }
 
   override def getInputPredicate: Optional[Expression] = Optional.of(expr)
