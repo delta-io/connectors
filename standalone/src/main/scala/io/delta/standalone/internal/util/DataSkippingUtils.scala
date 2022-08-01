@@ -275,8 +275,8 @@ private[internal] object DataSkippingUtils {
    *
    * - When left child is literal value and right child is column, we use `litColRule`. This will
    * rewrite the expression to `colLitRule` format (the left child is column and right child is
-   * literal value) in [[buildBinaryComparatorFilter]] and then call [[constructDataFilters]]
-   * again to build the target expression by `colLitRule`.
+   * literal value) in [[buildBinaryComparatorFilter]] and then use the rewritten expression call
+   * [[constructDataFilters]] again to build the target expression by `colLitRule`.
    *
    * - When both children are columns, we use `colColRule` to build the stats filter.
    *
