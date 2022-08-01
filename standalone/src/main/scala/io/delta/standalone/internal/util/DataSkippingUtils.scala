@@ -262,9 +262,33 @@ private[internal] object DataSkippingUtils {
 
   // scalastyle:off line.size.limit
   /**
-   * Build the column stats filter based on query predicate and the schema of data columns.
+   * Build the column stats filter based on query predicate and the schema of data columns. For all
+   * the data column in query predicate, we will substitute them by the corresponding stats column.
+   * And following the rules based on the different expression type.
+   *
    * Rules are derived from:
    * https://github.com/delta-io/delta/blob/master/core/src/main/scala/org/apache/spark/sql/delta/stats/DataSkippingReader.scala
+   *
+   * For binary comparators, we only handle the case when both of its children expressions are leaf
+   * expression. There are 2 types of atomic leaf expression: column and literal value. Thus there
+   * will be 4 cases for handling binary comparator, which are either left and right child is column
+   * or literal value. All the behavior in 4 cases are defined by rules, and rules are operated in
+   * [[buildBinaryComparatorFilter]].
+   *
+   * - When left child is column and right is literal value, we use `colLitRule` to build the
+   * stats filter.
+   *
+   * - When left child is literal value and right child is column, we use `litColRule`. This will
+   * rewrite the expression to `colLitRule` format in [[buildBinaryComparatorFilter]] and then call
+   * [[constructDataFilters]] again to build the target expression.
+   *
+   * - When both children are columns, we use `colColRule` to build the stats filter.
+   *
+   * - When both children are literal values, we build the filter with the original expression.
+   *
+   * For other non-leaf expression, we split it into sub-questions by solve its children expressions
+   * recursively and combine the answers of sub-question together using the rule based on the parent
+   * expression type.
    *
    * @param dataSchema      The schema of data columns in table.
    * @param dataConjunction The non-partition column query predicate.
