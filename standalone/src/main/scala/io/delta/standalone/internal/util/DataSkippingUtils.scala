@@ -52,13 +52,8 @@ private[internal] object DataSkippingUtils {
   /** The building rule when left child is a column and right child is a literal value. */
   private case class ColLitWrapper(colMin: Column, colMax: Column, lit: Literal)
 
-  /**
-   * The building rule when left child is a literal value and right child is a column. The
-   * `litColRule` will transform a binary expression from `expr(lit, col)` to `new_expr(col, lit)`.
-   * Afterwards `constructDataFilters` will use `colLitRule` to build the result from
-   * `new_expr(col, lit)` with `colLitRule`.
-   */
-  private case class LitColWrapper(col: Column, lit: Literal)
+  /** The building rule when left child is a literal value and right child is a column. */
+  private case class LitColWrapper(lit: Literal, col: Column)
 
   /**
    * Build stats schema based on the schema of data columns, the first layer
@@ -211,8 +206,8 @@ private[internal] object DataSkippingUtils {
    *
    * Supported expressions are: LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, EqualTo
    *
-   * We only handle the case when `Column` or `Literal` value is the child of binary comparator.
-   * Because they are the only two leaf expression types.
+   * We only handle the case when both children of the binary comparator are either `Column` or
+   * `Literal` value. Because these are the only two supported leaf expression types.
    *
    * For example, `col1` is a column and `lit1` is a literal value. When building column stats
    * predicate with query predicate `col1 < lit1`. This method will follow the `colLitRule` because
@@ -252,7 +247,7 @@ private[internal] object DataSkippingUtils {
         // The `litColRule` will transform a binary expression from `expr(lit, col)` to
         // `new_expr(col, lit)`. Afterwards `constructDataFilters` will use `colLitRule` to build
         // the result from `new_expr(col, lit)` with `colLitRule`.
-        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(col, lit))))
+        constructDataFilters(dataSchema, Some(litColRule(LitColWrapper(lit, col))))
 
       // If left and right children are both literal value, we return the original expression.
       case (_: Literal, _: Literal) => Some(expr)
@@ -279,8 +274,9 @@ private[internal] object DataSkippingUtils {
    * stats filter.
    *
    * - When left child is literal value and right child is column, we use `litColRule`. This will
-   * rewrite the expression to `colLitRule` format in [[buildBinaryComparatorFilter]] and then call
-   * [[constructDataFilters]] again to build the target expression.
+   * rewrite the expression to `colLitRule` format (the left child is column and right child is
+   * literal value) in [[buildBinaryComparatorFilter]] and then call [[constructDataFilters]]
+   * again to build the target expression by `colLitRule`.
    *
    * - When both children are columns, we use `colColRule` to build the stats filter.
    *
