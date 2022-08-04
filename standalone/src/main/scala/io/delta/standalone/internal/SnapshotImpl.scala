@@ -60,8 +60,8 @@ private[internal] class SnapshotImpl(
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
 
   /** Feature flag of stats based file pruning. */
-  private val statsSkippingFlag = hadoopConf
-    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, false)
+  private val statsSkippingEnabled = hadoopConf
+    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, true)
 
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
@@ -75,7 +75,7 @@ private[internal] class SnapshotImpl(
       predicate,
       metadataScala.partitionSchema,
       metadataScala.dataSchema,
-      statsSkippingFlag)
+      hadoopConf)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
@@ -112,7 +112,7 @@ private[internal] class SnapshotImpl(
       predicate,
       metadataScala.partitionSchema,
       metadataScala.dataSchema,
-      statsSkippingFlag)
+      hadoopConf)
 
   def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
   def setTransactions: Seq[SetTransactionJ] =
@@ -311,10 +311,6 @@ private class InitialSnapshotImpl(
 
   override lazy val metadataScala: Metadata = Metadata()
 
-  /** Feature flag of stats based file pruning. */
-  private val statsSkippingFlag = hadoopConf
-    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, false)
-
   override def scan(): DeltaScan = new DeltaScanImpl(memoryOptimizedLogReplay)
 
   override def scan(predicate: Expression): DeltaScan =
@@ -323,5 +319,5 @@ private class InitialSnapshotImpl(
       predicate,
       metadataScala.partitionSchema,
       metadataScala.dataSchema,
-      statsSkippingFlag)
+      hadoopConf)
 }

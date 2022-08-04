@@ -31,8 +31,8 @@ private[internal] object StandaloneHadoopConf {
   val LOG_STORE_CLASS_KEY = "delta.logStore.class"
 
   /**
-   * Key for the feature flag of column stats based file pruning in `FilteredDeltaScan`, `true` to
-   * enable this feature, `false` to disable the feature. This key is set to `false` by default.
+   * If enabled, per-column statistics will be used to perform file pruning (aka data skipping) in
+   * `DeltaScan::getFiles`. By default, this feature is enabled. Set to `false` to disable.
    */
-  val STATS_SKIPPING_KEY = "io.delta.standalone.STATS_SKIPPING_KEY"
+  val STATS_SKIPPING_KEY = "io.delta.standalone.statsSkipping.enabled"
 }

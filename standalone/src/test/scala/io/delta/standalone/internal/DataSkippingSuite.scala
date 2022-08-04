@@ -100,10 +100,7 @@ class DataSkippingSuite extends FunSuite {
       m: Option[Metadata] = None,
       conf: Option[Configuration] = None) (f: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
-      val newConf = new Configuration()
-      newConf.setBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, true)
-
-      val log = DeltaLog.forTable(conf.getOrElse(newConf), dir.getCanonicalPath)
+      val log = DeltaLog.forTable(conf.getOrElse(new Configuration()), dir.getCanonicalPath)
       log.startTransaction().commit(m.getOrElse(metadata) :: Nil, op, "engineInfo")
       log.startTransaction().commit(actions, op, "engineInfo")
       f(log)
@@ -528,9 +525,7 @@ class DataSkippingSuite extends FunSuite {
       }
       .map(_.toString)
 
-    // Stats skipping is enabled by default in this suite. However, this feature will be disabled by
-    // default in other conditions.
-
+    // Stats skipping is enabled by default.
     // Testing with stats skipping.
     columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
 
