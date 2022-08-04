@@ -530,6 +530,7 @@ class DataSkippingSuite extends FunSuite {
 
     // Stats skipping is enabled by default in this suite. However, this feature will be disabled by
     // default in other conditions.
+
     // Testing with stats skipping.
     columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
 
@@ -539,7 +540,7 @@ class DataSkippingSuite extends FunSuite {
 
     val expectedResultWithoutStatsSkipping = (1 to 20).map(_.toString)
 
-    // Testing with stats skipping.
+    // Testing without stats skipping.
     columnStatsBasedFilePruningTest(
       expr,
       expectedResultWithoutStatsSkipping,
