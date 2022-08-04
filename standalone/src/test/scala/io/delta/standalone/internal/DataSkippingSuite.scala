@@ -509,10 +509,10 @@ class DataSkippingSuite extends FunSuite {
   /**
    * Query filter: (col1 == 1 AND col2 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
-   * First Output: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
+   * First Output: Files pass the column stats filter.
    * Second Output: All files.
-   * Reason: The first test enabled column stats filter the files are filtered, and the second one
-   * disabled the filter and it returns all the files.
+   * Reason: The first test enabled column stats filter and the output is filtered, but the second
+   * test disabled the filter and it returns all the files.
    */
   test("integration test: feature flag") {
     val expr = new And(
