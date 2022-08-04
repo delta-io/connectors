@@ -59,10 +59,6 @@ private[internal] class SnapshotImpl(
   private val memoryOptimizedLogReplay =
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
 
-  /** Feature flag of stats based file pruning. */
-  private val statsSkippingEnabled = hadoopConf
-    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, true)
-
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////

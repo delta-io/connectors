@@ -503,19 +503,13 @@ class DataSkippingSuite extends FunSuite {
     columnStatsDataTypeTest(hits, misses)
   }
 
-  /**
-   * Query filter: (col1 == 1 AND col2 == 1)
-   * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
-   * First Output: Files pass the column stats filter.
-   * Second Output: All files.
-   * Reason: The first test enabled column stats filter and the output is filtered, but the second
-   * test disabled the filter and it returns all the files.
-   */
   test("integration test: feature flag") {
+    // Query filter: (col1 == 1 AND col2 == 1)
     val expr = new And(
       new EqualTo(schema.column("col1"), Literal.of(1L)),
       new EqualTo(schema.column("col2"), Literal.of(1L)))
 
+    // Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
     val expectedResultWithStatsSkipping = (1 to 20)
       .filter { i =>
         col1Min(i) <= 1 &&
@@ -526,7 +520,7 @@ class DataSkippingSuite extends FunSuite {
       .map(_.toString)
 
     // Stats skipping is enabled by default.
-    // Testing with stats skipping.
+    // Testing with stats skipping: The files will be filtered by `expectedResultWithStatsSkipping`.
     columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
 
     // Disable stats skipping.
@@ -535,7 +529,7 @@ class DataSkippingSuite extends FunSuite {
 
     val expectedResultWithoutStatsSkipping = (1 to 20).map(_.toString)
 
-    // Testing without stats skipping.
+    // Testing without stats skipping: This will return all the files.
     columnStatsBasedFilePruningTest(
       expr,
       expectedResultWithoutStatsSkipping,
