@@ -187,7 +187,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Query: (col1 == 1 && col2 == 1) (1 <= i <= 20)
+   * Query filter: (col1 == 1 && col2 == 1) (1 <= i <= 20)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: column stats filter on 2 non-partition column") {
@@ -207,7 +207,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 && col2 == 1) (1 <= i <= 20)
+   * Query filter: (col2 == 1 && col2 == 1) (1 <= i <= 20)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    */
   test("integration test: multiple filter on 1 non-partition column - duplicate") {
@@ -225,7 +225,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1 AND col2 == 2) (1 <= i <= 20)
+   * Query filter: (col2 == 1 AND col2 == 2) (1 <= i <= 20)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1 && MIN.col2 <= 2 && MAX.col2 >= 2)
    */
   test("integration test: multiple filter on 1 non-partition column - conflict") {
@@ -245,7 +245,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 == 2)
+   * Query filter: (col1 == 2)
    * Column stats filter: (MIN.col1 <= 2 && MAX.col1 >= 2)
    * Output: Return all files. (Column stats filter not work)
    * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not exists in
@@ -261,7 +261,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 == 1 AND col2 == 1)
+   * Query filter: (col1 == 1 AND col2 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because MIN.col2 and MAX.col2 is used in column stats predicate while not exists in
@@ -294,7 +294,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 == 1)
+   * Query filter: (col1 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because stats string is empty, we can't evaluate column stats predicate and will skip
@@ -307,7 +307,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col2 == 1)
+   * Query filter: (col2 == 1)
    * Column stats filter: (MIN.col2 <= 1 && MAX.col2 >= 1)
    * Output: All files. (Column stats filter not work)
    * Reason: Because stats string is broken, we can't evaluate column stats predicate and will skip
@@ -328,7 +328,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (stringCol == "a")
+   * Query filter: (stringCol == "a")
    * Column stats filter: None
    * Output: All files.
    * Reason: Because string type is currently unsupported, we can't evaluate column stats
@@ -341,7 +341,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 <= 1)
+   * Query filter: (col1 <= 1)
    * Column stats filter: None
    * Output: All files.
    * Reason: Because LessThanOrEqual is currently unsupported in building column stats predicate,
@@ -354,7 +354,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (normalCol == 5)
+   * Query filter: (normalCol == 5)
    * Column stats filter: empty
    * Output: All files.
    * Reason: The nested table will not filtered by column stats predicate, because they are not
@@ -507,7 +507,7 @@ class DataSkippingSuite extends FunSuite {
   }
 
   /**
-   * Filter: (col1 == 1 AND col2 == 1)
+   * Query filter: (col1 == 1 AND col2 == 1)
    * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    * First Output: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
    * Second Output: All files.
