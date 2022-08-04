@@ -35,6 +35,7 @@ import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.scan.{DeltaScanImpl, FilteredDeltaScanImpl}
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 
 /**
@@ -58,6 +59,10 @@ private[internal] class SnapshotImpl(
   private val memoryOptimizedLogReplay =
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
 
+  /** Feature flag of stats based file pruning. */
+  private val statsSkippingFlag = hadoopConf
+    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, false)
+
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -69,7 +74,8 @@ private[internal] class SnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.dataSchema)
+      metadataScala.dataSchema,
+      statsSkippingFlag)
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
@@ -105,7 +111,8 @@ private[internal] class SnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.dataSchema)
+      metadataScala.dataSchema,
+      statsSkippingFlag)
 
   def tombstones: Seq[RemoveFileJ] = state.tombstones.toSeq.map(ConversionUtils.convertRemoveFile)
   def setTransactions: Seq[SetTransactionJ] =
@@ -304,6 +311,10 @@ private class InitialSnapshotImpl(
 
   override lazy val metadataScala: Metadata = Metadata()
 
+  /** Feature flag of stats based file pruning. */
+  private val statsSkippingFlag = hadoopConf
+    .getBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, false)
+
   override def scan(): DeltaScan = new DeltaScanImpl(memoryOptimizedLogReplay)
 
   override def scan(predicate: Expression): DeltaScan =
@@ -311,5 +322,6 @@ private class InitialSnapshotImpl(
       memoryOptimizedLogReplay,
       predicate,
       metadataScala.partitionSchema,
-      metadataScala.dataSchema)
+      metadataScala.dataSchema,
+      statsSkippingFlag)
 }

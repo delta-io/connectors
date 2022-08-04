@@ -29,4 +29,10 @@ private[internal] object StandaloneHadoopConf {
 
   /** Key for the class name of the desired [[LogStore]] implementation to be used. */
   val LOG_STORE_CLASS_KEY = "delta.logStore.class"
+
+  /**
+   * Key for the feature flag of column stats based file pruning in `FilteredDeltaScan`, `true` to
+   * enable this feature, `false` to disable the feature. This key is set to `false` by default.
+   */
+  val STATS_SKIPPING_KEY = "io.delta.standalone.STATS_SKIPPING_KEY"
 }

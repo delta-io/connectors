@@ -37,7 +37,8 @@ final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
     partitionSchema: StructType,
-    dataSchema: StructType) extends DeltaScanImpl(replay) {
+    dataSchema: StructType,
+    statsSkippingFlag: Boolean) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
 
@@ -71,9 +72,9 @@ final private[internal] class FilteredDeltaScanImpl(
       true
     }
 
-    if (partitionFilterResult && columnStatsFilter.isDefined) {
-      // Evaluate the column stats filter when partition filter passed and column stats filter is
-      // not empty.
+    if (statsSkippingFlag && partitionFilterResult && columnStatsFilter.isDefined) {
+      // Evaluate the column stats filter when feature flag is true, partition filter passed, and
+      // column stats filter is not empty.
 
       // Get stats value from each AddFile.
       val (fileStats, columnStats) = try {

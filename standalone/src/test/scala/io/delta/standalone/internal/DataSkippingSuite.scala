@@ -25,6 +25,7 @@ import io.delta.standalone.types.{BinaryType, BooleanType, ByteType, DateType, D
 
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
 import io.delta.standalone.internal.data.ColumnStatsRowRecord
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.DataSkippingUtils
 import io.delta.standalone.internal.util.DataSkippingUtils.{MAX, MIN, NULL_COUNT, NUM_RECORDS}
 import io.delta.standalone.internal.util.TestUtils._
@@ -94,9 +95,15 @@ class DataSkippingSuite extends FunSuite {
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true, stats = wrappedColumnStats)
   }
 
-  def withDeltaLog(actions: Seq[Action], m: Option[Metadata] = None) (f: DeltaLog => Unit): Unit = {
+  def withDeltaLog(
+      actions: Seq[Action],
+      m: Option[Metadata] = None,
+      conf: Option[Configuration] = None) (f: DeltaLog => Unit): Unit = {
     withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val newConf = new Configuration()
+      newConf.setBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, true)
+
+      val log = DeltaLog.forTable(conf.getOrElse(newConf), dir.getCanonicalPath)
       log.startTransaction().commit(m.getOrElse(metadata) :: Nil, op, "engineInfo")
       log.startTransaction().commit(actions, op, "engineInfo")
       f(log)
@@ -106,8 +113,9 @@ class DataSkippingSuite extends FunSuite {
   def filePruningTest(
       expr: Expression,
       matchedFilePaths: Seq[String],
-      files: Seq[AddFile]): Unit = {
-    withDeltaLog(files) { log =>
+      files: Seq[AddFile],
+      conf: Option[Configuration] = None): Unit = {
+    withDeltaLog(files, conf = conf) { log =>
       val scan = log.update().scan(expr)
       val iter = scan.getFiles
       var resFiles: Seq[String] = Seq()
@@ -133,16 +141,17 @@ class DataSkippingSuite extends FunSuite {
       expr: Expression,
       matchedFilePaths: Seq[String],
       customStats: Option[Int => String] = None,
-      strColHasValue: Boolean = false): Unit = {
+      strColHasValue: Boolean = false,
+      conf: Option[Configuration] = None): Unit = {
     val logFiles = buildFiles(customStats, strColHasValue)
 
     // Case 1: Test with only column stats predicates.
-    filePruningTest(expr, matchedFilePaths, logFiles)
+    filePruningTest(expr, matchedFilePaths, logFiles, conf)
 
     // Case 2: Test with column stats predicates and partition filter `partitionCol <= 10`.
     val compositeExpr = new And(expr,
       new LessThanOrEqual(schema.column("partitionCol"), Literal.of(10L)))
-    filePruningTest(compositeExpr, matchedFilePaths.filter(_.toLong <= 10L), logFiles)
+    filePruningTest(compositeExpr, matchedFilePaths.filter(_.toLong <= 10L), logFiles, conf)
   }
 
   /**
@@ -495,5 +504,45 @@ class DataSkippingSuite extends FunSuite {
         Literal.of(32000.toShort))
     )
     columnStatsDataTypeTest(hits, misses)
+  }
+
+  /**
+   * Filter: (col1 == 1 AND col2 == 1)
+   * Column stats filter: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
+   * First Output: (MIN.col1 <= 1 && MAX.col1 >= 1 && MIN.col2 <= 1 && MAX.col2 >= 1)
+   * Second Output: All files.
+   * Reason: The first test enabled column stats filter the files are filtered, and the second one
+   * disabled the filter and it returns all the files.
+   */
+  test("integration test: feature flag") {
+    val expr = new And(
+      new EqualTo(schema.column("col1"), Literal.of(1L)),
+      new EqualTo(schema.column("col2"), Literal.of(1L)))
+
+    val expectedResultWithStatsSkipping = (1 to 20)
+      .filter { i =>
+        col1Min(i) <= 1 &&
+          col1Max(i) >= 1 &&
+          col2Min(i) <= 1 &&
+          col2Max(i) >= 1
+      }
+      .map(_.toString)
+
+    // Stats skipping is enabled by default in this suite. However, this feature will be disabled by
+    // default in other conditions.
+    // Testing with stats skipping.
+    columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
+
+    // Disable stats skipping.
+    val disableConf = new Configuration()
+    disableConf.setBoolean(StandaloneHadoopConf.STATS_SKIPPING_KEY, false)
+
+    val expectedResultWithoutStatsSkipping = (1 to 20).map(_.toString)
+
+    // Testing with stats skipping.
+    columnStatsBasedFilePruningTest(
+      expr,
+      expectedResultWithoutStatsSkipping,
+      conf = Some(disableConf))
   }
 }
