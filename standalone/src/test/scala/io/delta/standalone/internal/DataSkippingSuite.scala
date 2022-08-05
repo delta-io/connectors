@@ -520,8 +520,7 @@ class DataSkippingSuite extends FunSuite {
       .map(_.toString)
 
     // Stats skipping is enabled by default.
-    // Testing with stats filter, the files are filtered by
-    // `min.col1 <= 1 && max.col1 >= 1 && min.col2 <= 1 && max.col2 >= 1`.
+    // Testing with stats filter.
     columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
 
     // Disable stats skipping.
