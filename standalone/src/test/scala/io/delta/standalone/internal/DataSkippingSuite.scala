@@ -520,7 +520,8 @@ class DataSkippingSuite extends FunSuite {
       .map(_.toString)
 
     // Stats skipping is enabled by default.
-    // Testing with stats skipping: The files will be filtered by `expectedResultWithStatsSkipping`.
+    // Testing with stats filter, the files are filtered by
+    // `min.col1 <= 1 && max.col1 >= 1 && min.col2 <= 1 && max.col2 >= 1`.
     columnStatsBasedFilePruningTest(expr, expectedResultWithStatsSkipping)
 
     // Disable stats skipping.
@@ -529,7 +530,7 @@ class DataSkippingSuite extends FunSuite {
 
     val expectedResultWithoutStatsSkipping = (1 to 20).map(_.toString)
 
-    // Testing without stats skipping: This will return all the files.
+    // Testing without stats filter, so it will return all the files.
     columnStatsBasedFilePruningTest(
       expr,
       expectedResultWithoutStatsSkipping,

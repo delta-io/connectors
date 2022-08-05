@@ -80,9 +80,6 @@ final private[internal] class FilteredDeltaScanImpl(
     }
 
     if (statsSkippingEnabled && partitionFilterResult && columnStatsFilter.isDefined) {
-      // Evaluate the column stats filter when stats skipping is enabled, partition filter is
-      // passed, and column stats filter is not empty.
-
       // Get stats value from each AddFile.
       val (fileStats, columnStats) = try {
         DataSkippingUtils.parseColumnStats(dataSchema, addFile.stats)
