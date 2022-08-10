@@ -20,11 +20,14 @@ import java.util.Optional
 
 import scala.collection.mutable
 
+import org.apache.hadoop.conf.Configuration
+
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.actions.{AddFile, MemoryOptimizedLogReplay}
 import io.delta.standalone.internal.data.PartitionRowRecord
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.PartitionUtils
 
 /**
@@ -36,24 +39,33 @@ import io.delta.standalone.internal.util.PartitionUtils
 final private[internal] class FilteredDeltaScanImpl(
     replay: MemoryOptimizedLogReplay,
     expr: Expression,
-    partitionSchema: StructType) extends DeltaScanImpl(replay) {
+    partitionSchema: StructType,
+    hadoopConf: Configuration) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
-  private val evaluationResults = mutable.Map.empty[Map[String, String], Boolean]
+  private lazy val evaluationResults = mutable.Map.empty[Map[String, String], Boolean]
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
 
+  private val partitionFilterRecordCachingEnabled = hadoopConf
+    .getBoolean(StandaloneHadoopConf.PARTITION_FILTER_RECORD_CACHING_KEY, true)
+
   override protected def accept(addFile: AddFile): Boolean = {
     if (metadataConjunction.isEmpty) return true
 
-    val cachedResult = evaluationResults.get(addFile.partitionValues)
-    if (cachedResult.isDefined) return cachedResult.get
-
     val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
-    val result = metadataConjunction.get.eval(partitionRowRecord).asInstanceOf[Boolean]
-    evaluationResults(addFile.partitionValues) = result
-    result
+
+    if (partitionFilterRecordCachingEnabled) {
+      val cachedResult = evaluationResults.get(addFile.partitionValues)
+      if (cachedResult.isDefined) return cachedResult.get
+      val result = metadataConjunction.get.eval(partitionRowRecord).asInstanceOf[Boolean]
+      evaluationResults(addFile.partitionValues) = result
+      result
+    } else {
+      val result = metadataConjunction.get.eval(partitionRowRecord).asInstanceOf[Boolean]
+      result
+    }
   }
 
   override def getInputPredicate: Optional[Expression] = Optional.of(expr)
