@@ -43,7 +43,7 @@ final private[internal] class FilteredDeltaScanImpl(
     hadoopConf: Configuration) extends DeltaScanImpl(replay) {
 
   private val partitionColumns = partitionSchema.getFieldNames.toSeq
-  private lazy val evaluationResults = mutable.Map.empty[Map[String, String], Boolean]
+  private val evaluationResults = mutable.Map.empty[Map[String, String], Boolean]
 
   private val (metadataConjunction, dataConjunction) =
     PartitionUtils.splitMetadataAndDataPredicates(expr, partitionColumns)
