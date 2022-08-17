@@ -30,14 +30,14 @@ class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
     new StructField("col2", new StringType(), true),
     new StructField("col3", new StringType(), true),
     new StructField("col4", new StringType(), true),
-    new StructField("col5", new IntegerType(), true),
+    new StructField("col5", new IntegerType(), true)
   ))
 
   private val partitionSchema = new StructType(Array(
     new StructField("col1", new StringType(), true),
     new StructField("col2", new StringType(), true),
     new StructField("col3", new StringType(), true),
-    new StructField("col4", new StringType(), true),
+    new StructField("col4", new StringType(), true)
   ))
 
   private val metadata = Metadata(
@@ -109,6 +109,6 @@ class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
     val totalTimesCaching = elapsedTimesWithCaching.sum
     val totalTimesNoCaching = elapsedTimesWithoutCaching.sum
 
-    assert( totalTimesCaching < totalTimesNoCaching)
+    assert(totalTimesCaching < totalTimesNoCaching)
   }
 }
