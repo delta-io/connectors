@@ -16,6 +16,10 @@ import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.TestUtils._
 
+/**
+ * Micro-benchmarking the feature caching partition filter record.
+ * To run this, temporarily remove @Ignore.
+ */
 @Ignore
 class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
 
@@ -25,13 +29,15 @@ class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
     new StructField("col1", new StringType(), true),
     new StructField("col2", new StringType(), true),
     new StructField("col3", new StringType(), true),
-    new StructField("col4", new IntegerType(), true)
+    new StructField("col4", new StringType(), true),
+    new StructField("col5", new IntegerType(), true),
   ))
 
   private val partitionSchema = new StructType(Array(
     new StructField("col1", new StringType(), true),
     new StructField("col2", new StringType(), true),
     new StructField("col3", new StringType(), true),
+    new StructField("col4", new StringType(), true),
   ))
 
   private val metadata = Metadata(
@@ -44,19 +50,23 @@ class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
       "col1" -> (i % 2).toString,
       "col2" -> (i % 3).toString,
       "col3" -> (i % 2).toString,
+      "col4" -> (i % 5).toString,
     )
     AddFile(i.toString, partitionValues, 1L, 1L, dataChange = true)
   }
 
   private val filter = new And(
-    new EqualTo(partitionSchema.column("col3"), Literal.of("1")),
     new And(
       new EqualTo(partitionSchema.column("col1"), Literal.of("1")),
       new EqualTo(partitionSchema.column("col2"), Literal.of("2"))
+    ),
+    new And(
+      new EqualTo(partitionSchema.column("col3"), Literal.of("1")),
+      new EqualTo(partitionSchema.column("col4"), Literal.of("4")),
     )
   )
 
-  private def scanAndMeasureTime(configuration: Configuration, file: File): Long = {
+  private def scanAndMeasureElapsedTime(configuration: Configuration, file: File): Long = {
     val deltaLog = DeltaLogImpl.forTable(configuration, file.getCanonicalPath)
     deltaLog.startTransaction().commit(metadata :: Nil, op, "engineInfo")
     deltaLog.startTransaction().commit(addFiles, op, "engineInfo")
@@ -86,12 +96,12 @@ class BenchmarkPartitionFilterRecordCachingSuite extends FunSuite with Logging {
 
     (1 to 200).foreach { _ =>
       withTempDir { dir =>
-        val elapsed = scanAndMeasureTime(conf, dir)
+        val elapsed = scanAndMeasureElapsedTime(conf, dir)
         elapsedTimesWithCaching.append(elapsed)
       }
 
       withTempDir { dir =>
-        val elapsed = scanAndMeasureTime(confDisabledCaching, dir)
+        val elapsed = scanAndMeasureElapsedTime(confDisabledCaching, dir)
         elapsedTimesWithoutCaching.append(elapsed)
       }
     }
