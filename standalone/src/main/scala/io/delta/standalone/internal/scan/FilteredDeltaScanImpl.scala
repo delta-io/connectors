@@ -54,7 +54,9 @@ final private[internal] class FilteredDeltaScanImpl(
   override protected def accept(addFile: AddFile): Boolean = {
     if (metadataConjunction.isEmpty) return true
 
-    val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
+    // found in micro-benchmarking that eagerly creating
+    // new PartitionRowRecord can destroy the purpose of caching
+    lazy val partitionRowRecord = new PartitionRowRecord(partitionSchema, addFile.partitionValues)
 
     if (partitionFilterRecordCachingEnabled) {
       val cachedResult = evaluationResults.get(addFile.partitionValues)
