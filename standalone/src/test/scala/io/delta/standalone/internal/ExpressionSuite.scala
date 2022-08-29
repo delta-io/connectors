@@ -19,15 +19,12 @@ package io.delta.standalone.internal
 import java.math.{BigDecimal => BigDecimalJ}
 import java.sql.{Date => DateJ, Timestamp => TimestampJ}
 import java.util.{Arrays => ArraysJ, Objects}
-
 import scala.collection.JavaConverters._
-
 import org.scalatest.FunSuite
 
 import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions.{Column, _}
 import io.delta.standalone.types._
-
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.util.PartitionUtils
@@ -185,6 +182,12 @@ class ExpressionSuite extends FunSuite {
         testPredicate(predicateCreator(Literal.of(small), Literal.of(small2)), smallSmall)
       }
     }
+
+    // TODO:
+    val decimalComparison = new EqualTo(
+      Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+      Literal.of(BigDecimalJ.valueOf(2).setScale(2))
+    )
   }
 
   test("null predicates") {
@@ -235,6 +238,21 @@ class ExpressionSuite extends FunSuite {
       (0 to 10).map{Literal.of}.asJava), false)
     testPredicate( new In(Literal.of(10),
       (0 to 10).map{Literal.of}.asJava), true)
+
+    testPredicate(
+      new In(
+        Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+        List(
+          Literal.of(BigDecimalJ.valueOf(1).setScale(1)),
+          Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+          Literal.of(BigDecimalJ.valueOf(3).setScale(1)),
+          Literal.of(BigDecimalJ.valueOf(4).setScale(1)),
+          Literal.of(BigDecimalJ.valueOf(5).setScale(1)),
+        ).asJava
+      ),
+        true
+      )
+
   }
 
   private def testLiteral(literal: Literal, expectedResult: Any) = {
