@@ -183,11 +183,10 @@ class ExpressionSuite extends FunSuite {
       }
     }
 
-    // TODO:
-    val decimalComparison = new EqualTo(
-      Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+    testPredicate(new EqualTo(
+      Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
       Literal.of(BigDecimalJ.valueOf(2).setScale(2))
-    )
+    ), false)
   }
 
   test("null predicates") {
