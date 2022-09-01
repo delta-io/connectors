@@ -63,7 +63,6 @@ private[internal] class InMemoryLogReplay(
         numProtocol += 1
       case add: AddFile =>
         val canonicalizeAdd = add.copy(
-          dataChange = false,
           path = canonicalizePath(add.path, hadoopConf))
         activeFiles(canonicalizeAdd.pathAsUri) = canonicalizeAdd
         // Remove the tombstone to make sure we only output one `FileAction`.
@@ -71,7 +70,6 @@ private[internal] class InMemoryLogReplay(
         sizeInBytes += canonicalizeAdd.size
       case remove: RemoveFile =>
         val canonicaleRemove = remove.copy(
-          dataChange = false,
           path = canonicalizePath(remove.path, hadoopConf))
         val removedFile = activeFiles.remove(canonicaleRemove.pathAsUri)
         tombstones(canonicaleRemove.pathAsUri) = canonicaleRemove
