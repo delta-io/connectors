@@ -87,7 +87,6 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
         action match {
           case add: AddFile =>
             val canonicalizeAdd = add.copy(
-              dataChange = false,
               path = canonicalizePath(add.path, replay.hadoopConf))
 
             val alreadyDeleted = tombstones.contains(canonicalizeAdd.pathAsUri)
@@ -108,7 +107,6 @@ private[internal] class DeltaScanImpl(replay: MemoryOptimizedLogReplay) extends 
           // AddFile file must be removed if there is a `RemoveFile`
           case remove: RemoveFile if !isCheckpoint =>
             val canonicalizeRemove = remove.copy(
-              dataChange = false,
               path = canonicalizePath(remove.path, replay.hadoopConf))
 
             tombstones += canonicalizeRemove.pathAsUri
