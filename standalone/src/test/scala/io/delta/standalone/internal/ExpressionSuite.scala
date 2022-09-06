@@ -183,10 +183,29 @@ class ExpressionSuite extends FunSuite {
       }
     }
 
+    // test BigDecimal with diff value - same scale
     testPredicate(new EqualTo(
       Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
       Literal.of(BigDecimalJ.valueOf(2).setScale(2))
     ), false)
+
+    // test BigDecimal with diff value - diff scale
+    testPredicate(new EqualTo(
+      Literal.of(BigDecimalJ.valueOf(1).setScale(1)),
+      Literal.of(BigDecimalJ.valueOf(2).setScale(2))
+    ), false)
+
+    // test BigDecimal with same value - diff scale
+    testPredicate(new EqualTo(
+      Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+      Literal.of(BigDecimalJ.valueOf(2).setScale(3))
+    ), true)
+
+    // test BigDecimal with same value - same scale
+    testPredicate(new EqualTo(
+      Literal.of(BigDecimalJ.valueOf(2).setScale(3)),
+      Literal.of(BigDecimalJ.valueOf(2).setScale(3))
+    ), true)
   }
 
   test("null predicates") {
