@@ -19,12 +19,15 @@ package io.delta.standalone.internal
 import java.math.{BigDecimal => BigDecimalJ}
 import java.sql.{Date => DateJ, Timestamp => TimestampJ}
 import java.util.{Arrays => ArraysJ, Objects}
+
 import scala.collection.JavaConverters._
+
 import org.scalatest.FunSuite
 
 import io.delta.standalone.data.RowRecord
 import io.delta.standalone.expressions.{Column, _}
 import io.delta.standalone.types._
+
 import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.data.PartitionRowRecord
 import io.delta.standalone.internal.util.PartitionUtils
@@ -266,11 +269,7 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(3).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(5).setScale(1)),
-        ).asJava
-      ),
-        true
-      )
-
+        ).asJava),true)
   }
 
   private def testLiteral(literal: Literal, expectedResult: Any) = {
