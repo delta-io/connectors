@@ -55,6 +55,16 @@ private[internal] class SnapshotImpl(
 
   import SnapshotImpl._
 
+  // `loadInMemory` uses a parallel collection which, by default, uses ForkJoinPool.commonPool().
+  // This is a static ForkJoinPool instance shared by the entire JVM. This can cause issues for
+  // downstream connectors (e.g. the flink-delta connector) that require no object reference leaks
+  // between jobs. See #424 for more details. To solve this, we create and use our own ForkJoinPool
+  // instance per each Snapshot.
+  //
+  // This default-constructor instance will use a thread pool of size equal to the number of
+  // processors available to the JVM.
+  private val forkJoinPool = new java.util.concurrent.ForkJoinPool()
+
   private val memoryOptimizedLogReplay =
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
 
@@ -170,7 +180,9 @@ private[internal] class SnapshotImpl(
   }
 
   private def loadInMemory(paths: Seq[Path]): Seq[SingleAction] = {
-    new ParVector(paths.map(_.toString).sortWith(_ < _).toVector).par.flatMap { path =>
+    val pv = new ParVector(paths.map(_.toString).sortWith(_ < _).toVector)
+    pv.tasksupport = new scala.collection.parallel.ForkJoinTaskSupport(forkJoinPool)
+    pv.flatMap { path =>
       if (path.endsWith("json")) {
         import io.delta.standalone.internal.util.Implicits._
         deltaLog.store
