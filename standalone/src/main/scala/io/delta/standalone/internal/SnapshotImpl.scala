@@ -63,7 +63,7 @@ private[internal] class SnapshotImpl(
   //
   // This default-constructor instance will use a thread pool of size equal to the number of
   // processors available to the JVM.
-  private val forkJoinPool = new java.util.concurrent.ForkJoinPool()
+  private val forkJoinPool = new scala.concurrent.forkjoin.ForkJoinPool()
 
   private val memoryOptimizedLogReplay =
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)
