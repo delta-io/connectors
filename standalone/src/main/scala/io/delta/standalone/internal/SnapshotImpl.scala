@@ -173,11 +173,14 @@ private[internal] class SnapshotImpl(
   }
 
   private def loadInMemory(paths: Seq[Path]): Seq[SingleAction] = {
-    // `ParVector` by default, uses ForkJoinPool.commonPool(). This is a static ForkJoinPool
+    // `ParVector`, by default, uses ForkJoinPool.commonPool(). This is a static ForkJoinPool
     // instance shared by the entire JVM. This can cause issues for downstream connectors (e.g.
     // the flink-delta connector) that require no object reference leaks between jobs. See #424 for
     // more details. To solve this, we create and use our own ForkJoinPool instance per each method
-    // invocation.
+    // invocation. If we instead create this on a per-Snapshot instance then we couldn't close the
+    // pool and might leak threads. ALso, if we instead create this statically in Snapshot or
+    // DeltaLog (for less overhead) then we are back to the original problem of having a static
+    // ForkJoinPool.
     //
     // Note that we cannot create a ForkJoinPool directly as Scala 2.11 uses
     // scala.collection.forkjoin.ForkJoinPool but Scala 2.12/2.13 uses
