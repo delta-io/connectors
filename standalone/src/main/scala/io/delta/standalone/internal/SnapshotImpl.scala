@@ -177,29 +177,19 @@ private[internal] class SnapshotImpl(
     // instance shared by the entire JVM. This can cause issues for downstream connectors (e.g.
     // the flink-delta connector) that require no object reference leaks between jobs. See #424 for
     // more details. To solve this, we create and use our own ForkJoinPool instance per each method
-    // invocation. It is of type `ExecutorService` since we cannot directly use ForkJoinPool API as
-    // Scala 2.11 uses scala.collection.forkjoin.ForkJoinPool but
-    // Scala 2.12/2.13 uses java.util.concurrent.ForkJoinPool.
+    // invocation.
+    //
+    // Note that we cannot create a ForkJoinPool directly as Scala 2.11 uses
+    // scala.collection.forkjoin.ForkJoinPool but Scala 2.12/2.13 uses
+    // java.util.concurrent.ForkJoinPool.
 
-    // Creates a new ForkJoinPool instance. This instance will use a thread pool of size equal to
-    // the number of processors available to the JVM.
-    val threadPool: ExecutorService = Executors.newWorkStealingPool()
-
-    val executionContext: ExecutionContext = new ExecutionContext {
-      override def execute(runnable: Runnable): Unit = {
-        threadPool.submit(runnable)
-      }
-
-      override def reportFailure(cause: Throwable): Unit = {
-        cause.printStackTrace()
-      }
-    }
-
-    val pv = new ParVector(paths.map(_.toString).sortWith(_ < _).toVector)
-
-    pv.tasksupport = new ExecutionContextTaskSupport(executionContext)
+    // Under the hood, creates a new ForkJoinPool instance. This instance will use a thread pool of
+    // size equal to the number of processors available to the JVM.
+    val execContextService = ExecutionContext.fromExecutorService(null)
 
     try {
+      val pv = new ParVector(paths.map(_.toString).sortWith(_ < _).toVector)
+      pv.tasksupport = new ExecutionContextTaskSupport(execContextService)
       pv.flatMap { path =>
         if (path.endsWith("json")) {
           import io.delta.standalone.internal.util.Implicits._
@@ -222,7 +212,7 @@ private[internal] class SnapshotImpl(
         } else Seq.empty[SingleAction]
       }.toList
     } finally {
-      threadPool.shutdown()
+      execContextService.shutdown()
     }
   }
 
