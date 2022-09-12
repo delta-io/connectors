@@ -109,8 +109,7 @@ DeltaLakeContentBlob = (Folder as text) as table =>
 DeltaLakeContentADLSGen2 = (Folder as text) as table =>
     let
         filesystem = Text.BeforeDelimiter(Folder, "/", 3),
-        directoryCheck = Text.AfterDelimiter(Folder, "/", 3),
-        directory = if directoryCheck = "" then "" else Text.AfterDelimiter(Folder, "/", {0, RelativePosition.FromEnd}),
+        directory = Text.AfterDelimiter(Folder, "/", 3),
         url = filesystem & "?recursive=true&resource=filesystem&directory=" & directory,
         headers = if Extension.CurrentCredential()[AuthenticationKind] = "Implicit" then [] else [Headers=SignRequest(url,directory)],
         response =
