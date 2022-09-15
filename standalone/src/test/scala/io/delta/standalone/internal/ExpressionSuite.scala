@@ -129,7 +129,13 @@ class ExpressionSuite extends FunSuite {
       (Literal.of("apples"), Literal.of("oranges"), Literal.of("apples"),
         Literal.ofNull(new StringType())),
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
-        Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType()))
+        Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType())),
+      // same scales (should already be there actually)
+      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(5, 2))),
+      // different scales
+      (Literal.of(BigDecimalJ.valueOf(1).setScale(1)), Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(5, 2))),
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -185,30 +191,6 @@ class ExpressionSuite extends FunSuite {
         testPredicate(predicateCreator(Literal.of(small), Literal.of(small2)), smallSmall)
       }
     }
-
-    // test BigDecimal with diff value - same scale
-    testPredicate(new EqualTo(
-      Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
-      Literal.of(BigDecimalJ.valueOf(2).setScale(2))
-    ), false)
-
-    // test BigDecimal with diff value - diff scale
-    testPredicate(new EqualTo(
-      Literal.of(BigDecimalJ.valueOf(1).setScale(1)),
-      Literal.of(BigDecimalJ.valueOf(2).setScale(2))
-    ), false)
-
-    // test BigDecimal with same value - diff scale
-    testPredicate(new EqualTo(
-      Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
-      Literal.of(BigDecimalJ.valueOf(2).setScale(3))
-    ), true)
-
-    // test BigDecimal with same value - same scale
-    testPredicate(new EqualTo(
-      Literal.of(BigDecimalJ.valueOf(2).setScale(3)),
-      Literal.of(BigDecimalJ.valueOf(2).setScale(3))
-    ), true)
   }
 
   test("null predicates") {
@@ -260,6 +242,7 @@ class ExpressionSuite extends FunSuite {
     testPredicate( new In(Literal.of(10),
       (0 to 10).map{Literal.of}.asJava), true)
 
+    // BigDecimal value in list, with same scale
     testPredicate(
       new In(
         Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
@@ -269,6 +252,18 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(3).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(5).setScale(1)),
+        ).asJava),true)
+
+    // BigDecimal value in list, with different scale
+    testPredicate(
+      new In(
+        Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
+        List(
+          Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
+          Literal.of(BigDecimalJ.valueOf(2).setScale(2)),
+          Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
+          Literal.of(BigDecimalJ.valueOf(4).setScale(2)),
+          Literal.of(BigDecimalJ.valueOf(5).setScale(2)),
         ).asJava),true)
   }
 
