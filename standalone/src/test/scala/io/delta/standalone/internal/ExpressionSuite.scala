@@ -119,8 +119,6 @@ class ExpressionSuite extends FunSuite {
       (Literal.of(1.0), Literal.of(2.0), Literal.of(1.0), Literal.ofNull(new DoubleType())),
       (Literal.of(1.toByte), Literal.of(2.toByte), Literal.of(1.toByte),
         Literal.ofNull(new ByteType())),
-      (Literal.of(new BigDecimalJ("123.45")), Literal.of(new BigDecimalJ("887.62")),
-        Literal.of(new BigDecimalJ("123.45")), Literal.ofNull(new DecimalType(5, 2))),
       (Literal.False, Literal.True, Literal.False, Literal.ofNull(new BooleanType())),
       (Literal.of(new TimestampJ(0)), Literal.of(new TimestampJ(1000000)),
       Literal.of(new TimestampJ(0)), Literal.ofNull(new TimestampType())),
@@ -132,10 +130,10 @@ class ExpressionSuite extends FunSuite {
         Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType())),
       // same scales (should already be there actually)
       (Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
-        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(5, 2))),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(1, 2))),
       // different scales
-      (Literal.of(BigDecimalJ.valueOf(1).setScale(1)), Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
-        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(5, 2))),
+      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(4)), Literal.ofNull(new DecimalType(1, 2)))
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -252,7 +250,7 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(3).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(5).setScale(1)),
-        ).asJava),true)
+        ).asJava), true)
 
     // BigDecimal value in list, with different scale
     testPredicate(
@@ -264,7 +262,7 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(2)),
           Literal.of(BigDecimalJ.valueOf(5).setScale(2)),
-        ).asJava),true)
+        ).asJava), true)
   }
 
   private def testLiteral(literal: Literal, expectedResult: Any) = {
