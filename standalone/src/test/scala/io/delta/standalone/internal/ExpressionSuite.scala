@@ -129,11 +129,15 @@ class ExpressionSuite extends FunSuite {
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
         Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType())),
       // same scales (should already be there actually)
-      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
-        Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.ofNull(new DecimalType(1, 2))),
+      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
+        Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
+        Literal.ofNull(new DecimalType(1, 2))),
       // different scales
-      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)), Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
-        Literal.of(BigDecimalJ.valueOf(1).setScale(4)), Literal.ofNull(new DecimalType(1, 2)))
+      (Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
+        Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
+        Literal.of(BigDecimalJ.valueOf(1).setScale(4)),
+        Literal.ofNull(new DecimalType(1, 2)))
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -249,7 +253,7 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(3).setScale(1)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(1)),
-          Literal.of(BigDecimalJ.valueOf(5).setScale(1)),
+          Literal.of(BigDecimalJ.valueOf(5).setScale(1))
         ).asJava), true)
 
     // BigDecimal value in list, with different scale
@@ -261,7 +265,7 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(2).setScale(2)),
           Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
           Literal.of(BigDecimalJ.valueOf(4).setScale(2)),
-          Literal.of(BigDecimalJ.valueOf(5).setScale(2)),
+          Literal.of(BigDecimalJ.valueOf(5).setScale(2))
         ).asJava), true)
   }
 
