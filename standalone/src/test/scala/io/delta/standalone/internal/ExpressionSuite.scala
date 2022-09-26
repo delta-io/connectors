@@ -128,7 +128,6 @@ class ExpressionSuite extends FunSuite {
         Literal.ofNull(new StringType())),
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
         Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType())),
-      // same scales (should already be there actually)
       (Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
         Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
         Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
@@ -137,7 +136,7 @@ class ExpressionSuite extends FunSuite {
       (Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
         Literal.of(BigDecimalJ.valueOf(3).setScale(3)),
         Literal.of(BigDecimalJ.valueOf(1).setScale(4)),
-        Literal.ofNull(new DecimalType(1, 2)))
+        Literal.ofNull(new DecimalType(2, 5)))
     )
 
     // Literal creation: (Literal, Literal) -> Expr(a, b) ,
@@ -244,7 +243,8 @@ class ExpressionSuite extends FunSuite {
     testPredicate( new In(Literal.of(10),
       (0 to 10).map{Literal.of}.asJava), true)
 
-    // BigDecimal value in list, with same scale
+    // Here we test In specifically with the BigDecimal data type to make sure we cover
+    // the different cases with values and elements of varying precision and scales
     testPredicate(
       new In(
         Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
@@ -256,7 +256,6 @@ class ExpressionSuite extends FunSuite {
           Literal.of(BigDecimalJ.valueOf(5).setScale(1))
         ).asJava), true)
 
-    // BigDecimal value in list, with different scale
     testPredicate(
       new In(
         Literal.of(BigDecimalJ.valueOf(2).setScale(1)),
