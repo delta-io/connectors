@@ -128,6 +128,7 @@ class ExpressionSuite extends FunSuite {
         Literal.ofNull(new StringType())),
       (Literal.of("apples".getBytes()), Literal.of("oranges".getBytes()),
         Literal.of("apples".getBytes()), Literal.ofNull(new BinaryType())),
+      // same scales
       (Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
         Literal.of(BigDecimalJ.valueOf(3).setScale(2)),
         Literal.of(BigDecimalJ.valueOf(1).setScale(2)),
