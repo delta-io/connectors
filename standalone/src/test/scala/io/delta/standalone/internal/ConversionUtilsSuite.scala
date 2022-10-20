@@ -53,7 +53,7 @@ class ConversionUtilsSuite extends FunSuite {
 
   private val setTransaction = SetTransaction("appId", 1L, Some(2000L))
 
-  private val protocol = Protocol()
+  private val protocol = Protocol(1, 2)
 
   private val actions =
     Seq(addFile, cdcFile, removeFile, metadata, commitInfo, setTransaction, protocol)

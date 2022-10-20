@@ -326,7 +326,8 @@ private class InitialSnapshotImpl(
     SnapshotImpl.State(Nil, Nil, Nil, 0L, 0L, 0L, 0L)
   }
 
-  override lazy val protocolScala: Protocol = Protocol()
+  // TODO: select the default initial protocol version
+  override lazy val protocolScala: Protocol = Protocol(1, 2)
 
   override lazy val metadataScala: Metadata = Metadata()
 
