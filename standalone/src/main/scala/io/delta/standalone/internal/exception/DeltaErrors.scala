@@ -31,6 +31,8 @@ import io.delta.standalone.internal.util.JsonUtils
 /** A holder object for Delta errors. */
 private[internal] object DeltaErrors {
 
+  // TODO: improve this error message to accommodate for standalone vs. connector protocol
+  //  incompatibilities
   /**
    * Thrown when the protocol version of a table is greater than the one supported by this client
    */
@@ -347,6 +349,23 @@ private[internal] object DeltaErrors {
   def nonPartitionColumnAbsentException(): Throwable = {
     new DeltaStandaloneException("Data written into Delta needs to contain at least one " +
       "non-partitioned column")
+  }
+
+  def checkConstraintAlreadyExists(name: String, expression: String): Throwable = {
+    new IllegalArgumentException(
+      s"Constraint '$name' already exists. Please remove the old constraint first.\n" +
+        s"Old constraint: $expression")
+  }
+
+  def checkConstraintDoesNotExist(name: String): Throwable = {
+    new IllegalArgumentException(s"Cannot drop nonexistent constraint '$name'.")
+  }
+
+  def insufficientWriterVersion(existingProtocol: Protocol, minWriterVersion: Int,
+      featureString: String): Throwable = {
+    new DeltaStandaloneException(
+      s"Feature $featureString requires at least writer version $minWriterVersion but current " +
+        s"table protocol is ${existingProtocol.simpleString}")
   }
 
   ///////////////////////////////////////////////////////////////////////////

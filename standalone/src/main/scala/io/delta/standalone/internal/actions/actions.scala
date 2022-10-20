@@ -24,14 +24,17 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 
+import io.delta.standalone.Constraint
 import io.delta.standalone.types.StructType
 
+import io.delta.standalone.internal.DeltaConfigs
+import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
-  val maxSupportedReaderVersion = 1
-  val maxSupportedWriterVersion = 2
+  val maxSupportedReaderVersion = 2
+  val maxSupportedWriterVersion = 5
   val protocolVersion: Protocol = Protocol(maxSupportedReaderVersion, maxSupportedWriterVersion)
 
   def fromJson(json: String): Action = {
@@ -78,6 +81,36 @@ private[internal] object Protocol {
       s"protocol version ($MIN_READER_VERSION_PROP) as part of table properties")
     assert(!metadata.configuration.contains(MIN_WRITER_VERSION_PROP), s"Should not have the " +
       s"protocol version ($MIN_WRITER_VERSION_PROP) as part of table properties")
+  }
+
+  /** Check that the protocol is compatible with any features enabled in the table metadata */
+  def checkMetadataProtocolCompatibility(metadata: Metadata, protocol: Protocol): Unit = {
+    // look at Protocol.requiredMinimumProtocol in Delta
+
+    // Column invariants
+    // check for invariants in the schema
+
+    // Append-only
+    if (DeltaConfigs.IS_APPEND_ONLY.fromMetadata(metadata) && protocol.minWriterVersion < 2) {
+      // todo: when we add the feature enums we can use their string here (and all below)
+      throw DeltaErrors.insufficientWriterVersion(protocol, 2, "appendOnly")
+    }
+
+    // Check constraints
+    if (metadata.configuration.keys.exists(_.startsWith(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
+      && protocol.minWriterVersion < 3) {
+      throw DeltaErrors.insufficientWriterVersion(protocol, 3, "checkConstraint")
+    }
+
+    // Generated columns
+
+    // CDF
+    // check config
+
+    // Column mapping
+    // check column mapping mode
+
+    // todo: Should we check for any unsupported features? i.e. identity columns
   }
 }
 

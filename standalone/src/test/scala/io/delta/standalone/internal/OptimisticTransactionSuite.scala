@@ -316,4 +316,10 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
       assert(committedAddFile.getPath === "file:/absolute/path/to/file/test.parquet")
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // prepareCommit() protocol checks
+  ///////////////////////////////////////////////////////////////////////////
+
+  // TODO: test appendOnly protocol check
 }
