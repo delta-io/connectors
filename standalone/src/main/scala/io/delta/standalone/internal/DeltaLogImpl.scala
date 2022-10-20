@@ -43,7 +43,8 @@ private[internal] class DeltaLogImpl private(
     val hadoopConf: Configuration,
     val logPath: Path,
     val dataPath: Path,
-    val clock: Clock)
+    val clock: Clock,
+    val ignoreConnectorProtocolChecks: Boolean)
   extends DeltaLog
   with Checkpoints
   with MetadataCleanup
@@ -91,6 +92,17 @@ private[internal] class DeltaLogImpl private(
       TimeZone.getTimeZone(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
     }
   }
+
+  // TODO: eventually these (or some equivalent representation, possibly feature sets) will be set
+  //  via public APIs using DeltaLog.forTable.
+  //  For now we use protocol version numbers to keep the same only supported protocol version at
+  //  Protocol(1, 2).
+
+  /** Max reader protocol version the connector engine can read */
+  private val connectorReaderVersion = 1
+
+  /** Max writer protocol version the connector engine can write to */
+  private val connectorWriterVersion = 2
 
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
@@ -173,6 +185,7 @@ private[internal] class DeltaLogImpl private(
 
   override def startTransaction(): OptimisticTransaction = {
     update()
+    assertProtocolWrite(snapshot.protocolScala)
     new OptimisticTransactionImpl(this, snapshot)
   }
 
@@ -182,6 +195,25 @@ private[internal] class DeltaLogImpl private(
   ///////////////////////////////////////////////////////////////////////////
   // Internal Methods
   ///////////////////////////////////////////////////////////////////////////
+
+  // This is a temporary private API to create tables with a higher protocol version to allow
+  // implementing and testing higher-protocol features before we add the public APIs to upgrade
+  // table protocol versions.
+  private[standalone] def startTransactionWithInitialProtocolVersion(
+      readerVersion: Int, writerVersion: Int): OptimisticTransaction = {
+
+    update()
+    assertProtocolWrite(snapshot.protocolScala)
+    if (snapshot.version >= 0) {
+      // To keep the scope small, we only support setting the initial protocol version and not
+      // upgrading the version for existing tables
+      throw new UnsupportedOperationException(
+        "Setting the initial protocol is only supported when committing table version 0")
+    }
+    val txn = new OptimisticTransactionImpl(this, snapshot)
+    txn.upgradeProtocolVersion(readerVersion, writerVersion)
+    txn
+  }
 
   /**
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be
@@ -210,8 +242,16 @@ private[internal] class DeltaLogImpl private(
    * allowed to read the table that is using the given `protocol`.
    */
   def assertProtocolRead(protocol: Protocol): Unit = {
+    // Check Delta Standalone's compatibility
     if (protocol != null && Action.readerVersion < protocol.minReaderVersion) {
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
+    }
+    // Check the connector's compatibility
+    if (!ignoreConnectorProtocolChecks) {
+      if (protocol != null && connectorReaderVersion < protocol.minReaderVersion) {
+        throw new DeltaErrors.InvalidProtocolVersionException(
+          Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
+      }
     }
   }
 
@@ -220,8 +260,16 @@ private[internal] class DeltaLogImpl private(
    * allowed to write to the table that is using the given `protocol`.
    */
   def assertProtocolWrite(protocol: Protocol): Unit = {
+    // Check Delta Standalone's compatibility
     if (protocol != null && Action.writerVersion < protocol.minWriterVersion) {
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
+    }
+    // Check the connector's compatibility
+    if (!ignoreConnectorProtocolChecks) {
+      if (protocol != null && connectorWriterVersion < protocol.minWriterVersion) {
+        throw new DeltaErrors.InvalidProtocolVersionException(
+          Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
+      }
     }
   }
 
@@ -253,13 +301,20 @@ private[standalone] object DeltaLogImpl {
     apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
   }
 
+  def forTable(hadoopConf: Configuration, dataPath: String,
+      ignoreConnectorProtocolChecks: Boolean): DeltaLogImpl = {
+    apply(hadoopConf, new Path(dataPath, "_delta_log"),
+      ignoreConnectorProtocolChecks = ignoreConnectorProtocolChecks)
+  }
+
   private def apply(
       hadoopConf: Configuration,
       rawPath: Path,
-      clock: Clock = new SystemClock): DeltaLogImpl = {
+      clock: Clock = new SystemClock,
+      ignoreConnectorProtocolChecks: Boolean = false): DeltaLogImpl = {
     val fs = rawPath.getFileSystem(hadoopConf)
     val path = fs.makeQualified(rawPath)
 
-    new DeltaLogImpl(hadoopConf, path, path.getParent, clock)
+    new DeltaLogImpl(hadoopConf, path, path.getParent, clock, ignoreConnectorProtocolChecks)
   }
 }
