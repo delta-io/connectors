@@ -99,10 +99,10 @@ private[internal] class DeltaLogImpl private(
   //  Protocol(1, 2).
 
   /** Max reader protocol version the connector engine can read */
-  private val connectorReaderVersion = 1
+  private lazy val connectorReaderVersion = 1
 
   /** Max writer protocol version the connector engine can write to */
-  private val connectorWriterVersion = 2
+  private lazy val connectorWriterVersion = 2
 
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods

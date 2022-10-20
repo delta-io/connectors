@@ -262,7 +262,7 @@ class OptimisticTransactionLegacySuite extends FunSuite {
   test("can't change protocol to invalid version") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Protocol() :: Nil, manualUpdate, engineInfo)
+      log.startTransaction().commit(metadata :: Protocol(1, 2) :: Nil, manualUpdate, engineInfo)
 
       Seq(Protocol(1, 3), Protocol(1, 1), Protocol(2, 2)).foreach { protocol =>
         val e = intercept[AssertionError] {

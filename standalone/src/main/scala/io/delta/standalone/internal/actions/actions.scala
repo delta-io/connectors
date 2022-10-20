@@ -64,8 +64,8 @@ private[internal] sealed trait Action {
  * fields that they do not understand.
  */
 private[internal] case class Protocol(
-    minReaderVersion: Int = Action.readerVersion,
-    minWriterVersion: Int = Action.writerVersion) extends Action {
+    minReaderVersion: Int,
+    minWriterVersion: Int) extends Action {
   override def wrap: SingleAction = SingleAction(protocol = this)
 
   @JsonIgnore
