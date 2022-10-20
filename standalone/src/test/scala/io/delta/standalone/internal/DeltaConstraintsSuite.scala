@@ -31,9 +31,9 @@ class DeltaConstraintsSuite extends FunSuite {
 
   // todo: should we add a test-suite trait storing helpers like this?
   private def testException[T <: Throwable](f: => Any, messageContains: String)
-    (implicit manifest: Manifest[T]) = {
+      (implicit manifest: Manifest[T]) = {
     val e = intercept[T]{
-      f;
+      f
     }.getMessage
     assert(e.contains(messageContains))
   }
@@ -98,7 +98,7 @@ class DeltaConstraintsSuite extends FunSuite {
         "Old constraint: expression"
     )
 
-    // stores constraint lower case
+    // stores constraint lower case in metadata.configuration
     metadata = Metadata.builder().build().addCheckConstraint("NAME", "expression")
     assert(metadata.getConfiguration.get("delta.constraints.name").contains("expression"))
   }
@@ -123,7 +123,7 @@ class DeltaConstraintsSuite extends FunSuite {
   }
 
   test("addCheckConstraint/removeCheckConstraint + getConstraints") {
-    // add one constraint
+    // add a constraint
     var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
     assert(metadata.getConstraints.asScala == Seq(new Constraint("name", "expression")))
 
