@@ -44,7 +44,13 @@ private[internal] class DeltaLogImpl private(
     val logPath: Path,
     val dataPath: Path,
     val clock: Clock,
-    val ignoreConnectorProtocolChecks: Boolean)
+    // connectorReaderVersion and connectorWriterVersion are temporary. Once the public
+    // feature/protocol APIs are added these will be connectorSupportedReaderFeatures and
+    // connectorSupportedWriterFeatures (aka. they will be feature lists instead of versions)
+    /** Max reader protocol version the connector engine can read */
+    val connectorReaderVersion: Int,
+    /** Max writer protocol version the connector engine can write to */
+    val connectorWriterVersion: Int)
   extends DeltaLog
   with Checkpoints
   with MetadataCleanup
@@ -92,20 +98,6 @@ private[internal] class DeltaLogImpl private(
       TimeZone.getTimeZone(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
     }
   }
-
-  // TODO: eventually these (or some equivalent representation, possibly feature sets) will be set
-  //  via public APIs using DeltaLog.forTable.
-  //  For now we use protocol version numbers to keep the same only supported protocol version at
-  //  Protocol(1, 2).
-
-  // connectorReaderVersion and connectorWriterVersion are lazy because otherwise they are
-  // initialized after code in `SnapshotManagement` uses `protocolRead(..)` and `protocolWrite(..)`
-
-  /** Max reader protocol version the connector engine can read */
-  private lazy val connectorReaderVersion = 1
-
-  /** Max writer protocol version the connector engine can write to */
-  private lazy val connectorWriterVersion = 2
 
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
@@ -250,11 +242,9 @@ private[internal] class DeltaLogImpl private(
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
     }
     // Check the connector's compatibility
-    if (!ignoreConnectorProtocolChecks) {
-      if (protocol != null && connectorReaderVersion < protocol.minReaderVersion) {
-        throw new DeltaErrors.InvalidProtocolVersionException(
-          Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
-      }
+    if (protocol != null && connectorReaderVersion < protocol.minReaderVersion) {
+      throw new DeltaErrors.InvalidProtocolVersionException(
+        Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
     }
   }
 
@@ -268,11 +258,9 @@ private[internal] class DeltaLogImpl private(
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
     }
     // Check the connector's compatibility
-    if (!ignoreConnectorProtocolChecks) {
-      if (protocol != null && connectorWriterVersion < protocol.minWriterVersion) {
-        throw new DeltaErrors.InvalidProtocolVersionException(
-          Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
-      }
+    if (protocol != null && connectorWriterVersion < protocol.minWriterVersion) {
+      throw new DeltaErrors.InvalidProtocolVersionException(
+        Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
     }
   }
 
@@ -305,19 +293,26 @@ private[standalone] object DeltaLogImpl {
   }
 
   def forTable(hadoopConf: Configuration, dataPath: String,
-      ignoreConnectorProtocolChecks: Boolean): DeltaLogImpl = {
-    apply(hadoopConf, new Path(dataPath, "_delta_log"),
-      ignoreConnectorProtocolChecks = ignoreConnectorProtocolChecks)
+      supportedReaderVersion: Int, supportedWriterVersion: Int): DeltaLogImpl = {
+
+    apply(
+      hadoopConf,
+      new Path(dataPath, "_delta_log"),
+      supportedReaderVersion = supportedReaderVersion,
+      supportedWriterVersion = supportedWriterVersion
+    )
   }
 
   private def apply(
       hadoopConf: Configuration,
       rawPath: Path,
       clock: Clock = new SystemClock,
-      ignoreConnectorProtocolChecks: Boolean = false): DeltaLogImpl = {
+      supportedReaderVersion: Int = 1,
+      supportedWriterVersion: Int = 2): DeltaLogImpl = {
     val fs = rawPath.getFileSystem(hadoopConf)
     val path = fs.makeQualified(rawPath)
 
-    new DeltaLogImpl(hadoopConf, path, path.getParent, clock, ignoreConnectorProtocolChecks)
+    new DeltaLogImpl(hadoopConf, path, path.getParent, clock, supportedReaderVersion,
+      supportedWriterVersion)
   }
 }

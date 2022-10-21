@@ -33,6 +33,8 @@ import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
+  // Note: features between version (1,2) and (2,5) are in development. We bump to (2,5) now
+  // since the features are not being implemented linearly. This does not affect any public APIs.
   val readerVersion = 2
   val writerVersion = 5
   val protocolVersion: Protocol = Protocol(readerVersion, writerVersion)
