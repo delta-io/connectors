@@ -138,10 +138,10 @@ class DeltaConstraintsSuite extends FunSuite {
     assert(Metadata.builder().build().getConstraints.isEmpty)
   }
 
-  test("check constraints + protocol version checks") {
+  test("check constraints: metadata-protocol compatibility checks") {
     val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
 
-    // fail correctly when too low a protocol version
+    // cannot add a check constraint to a table with too low a protocol version
     withTempDir { dir =>
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransactionWithInitialProtocolVersion(1, 2)
@@ -158,7 +158,7 @@ class DeltaConstraintsSuite extends FunSuite {
       )
     }
 
-    // can commit and retrieve check constraint with sufficient protocol version
+    // can commit and retrieve check constraint for table with sufficient protocol version
     withTempDir { dir =>
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransactionWithInitialProtocolVersion(1, 3)
@@ -175,15 +175,15 @@ class DeltaConstraintsSuite extends FunSuite {
   }
 
   test("example testing connector protocol checks") {
-    // reads fail when connector doesn't support protocol
+    // reads fail when connector doesn't support the table protocol
     withTempDir { dir =>
 
       // create delta log as a connector that supports readerVersion = 1 (in the future,
       // a list of features that doesn't include all the features in the table's protocol)
-      // this will be the public DeltaLog.forTable(...) API and will use supported feature lists
+      // also this will be the public DeltaLog.forTable(...) API and use supported feature lists
       val connectorLog = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, 1, 2)
 
-      // separately commit to table with Protocol(2, 5)
+      // separately commit to the table Protocol(2, 5)
       val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransactionWithInitialProtocolVersion(2, 5)
