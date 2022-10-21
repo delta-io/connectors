@@ -210,7 +210,7 @@ private[internal] class DeltaLogImpl private(
    * allowed to read the table that is using the given `protocol`.
    */
   def assertProtocolRead(protocol: Protocol): Unit = {
-    if (protocol != null && Action.readerVersion < protocol.minReaderVersion) {
+    if (protocol != null && Action.maxSupportedReaderVersion < protocol.minReaderVersion) {
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
     }
   }
@@ -220,7 +220,7 @@ private[internal] class DeltaLogImpl private(
    * allowed to write to the table that is using the given `protocol`.
    */
   def assertProtocolWrite(protocol: Protocol): Unit = {
-    if (protocol != null && Action.writerVersion < protocol.minWriterVersion) {
+    if (protocol != null && Action.maxSupportedWriterVersion < protocol.minWriterVersion) {
       throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
     }
   }

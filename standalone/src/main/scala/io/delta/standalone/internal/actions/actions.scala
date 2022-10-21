@@ -30,9 +30,9 @@ import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
-  val readerVersion = 1
-  val writerVersion = 2
-  val protocolVersion: Protocol = Protocol(readerVersion, writerVersion)
+  val maxSupportedReaderVersion = 1
+  val maxSupportedWriterVersion = 2
+  val protocolVersion: Protocol = Protocol(maxSupportedReaderVersion, maxSupportedWriterVersion)
 
   def fromJson(json: String): Action = {
     JsonUtils.mapper.readValue[SingleAction](json).unwrap
@@ -61,8 +61,8 @@ private[internal] sealed trait Action {
  * fields that they do not understand.
  */
 private[internal] case class Protocol(
-    minReaderVersion: Int = Action.readerVersion,
-    minWriterVersion: Int = Action.writerVersion) extends Action {
+    minReaderVersion: Int = Action.maxSupportedReaderVersion,
+    minWriterVersion: Int = Action.maxSupportedWriterVersion) extends Action {
   override def wrap: SingleAction = SingleAction(protocol = this)
 
   @JsonIgnore
