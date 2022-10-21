@@ -25,6 +25,8 @@ import io.delta.standalone.{Constraint, Operation}
 import io.delta.standalone.actions.Metadata
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
+import io.delta.standalone.internal.actions.Action
+import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
 import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaConstraintsSuite extends FunSuite {
@@ -36,6 +38,10 @@ class DeltaConstraintsSuite extends FunSuite {
       f
     }.getMessage
     assert(e.contains(messageContains))
+  }
+
+  def getDeltaLogWithStandaloneAsConnector(conf: Configuration, path: String) : DeltaLogImpl = {
+    DeltaLogImpl.forTable(conf, path, Action.readerVersion, Action.writerVersion)
   }
 
   def testGetConstraints(configuration: Map[String, String],
@@ -137,7 +143,7 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // fail correctly when too low a protocol version
     withTempDir { dir =>
-      val log = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, true)
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransactionWithInitialProtocolVersion(1, 2)
       val metadata = Metadata.builder().schema(schema).build()
         .addCheckConstraint("test", "col1 < 0")
@@ -154,7 +160,7 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // can commit and retrieve check constraint with sufficient protocol version
     withTempDir { dir =>
-      val log = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, true)
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransactionWithInitialProtocolVersion(1, 3)
       val metadata = Metadata.builder().schema(schema).build()
         .addCheckConstraint("test", "col1 < 0")
@@ -165,6 +171,34 @@ class DeltaConstraintsSuite extends FunSuite {
       )
       assert(log.startTransaction().metadata().getConstraints.asScala ==
         Seq(new Constraint("test", "col1 < 0")))
+    }
+  }
+
+  test("example testing connector protocol checks") {
+    // reads fail when connector doesn't support protocol
+    withTempDir { dir =>
+
+      // create delta log as a connector that supports readerVersion = 1 (in the future,
+      // a list of features that doesn't include all the features in the table's protocol)
+      // this will be the public DeltaLog.forTable(...) API and will use supported feature lists
+      val connectorLog = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, 1, 2)
+
+      // separately commit to table with Protocol(2, 5)
+      val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransactionWithInitialProtocolVersion(2, 5)
+      val metadata = Metadata.builder().schema(schema).build()
+      txn.commit(
+        Iterable(metadata).asJava,
+        new Operation(Operation.Name.MANUAL_UPDATE),
+        "test-engine-info"
+      )
+
+      // try to read the table as the connector
+      testException[InvalidProtocolVersionException](
+        connectorLog.update(),
+        "Please upgrade to a newer release" // this error message will be updated
+      )
     }
   }
 }
