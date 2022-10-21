@@ -493,7 +493,7 @@ private[internal] class OptimisticTransactionImpl(
     }
 
     Protocol.checkMetadataProtocolProperties(metadata, protocol)
-    Protocol.checkMetadataProtocolCompatibility(metadata, protocol)
+    Protocol.checkMetadataFeatureProtocolCompatibility(metadata, protocol)
   }
 
   /**

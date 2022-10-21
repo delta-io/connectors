@@ -157,7 +157,8 @@ public final class Metadata implements Action {
     }
 
     /**
-     * Add the specified check constraint to the {@code configuration}
+     * Returns a new {@link Metadata} instance with the same properties as this instance but with
+     * the specified check constraint added to the {@code configuration}
      * @param name  the name of the check constraint
      * @param expression  the condition to enforce as a SQL string
      * @return a new {@link Metadata} instance with the same properties as this instance but with
@@ -175,7 +176,8 @@ public final class Metadata implements Action {
     }
 
     /**
-     * Removes the specified check constraint from the {@code configuration}
+     * Returns a new {@link Metadata} instance with the same properties as this instance but with
+     * the specified check constraint removed from the {@code configuration}
      * @param name  the name of the check constraint to remove
      * @return a new {@link Metadata} instance with the same properties as this instance but with
      *         the specified check constraint removed

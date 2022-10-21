@@ -98,6 +98,9 @@ private[internal] class DeltaLogImpl private(
   //  For now we use protocol version numbers to keep the same only supported protocol version at
   //  Protocol(1, 2).
 
+  // connectorReaderVersion and connectorWriterVersion are lazy because otherwise they are
+  // initialized after code in `SnapshotManagement` uses `protocolRead(..)` and `protocolWrite(..)`
+
   /** Max reader protocol version the connector engine can read */
   private lazy val connectorReaderVersion = 1
 

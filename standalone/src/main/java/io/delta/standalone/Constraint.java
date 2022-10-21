@@ -20,14 +20,17 @@ import java.util.Objects;
 
 import javax.annotation.Nonnull;
 
+import io.delta.standalone.actions.Metadata;
+import io.delta.standalone.types.StructField;
+
 // TODO: if we ever plan to support not-null constraints as a java class should we name this
 //  "CheckConstraint" even though we will also be presenting invariants in this form?
 
 /**
  * Represents a constraint defined on a Delta table which writers must verify before writing.
  * Constraints can come in one of two ways:
- * - A CHECK constraint which is stored in {@code metadata.configuration}
- * - A column invariant which is stored in a column's metadata
+ * - A CHECK constraint which is stored in {@link Metadata#getConfiguration()}
+ * - A column invariant which is stored in {@link StructField#getMetadata()}
  */
 public final class Constraint {
 
