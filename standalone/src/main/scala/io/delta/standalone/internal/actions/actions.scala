@@ -84,7 +84,7 @@ private[internal] object Protocol {
   }
 
   /** Check that the protocol is compatible with any features enabled in the table metadata */
-  def checkMetadataProtocolCompatibility(metadata: Metadata, protocol: Protocol): Unit = {
+  def checkMetadataFeatureProtocolCompatibility(metadata: Metadata, protocol: Protocol): Unit = {
     // look at Protocol.requiredMinimumProtocol in Delta
 
     // Column invariants
