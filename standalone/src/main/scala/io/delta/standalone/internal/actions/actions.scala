@@ -99,10 +99,6 @@ private[internal] object Protocol {
     }
 
     // Check constraints
-    if (metadata.configuration.keys.exists(_.startsWith(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
-      && protocol.minWriterVersion < 3) {
-      throw DeltaErrors.insufficientWriterVersion(protocol, 3, "checkConstraint")
-    }
 
     // Generated columns
 

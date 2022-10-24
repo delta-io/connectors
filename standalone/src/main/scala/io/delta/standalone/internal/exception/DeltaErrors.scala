@@ -351,16 +351,6 @@ private[internal] object DeltaErrors {
       "non-partitioned column")
   }
 
-  def checkConstraintAlreadyExists(name: String, expression: String): Throwable = {
-    new IllegalArgumentException(
-      s"Constraint '$name' already exists. Please remove the old constraint first.\n" +
-        s"Old constraint: $expression")
-  }
-
-  def checkConstraintDoesNotExist(name: String): Throwable = {
-    new IllegalArgumentException(s"Cannot drop nonexistent constraint '$name'.")
-  }
-
   def insufficientWriterVersion(existingProtocol: Protocol, minWriterVersion: Int,
       featureString: String): Throwable = {
     new DeltaStandaloneException(
