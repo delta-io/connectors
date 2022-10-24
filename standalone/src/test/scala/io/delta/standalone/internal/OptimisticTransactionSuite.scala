@@ -23,11 +23,13 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-import io.delta.standalone.DeltaLog
+import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo, Metadata => MetadataJ, Protocol, SetTransaction => SetTransactionJ}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.actions.{AddFile, Metadata}
+import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
+import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.TestUtils._
 
 class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
@@ -321,5 +323,83 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
   // prepareCommit() protocol checks
   ///////////////////////////////////////////////////////////////////////////
 
-  // TODO: test appendOnly protocol check
+  test("appendOnly: metadata-protocol compatibility checks") {
+    val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
+
+    // cannot set appendOnly=true with too low a protocol version
+    withTempDir { dir =>
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransactionWithInitialProtocolVersion(1, 1)
+      val metadata = MetadataJ.builder().schema(schema)
+        // TODO: add a with config method to Metadata? at least add to TestUtils then
+        .configuration(Map(DeltaConfigs.IS_APPEND_ONLY.key -> "true").asJava)
+        .build()
+      testException[RuntimeException](
+        txn.commit(
+          Iterable(metadata).asJava,
+          new Operation(Operation.Name.MANUAL_UPDATE),
+          "test-engine-info"
+        ),
+        "Feature appendOnly requires at least writer version 2 but current " +
+          "table protocol is (1, 1)"
+      )
+    }
+
+    // can enable appendOnly with sufficient protocol version
+    withTempDir { dir =>
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransactionWithInitialProtocolVersion(1, 2)
+      val metadata = MetadataJ.builder().schema(schema)
+        .configuration(Map(DeltaConfigs.IS_APPEND_ONLY.key -> "true").asJava)
+        .build()
+      txn.commit(
+        Iterable(metadata).asJava,
+        new Operation(Operation.Name.MANUAL_UPDATE),
+        "test-engine-info"
+      )
+      assert(DeltaConfigs.IS_APPEND_ONLY.fromMetadata(
+          ConversionUtils.convertMetadataJ(log.startTransaction().metadata())))
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // TEMPORARY (will be removed before merging)
+  ///////////////////////////////////////////////////////////////////////////
+  
+  // This is to demonstrate the two types of tests we will have:
+  // (1) Testing the connector protocol checks. Do we correctly use the provided
+  //     supportedReaderFeatures/supportedWriterFeatures to fail? (this can be failing reads/writes,
+  //     failing enableFeatureInProtocol etc)
+  // (2) Testing feature APIs. As an example, do we verify the metadata correctly?
+
+  // The test below is an example of (1). The test above is an example of (2)
+
+  test("example of type (1) test") {
+    // reads fail when connector doesn't support the table protocol
+    withTempDir { dir =>
+
+      // create delta log as a connector that supports readerVersion = 1 (in the future,
+      // a list of features that doesn't include all the features in the table's protocol)
+      // also this will be the public DeltaLog.forTable(...) API and use supported feature lists
+      val connectorLog = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, 1, 2)
+
+      // separately commit to the table Protocol(2, 5)
+      val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
+      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransactionWithInitialProtocolVersion(2, 5)
+      val metadata = MetadataJ.builder().schema(schema).build()
+      txn.commit(
+        Iterable(metadata).asJava,
+        new Operation(Operation.Name.MANUAL_UPDATE),
+        "test-engine-info"
+      )
+
+      // try to read the table as the connector
+      testException[InvalidProtocolVersionException](
+        connectorLog.update(),
+        "Please upgrade to a newer release" // this error message will be updated
+      )
+    }
+  }
+
 }
