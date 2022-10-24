@@ -365,7 +365,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
   ///////////////////////////////////////////////////////////////////////////
   // TEMPORARY (will be removed before merging)
   ///////////////////////////////////////////////////////////////////////////
-  
+
   // This is to demonstrate the two types of tests we will have:
   // (1) Testing the connector protocol checks. Do we correctly use the provided
   //     supportedReaderFeatures/supportedWriterFeatures to fail? (this can be failing reads/writes,
