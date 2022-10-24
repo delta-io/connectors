@@ -60,6 +60,7 @@ object TestUtils {
   }
 
   def getDeltaLogWithStandaloneAsConnector(conf: Configuration, path: String) : DeltaLogImpl = {
-    DeltaLogImpl.forTable(conf, path, Action.readerVersion, Action.writerVersion)
+    DeltaLogImpl.forTable(conf, path,
+      Action.maxSupportedReaderVersion, Action.maxSupportedWriterVersion)
   }
 }

@@ -235,10 +235,12 @@ private[internal] class OptimisticTransactionImpl(
   private[standalone] def upgradeProtocolVersion(readerVersion: Int, writerVersion: Int): Unit = {
       // deltaLog.assertProtocolWrite(Protocol(readerVersion, writerVersion))
       // deltaLog.assertProtocolRead(Protocol(readerVersion, writerVersion))
-    assert(readerVersion <= Action.readerVersion && writerVersion <= Action.writerVersion,
+    assert(readerVersion <= Action.maxSupportedReaderVersion &&
+      writerVersion <= Action.maxSupportedWriterVersion,
       s"You cannot upgrade to a protocol ($readerVersion, $writerVersion) version " +
         s"Delta Standalone does not support.\n" +
-        s"Max Delta Standalone version: (${Action.readerVersion}, ${Action.writerVersion})")
+        s"Max Delta Standalone version: (${Action.maxSupportedReaderVersion}, " +
+        s"${Action.maxSupportedWriterVersion})")
     newProtocol = Some(Protocol(readerVersion, writerVersion))
   }
 
