@@ -52,7 +52,7 @@ object TestUtils {
 
   // todo: any reason why this isn't a trait? add basic schema and other utils?
   def testException[T <: Throwable](f: => Any, messageContains: String)
-    (implicit manifest: Manifest[T]) = {
+    (implicit manifest: Manifest[T]): Unit = {
     val e = intercept[T]{
       f
     }.getMessage

@@ -191,9 +191,9 @@ private[internal] class DeltaLogImpl private(
   // Internal Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  // This is a temporary private API to create tables with a higher protocol version to allow
-  // implementing and testing higher-protocol features before we add the public APIs to upgrade
-  // table protocol versions.
+  // This is a temporary internal API to create tables with a specific protocol version to allow
+  // implementing and testing higher-protocol features before we add the public APIs to set the
+  // table protocol version
   private[standalone] def startTransactionWithInitialProtocolVersion(
       readerVersion: Int, writerVersion: Int): OptimisticTransaction = {
 
