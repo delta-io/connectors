@@ -323,13 +323,15 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
   // prepareCommit() protocol checks
   ///////////////////////////////////////////////////////////////////////////
 
-  test("appendOnly: metadata-protocol compatibility checks") {
+  // TODO: unblock these tests once we allow writerVersion=1
+  ignore("appendOnly: metadata-protocol compatibility checks") {
     val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
 
     // cannot set appendOnly=true with too low a protocol version
     withTempDir { dir =>
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
-      val txn = log.startTransactionWithInitialProtocolVersion(1, 1)
+      val txn = log.startTransaction()
+      txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 1)
       val metadata = MetadataJ.builder().schema(schema)
         // TODO: add a with config method to Metadata? at least add to TestUtils then
         .configuration(Map(DeltaConfigs.IS_APPEND_ONLY.key -> "true").asJava)
@@ -348,7 +350,8 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
     // can enable appendOnly with sufficient protocol version
     withTempDir { dir =>
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
-      val txn = log.startTransactionWithInitialProtocolVersion(1, 2)
+      val txn = log.startTransaction()
+      txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 1)
       val metadata = MetadataJ.builder().schema(schema)
         .configuration(Map(DeltaConfigs.IS_APPEND_ONLY.key -> "true").asJava)
         .build()
@@ -386,7 +389,8 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
       // separately commit to the table Protocol(2, 5)
       val schema = new StructType(Array(new StructField("col1", new IntegerType(), true)))
       val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
-      val txn = log.startTransactionWithInitialProtocolVersion(2, 5)
+      val txn = log.startTransaction()
+      txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(2, 5)
       val metadata = MetadataJ.builder().schema(schema).build()
       txn.commit(
         Iterable(metadata).asJava,

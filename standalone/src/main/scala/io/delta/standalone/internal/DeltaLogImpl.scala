@@ -191,25 +191,6 @@ private[internal] class DeltaLogImpl private(
   // Internal Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  // This is a temporary internal API to create tables with a specific protocol version to allow
-  // implementing and testing higher-protocol features before we add the public APIs to set the
-  // table protocol version
-  private[standalone] def startTransactionWithInitialProtocolVersion(
-      readerVersion: Int, writerVersion: Int): OptimisticTransaction = {
-
-    update()
-    assertProtocolWrite(snapshot.protocolScala)
-    if (snapshot.version >= 0) {
-      // To keep the scope small, we only support setting the initial protocol version and not
-      // upgrading the version for existing tables
-      throw new UnsupportedOperationException(
-        "Setting the initial protocol is only supported when committing table version 0")
-    }
-    val txn = new OptimisticTransactionImpl(this, snapshot)
-    txn.upgradeProtocolVersion(readerVersion, writerVersion)
-    txn
-  }
-
   /**
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be
    * interrupted when waiting for the lock.

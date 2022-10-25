@@ -229,19 +229,13 @@ private[internal] class OptimisticTransactionImpl(
   // Internal Test-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  // This is a lightweight version of the eventual public upgrade protocol by version API. When this
-  // is formally added it will be added to OptimisticTransaction and additional checks will be
-  // performed
+  // This is an internal test-only version of the eventual upgrade protocol by version API.
+  // Later it will be formally added to OptimisticTransaction (with unit tests)
   private[standalone] def upgradeProtocolVersion(readerVersion: Int, writerVersion: Int): Unit = {
-      // deltaLog.assertProtocolWrite(Protocol(readerVersion, writerVersion))
-      // deltaLog.assertProtocolRead(Protocol(readerVersion, writerVersion))
-    assert(readerVersion <= Action.maxSupportedReaderVersion &&
-      writerVersion <= Action.maxSupportedWriterVersion,
-      s"You cannot upgrade to a protocol ($readerVersion, $writerVersion) version " +
-        s"Delta Standalone does not support.\n" +
-        s"Max Delta Standalone version: (${Action.maxSupportedReaderVersion}, " +
-        s"${Action.maxSupportedWriterVersion})")
-    newProtocol = Some(Protocol(readerVersion, writerVersion))
+    val upgradedProtocol = Protocol(readerVersion, writerVersion)
+    deltaLog.assertProtocolWrite(upgradedProtocol)
+    deltaLog.assertProtocolRead(upgradedProtocol)
+    newProtocol = Some(upgradedProtocol)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -309,6 +303,10 @@ private[internal] class OptimisticTransactionImpl(
       //  will be performed in those individual methods and these can be removed here
       deltaLog.assertProtocolRead(protocolOpt.get)
       deltaLog.assertProtocolWrite(protocolOpt.get)
+      // TODO: to maintain past behavior for now we don't allow writerVersion < 2
+      assert(protocolOpt.get.minWriterVersion >= 2,
+        s"Invalid Protocol ${protocolOpt.get.simpleString}. " +
+          s"Currently only Protocol readerVersion 1 and readerVersion 2 is supported")
     }
 
     val partitionColumns = metadataScala.partitionColumns.toSet
