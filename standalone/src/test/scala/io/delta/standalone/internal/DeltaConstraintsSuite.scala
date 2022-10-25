@@ -29,10 +29,14 @@ import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaConstraintsSuite extends FunSuite {
 
-  def testGetConstraints(configuration: Map[String, String],
+  private def testGetConstraints(configuration: Map[String, String],
       expectedConstraints: Seq[Constraint]): Unit = {
     val metadata = Metadata.builder().configuration(configuration.asJava).build()
     assert(metadata.getConstraints.asScala == expectedConstraints)
+  }
+
+  private def getCheckConstraintKey(name: String): String = {
+    Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name
   }
 
   test("getConstraints") {
@@ -41,15 +45,15 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // retrieve one check constraints
     testGetConstraints(
-      Map("delta.constraints.constraint1" -> "expression1"),
+      Map(getCheckConstraintKey("constraint1") -> "expression1"),
       Seq(new Constraint("constraint1", "expression1"))
     )
 
     // retrieve two check constraints
     testGetConstraints(
       Map(
-        "delta.constraints.constraint1" -> "expression1",
-        "delta.constraints.constraint2" -> "expression2"
+        getCheckConstraintKey("constraint1") -> "expression1",
+        getCheckConstraintKey("constraint2") -> "expression2"
       ),
       Seq(new Constraint("constraint1", "expression1"),
         new Constraint("constraint2", "expression2"))
@@ -59,21 +63,27 @@ class DeltaConstraintsSuite extends FunSuite {
     testGetConstraints(
       Map(
         // should be retrieved, preserves expression case
-        "delta.constraints.constraints" -> "EXPRESSION3",
+        getCheckConstraintKey("constraints") -> "EXPRESSION",
+        getCheckConstraintKey("delta.constraints") ->
+          "expression0",
+        getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX) ->
+          "expression1",
         // should not be retrieved
         "constraint1" -> "expression1",
         "delta.constraint.constraint2" -> "expression2",
         "constraints.constraint3" -> "expression3",
         "DELTA.CONSTRAINTS.constraint4" -> "expression4"
       ),
-      Seq(new Constraint("constraints", "EXPRESSION3"))
+      Seq(new Constraint("constraints", "EXPRESSION"),
+        new Constraint("delta.constraints", "expression0"),
+        new Constraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
     )
   }
 
   test("addCheckConstraint") {
     // add a constraint
     var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
-    assert(metadata.getConfiguration.get("delta.constraints.name").contains("expression"))
+    assert(metadata.getConfiguration.get(getCheckConstraintKey("name")).contains("expression"))
 
     // add an already existing constraint
     testException[IllegalArgumentException](
@@ -91,26 +101,42 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // stores constraint lower case in metadata.configuration
     metadata = Metadata.builder().build().addCheckConstraint("NAME", "expression")
-    assert(metadata.getConfiguration.get("delta.constraints.name").contains("expression"))
+    assert(metadata.getConfiguration.get(getCheckConstraintKey("name")).contains("expression"))
+
+    // add constraint with name='delta.constraints.'
+    metadata = Metadata.builder().build()
+      .addCheckConstraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression")
+    assert(metadata.getConfiguration
+      .get(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
+      .contains("expression"))
   }
 
   test("removeCheckConstraint") {
     // remove a constraint
-    val configuration = Map("delta.constraints.name" -> "expression").asJava
+    val configuration = Map(getCheckConstraintKey("name") -> "expression").asJava
     var metadata = Metadata.builder().configuration(configuration).build()
       .removeCheckConstraint("name")
-    assert(!metadata.getConfiguration.containsKey("delta.constraints.name"))
+    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("name")))
 
     // remove a non-existent constraint
     val e = intercept[IllegalArgumentException](
-      metadata.removeCheckConstraint("name")
+      Metadata.builder().build().removeCheckConstraint("name")
     ).getMessage
     assert(e.contains("Cannot drop nonexistent constraint 'name'"))
 
     // not-case sensitive
     metadata = Metadata.builder().configuration(configuration).build()
       .removeCheckConstraint("NAME")
-    assert(!metadata.getConfiguration.containsKey("delta.constraints.name"))
+    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("name")))
+    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("NAME")))
+
+    // remove constraint with name='delta.constraints.'
+    metadata = Metadata.builder().configuration(
+      Map(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX) -> "expression").asJava)
+      .build()
+      .removeCheckConstraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX)
+    assert(!metadata.getConfiguration
+      .containsKey(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX)))
   }
 
   test("addCheckConstraint/removeCheckConstraint + getConstraints") {

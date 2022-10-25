@@ -146,10 +146,11 @@ public final class Metadata implements Action {
         // todo: get column invariants
 
         // get check constraints
+        String prefixRegex = "^" + Constraint.CHECK_CONSTRAINT_KEY_PREFIX;
         List<Constraint> checkConstraints = configuration.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
                 .map(entry -> new Constraint(
-                                entry.getKey().replace(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, ""),
+                                entry.getKey().replaceFirst(prefixRegex, ""),
                                 entry.getValue()))
                 .collect(Collectors.toList());
 
@@ -166,7 +167,6 @@ public final class Metadata implements Action {
      * @throws IllegalArgumentException if a constraint with name already exists
      */
     public Metadata addCheckConstraint(String name, String expression) throws Throwable {
-        // todo: check constraint name format
         String fullKey = Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name.toLowerCase(Locale.ROOT);
         if (configuration.containsKey(fullKey)) {
             // todo: decide if we want to throw an error here
