@@ -20,11 +20,12 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
-
 import io.delta.standalone.{Constraint, Operation}
-import io.delta.standalone.actions.Metadata
-import io.delta.standalone.types.{IntegerType, StructField, StructType}
 
+import io.delta.standalone.actions.Metadata
+import io.delta.standalone.types.{FieldMetadata, IntegerType, StringType, StructField, StructType}
+
+import io.delta.standalone.internal.util.InvariantUtils
 import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaConstraintsSuite extends FunSuite {
@@ -76,6 +77,10 @@ class DeltaConstraintsSuite extends FunSuite {
         ConstraintImpl(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
     )
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // CHECK constraints
+  ///////////////////////////////////////////////////////////////////////////
 
   test("addCheckConstraint") {
     // add a constraint
@@ -190,4 +195,82 @@ class DeltaConstraintsSuite extends FunSuite {
         Seq(ConstraintImpl("test", "col1 < 0")))
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // column invariants
+  ///////////////////////////////////////////////////////////////////////////
+
+  // I guess just test get??
+  test("column invariants") {
+    val expr = "value < 3"
+    var metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      InvariantUtils.PersistedExpression(expr).json)
+      .build()
+    var schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+
+    metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      """{"expression":{"expression":"value < 3"}}""")
+      .build()
+    schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+
+    metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      """{"expression":{"foo":"value < 3"}}""")
+      .build()
+    schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+
+    metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      """{"foo":{"foo":"value < 3"}}""")
+      .build()
+    schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+  }
+
+  test("column invariants 2") {
+    val expr = "value < 3"
+    var metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      """{"expression":{}}""")
+      .build()
+    var schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+  }
+
+  test("column invariants 3") {
+    val expr = "value < 3"
+    var metadata = FieldMetadata.builder().putString(
+      InvariantUtils.INVARIANTS_FIELD,
+      """{"expression":"value < 3"}""")
+      .build()
+    var schema = new StructType()
+      .add("key", new StringType())
+      .add(new StructField("value", new IntegerType(), true, metadata))
+    // scalastyle:off
+    println(Metadata.builder().schema(schema).build().getConstraints())
+  }
+
+
+  // test where they are? look at what you've implemented to decide what needs to be tested
+
 }

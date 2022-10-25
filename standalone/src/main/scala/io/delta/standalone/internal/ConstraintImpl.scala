@@ -21,7 +21,10 @@ import java.util.Locale
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.Constraint
+
 import io.delta.standalone.actions.Metadata
+
+import io.delta.standalone.internal.util.InvariantUtils
 
 /**
  * Scala implementation of Java interface [[Constraint]].
@@ -44,10 +47,8 @@ private[standalone] object ConstraintImpl {
    * [[StructField#getMetadata( )]].
    */
   def getConstraints(metadata: Metadata): java.util.List[Constraint] = {
-    // todo: get column invariants
-
-    // get check constraints
-    getCheckConstraints(metadata.getConfiguration.asScala.toMap).asJava
+    (InvariantUtils.getFromSchema(metadata.getSchema)
+      ++ getCheckConstraints(metadata.getConfiguration.asScala.toMap)).asJava
   }
 
   ///////////////////////////////////////////////////////////////////////////

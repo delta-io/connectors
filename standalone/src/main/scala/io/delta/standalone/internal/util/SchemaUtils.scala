@@ -142,6 +142,36 @@ private[standalone] object SchemaUtils {
     isStructWriteCompatible(existingSchema, newSchema)
   }
 
+  /**
+   * Finds `StructField`s that match a given check `f`. Returns the path to the column, and the
+   * field.
+   *
+   * @param checkComplexTypes While `StructType` is also a complex type, since we're returning
+   *                          StructFields, we definitely recurse into StructTypes. This flag
+   *                          defines whether we should recurse into ArrayType and MapType.
+   */
+  def filterRecursively(
+    schema: StructType,
+    checkComplexTypes: Boolean)(f: StructField => Boolean): Seq[(Seq[String], StructField)] = {
+    def recurseIntoComplexTypes(
+      complexType: DataType,
+      columnStack: Seq[String]): Seq[(Seq[String], StructField)] = complexType match {
+      case s: StructType =>
+        s.getFields.flatMap { sf =>
+          val includeLevel = if (f(sf)) Seq((columnStack, sf)) else Nil
+          includeLevel ++ recurseIntoComplexTypes(sf.getDataType, columnStack :+ sf.getName)
+        }
+      case a: ArrayType if checkComplexTypes =>
+        recurseIntoComplexTypes(a.getElementType, columnStack :+ "element")
+      case m: MapType if checkComplexTypes =>
+        recurseIntoComplexTypes(m.getKeyType, columnStack :+ "key") ++
+          recurseIntoComplexTypes(m.getValueType, columnStack :+ "value")
+      case _ => Nil
+    }
+
+    recurseIntoComplexTypes(schema, Nil)
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////

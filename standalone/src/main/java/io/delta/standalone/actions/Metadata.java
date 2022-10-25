@@ -31,6 +31,8 @@ import io.delta.standalone.types.StructType;
 
 import io.delta.standalone.internal.ConstraintImpl;
 import io.delta.standalone.internal.exception.DeltaErrors;
+import io.delta.standalone.internal.util.InvariantUtils;
+
 
 /**
  * Updates the metadata of the table. The first version of a table must contain
