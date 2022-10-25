@@ -50,7 +50,6 @@ object TestUtils {
   implicit def addFileSeqToList(seq: Seq[AddFile]): java.util.List[AddFileJ] =
     seq.map(ConversionUtils.convertAddFile).asJava
 
-  // todo: any reason why this isn't a trait? add basic schema and other utils?
   def testException[T <: Throwable](f: => Any, messageContains: String)
     (implicit manifest: Manifest[T]): Unit = {
     val e = intercept[T]{
