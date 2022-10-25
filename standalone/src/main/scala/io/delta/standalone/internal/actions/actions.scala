@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 
+import io.delta.standalone.Constraint
 import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.DeltaConfigs
@@ -99,6 +100,10 @@ private[internal] object Protocol {
     }
 
     // Check constraints
+    if (metadata.configuration.keys.exists(_.startsWith(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
+      && protocol.minWriterVersion < 3) {
+      throw DeltaErrors.insufficientWriterVersion(protocol, 3, "checkConstraint")
+    }
 
     // Generated columns
 
