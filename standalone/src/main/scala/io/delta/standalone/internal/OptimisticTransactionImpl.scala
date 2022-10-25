@@ -77,8 +77,7 @@ private[internal] class OptimisticTransactionImpl(
    */
   private var commitAttemptStartTime: Long = _
 
-  /** The protocol of the snapshot that this transaction is reading at. */
-  // TODO: update description this is inaccurate
+  /** The protocol of the table version that is being committed in this transaction. */
   def protocol: Protocol = newProtocol.getOrElse(snapshot.protocolScala)
 
   /**
