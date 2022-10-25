@@ -166,8 +166,10 @@ public final class Metadata implements Action {
      * @throws IllegalArgumentException if a constraint with name already exists
      */
     public Metadata addCheckConstraint(String name, String expression) throws Throwable {
+        // todo: check constraint name format
         String fullKey = Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name.toLowerCase(Locale.ROOT);
         if (configuration.containsKey(fullKey)) {
+            // todo: decide if we want to throw an error here
             throw DeltaErrors.checkConstraintAlreadyExists(name, configuration.get(fullKey));
         }
         Map<String, String> newConfiguration = new HashMap(configuration);
@@ -186,6 +188,7 @@ public final class Metadata implements Action {
     public Metadata removeCheckConstraint(String name) throws Throwable {
         String fullKey = Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name.toLowerCase(Locale.ROOT);
         if (!configuration.containsKey(fullKey)) {
+            // todo: decide if we want to throw an error here
             throw DeltaErrors.checkConstraintDoesNotExist(name);
         }
         Map<String, String> newConfiguration = new HashMap(configuration);
