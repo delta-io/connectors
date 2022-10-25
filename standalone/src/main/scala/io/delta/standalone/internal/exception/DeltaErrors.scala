@@ -31,17 +31,32 @@ import io.delta.standalone.internal.util.JsonUtils
 /** A holder object for Delta errors. */
 private[internal] object DeltaErrors {
 
-  // TODO: improve this error message to accommodate for standalone vs. connector protocol
-  //  incompatibilities
+  abstract class InvalidProtocolVersionException(msg: String) extends RuntimeException(msg: String)
+
   /**
-   * Thrown when the protocol version of a table is greater than the one supported by this client
+   * Thrown when the protocol version of a table is greater than the one supported by
+   * Delta Standalone
    */
-  class InvalidProtocolVersionException(
-      clientProtocol: Protocol,
-      tableProtocol: Protocol) extends RuntimeException(
+  class InvalidStandaloneProtocolVersionException(
+    standaloneProtocol: Protocol,
+    tableProtocol: Protocol) extends InvalidProtocolVersionException(
     s"""
-       |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
-       |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
+       |Delta protocol version ${tableProtocol.simpleString} is too high for this version of Delta
+       |Standalone with maximum supported protocol version ${standaloneProtocol.simpleString}.
+       |Please upgrade to a newer release or use a connector with a higher supported protocol.
+       |""".stripMargin)
+
+  /**
+   * Thrown when the protocol version of a table is greater than the one supported by the connector
+   */
+  class InvalidConnectorProtocolVersionException(
+    connectorProtocol: Protocol,
+    tableProtocol: Protocol) extends InvalidProtocolVersionException(
+    // TODO: when we switch to feature lists, update to reference the connector's supported features
+    s"""
+       |Delta protocol version ${tableProtocol.simpleString} is too high for this connector's
+       |maximum supported protocol version ${connectorProtocol.simpleString}.
+       |Please upgrade to a newer release or use a connector with a higher supported protocol.
        |""".stripMargin)
 
   val EmptyCheckpointErrorMessage =

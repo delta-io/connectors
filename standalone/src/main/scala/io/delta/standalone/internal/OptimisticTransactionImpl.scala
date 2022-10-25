@@ -319,8 +319,6 @@ private[internal] class OptimisticTransactionImpl(
       case _ => // nothing
     }
 
-    deltaLog.assertProtocolWrite(snapshot.protocolScala)
-
     // We make sure that this isn't an appendOnly table as we check if we need to delete files.
     val removes = actions.collect { case r: RemoveFile => r }
     if (removes.exists(_.dataChange)) deltaLog.assertRemovable()

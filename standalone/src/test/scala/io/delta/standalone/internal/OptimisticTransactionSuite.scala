@@ -341,7 +341,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
           "test-engine-info"
         ),
         "Feature appendOnly requires at least writer version 2 but current " +
-          "table protocol is (1, 1)"
+          "table protocol is (1,1)"
       )
     }
 

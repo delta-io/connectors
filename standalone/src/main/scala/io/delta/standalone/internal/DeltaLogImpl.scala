@@ -239,12 +239,15 @@ private[internal] class DeltaLogImpl private(
   def assertProtocolRead(protocol: Protocol): Unit = {
     // Check Delta Standalone's compatibility
     if (protocol != null && Action.maxSupportedReaderVersion < protocol.minReaderVersion) {
-      throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
+      throw new DeltaErrors.InvalidStandaloneProtocolVersionException(
+        Action.protocolVersion, protocol)
     }
     // Check the connector's compatibility
     if (protocol != null && connectorReaderVersion < protocol.minReaderVersion) {
-      throw new DeltaErrors.InvalidProtocolVersionException(
-        Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
+      throw new DeltaErrors.InvalidConnectorProtocolVersionException(
+        Protocol(connectorReaderVersion, connectorWriterVersion),
+        protocol
+      )
     }
   }
 
@@ -255,12 +258,15 @@ private[internal] class DeltaLogImpl private(
   def assertProtocolWrite(protocol: Protocol): Unit = {
     // Check Delta Standalone's compatibility
     if (protocol != null && Action.maxSupportedWriterVersion < protocol.minWriterVersion) {
-      throw new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion, protocol)
+      throw new DeltaErrors.InvalidStandaloneProtocolVersionException(
+        Action.protocolVersion, protocol)
     }
     // Check the connector's compatibility
     if (protocol != null && connectorWriterVersion < protocol.minWriterVersion) {
-      throw new DeltaErrors.InvalidProtocolVersionException(
-        Protocol(connectorReaderVersion, connectorWriterVersion), protocol)
+      throw new DeltaErrors.InvalidConnectorProtocolVersionException(
+        Protocol(connectorReaderVersion, connectorWriterVersion),
+        protocol
+      )
     }
   }
 
