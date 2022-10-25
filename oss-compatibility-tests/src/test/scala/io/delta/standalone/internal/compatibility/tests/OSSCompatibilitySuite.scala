@@ -205,10 +205,11 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
       }
 
       assert(e.getMessage.contains(
-        """
-          |Delta protocol version (1,3) is too new for this version of Delta
-          |Standalone Reader/Writer (1,2). Please upgrade to a newer release.
-          |""".stripMargin))
+        s"""
+           |Delta protocol version (1,3) is too high for this connector's
+           |maximum supported protocol version (1,2).
+           |Please upgrade to a newer release or use a connector with a higher supported protocol.
+           |""".stripMargin))
     }
   }
 
