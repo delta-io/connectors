@@ -20,8 +20,8 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
-import io.delta.standalone.{Constraint, Operation}
 
+import io.delta.standalone.{Constraint, Operation}
 import io.delta.standalone.actions.Metadata
 import io.delta.standalone.types.{ArrayType, FieldMetadata, IntegerType, MapType, StringType, StructField, StructType}
 
@@ -258,7 +258,8 @@ class DeltaConstraintsSuite extends FunSuite {
     )
 
     // two top-level columns with column invariant
-    val structField2 = new StructField("col2", new IntegerType(), true, fieldMetadataWithInvariant("col2 < 3"))
+    val structField2 = new StructField("col2", new IntegerType(), true,
+      fieldMetadataWithInvariant("col2 < 3"))
     testGetConstraints(
       schema = new StructType(Array(structField1, structField2)),
       expectedConstraints = Seq(new Constraint("EXPRESSION(col1 < 3)", "col1 < 3"),
