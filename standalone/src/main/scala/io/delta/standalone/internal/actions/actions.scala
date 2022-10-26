@@ -28,7 +28,7 @@ import io.delta.standalone.types.StructType
 
 import io.delta.standalone.internal.{ConstraintImpl, DeltaColumnMappingMode, DeltaConfigs}
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
+import io.delta.standalone.internal.util.{DataTypeParser, InvariantUtils, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
@@ -100,7 +100,9 @@ private[internal] object Protocol {
     // look at Protocol.requiredMinimumProtocol in Delta
 
     // Column invariants
-    // check for invariants in the schema
+    if (InvariantUtils.getFromSchema(metadata.schema).size > 0 && protocol.minWriterVersion < 2) {
+      throw DeltaErrors.insufficientWriterVersion(protocol, 2, "columnInvariants")
+    }
 
     // Append-only
     val appendOnlyMinProtocol = Protocol(0, 2)

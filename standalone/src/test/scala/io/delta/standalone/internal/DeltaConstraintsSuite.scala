@@ -331,4 +331,47 @@ class DeltaConstraintsSuite extends FunSuite {
       s"Misformatted invariant: $expr"
     )
   }
+
+  // TODO: unblock these tests once we allow writerVersion=1
+  ignore("column-invariants: metadata-protocol compatibility checks") {
+    val structField = new StructField(
+      "col1",
+      new IntegerType(),
+      true,
+      fieldMetadataWithInvariant("col1 > 3")
+    )
+    val schema = new StructType().add(structField)
+
+    // cannot use column invariants with too low a protocol version
+    withTempDir { dir =>
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 1)
+      val metadata = Metadata.builder().schema(schema).build()
+      testException[RuntimeException](
+        txn.commit(
+          Iterable(metadata).asJava,
+          new Operation(Operation.Name.MANUAL_UPDATE),
+          "test-engine-info"
+        ),
+        "Feature columnInvariants requires at least writer version 2 but current " +
+          "table protocol is (1,1)"
+      )
+    }
+
+    // can use column invariants with writerVersion >=2
+    withTempDir { dir =>
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 2)
+      val metadata = Metadata.builder().schema(schema).build()
+      txn.commit(
+        Iterable(metadata).asJava,
+        new Operation(Operation.Name.MANUAL_UPDATE),
+        "test-engine-info"
+      )
+      assert(log.startTransaction().metadata().getConstraints.asScala ==
+        Seq(new Constraint("EXPRESSION(col1 > 3)", "col1 > 3")))
+    }
+  }
 }
