@@ -146,7 +146,7 @@ public final class Metadata implements Action {
         // todo: get column invariants
 
         // get check constraints
-        String prefixRegex = "^" + Constraint.CHECK_CONSTRAINT_KEY_PREFIX;
+        final String prefixRegex = "^" + Constraint.CHECK_CONSTRAINT_KEY_PREFIX.replace(".", "\\.");
         List<Constraint> checkConstraints = configuration.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
                 .map(entry -> new Constraint(
@@ -159,8 +159,11 @@ public final class Metadata implements Action {
 
     /**
      * Returns a new {@link Metadata} instance with the same properties as this instance but with
-     * the specified check constraint added to the {@code configuration}
-     * @param name  the name of the check constraint
+     * the specified check constraint added to this instance's {@code configuration}. The check
+     * constraint will be added as the key-value pair "delta.constraints.{name}" --> "{expression}".
+     * todo: document what a check constraint is
+     *
+     * @param name  the name of the check constraint (without the "delta.constraints" prefix)
      * @param expression  the condition to enforce as a SQL string
      * @return a new {@link Metadata} instance with the same properties as this instance but with
      *         the added check constraint
@@ -179,14 +182,17 @@ public final class Metadata implements Action {
 
     /**
      * Returns a new {@link Metadata} instance with the same properties as this instance but with
-     * the specified check constraint removed from the {@code configuration}
-     * @param name  the name of the check constraint to remove
+     * the specified check constraint removed from this instance's {@code configuration}
+     *
+     * @param name  the name of the check constraint to remove (without the "delta.constraints"
+     *              prefix)
      * @return a new {@link Metadata} instance with the same properties as this instance but with
      *         the specified check constraint removed
      * @throws IllegalArgumentException if a constraint with name does not exist
      */
     public Metadata removeCheckConstraint(String name) throws Throwable {
-        String fullKey = Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name.toLowerCase(Locale.ROOT);
+        final String fullKey = Constraint.CHECK_CONSTRAINT_KEY_PREFIX +
+                name.toLowerCase(Locale.ROOT);
         if (!configuration.containsKey(fullKey)) {
             // todo: decide if we want to throw an error here
             throw DeltaErrors.checkConstraintDoesNotExist(name);

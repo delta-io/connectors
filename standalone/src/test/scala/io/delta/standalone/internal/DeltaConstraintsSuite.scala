@@ -68,11 +68,12 @@ class DeltaConstraintsSuite extends FunSuite {
           "expression0",
         getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX) ->
           "expression1",
-        // should not be retrieved
+        // should not be retrieved since they don't have the "delta.constraints." prefix
         "constraint1" -> "expression1",
         "delta.constraint.constraint2" -> "expression2",
         "constraints.constraint3" -> "expression3",
-        "DELTA.CONSTRAINTS.constraint4" -> "expression4"
+        "DELTA.CONSTRAINTS.constraint4" -> "expression4",
+        "deltaxconstraintsxname" -> "expression5"
       ),
       Seq(new Constraint("constraints", "EXPRESSION"),
         new Constraint("delta.constraints", "expression0"),

@@ -29,11 +29,17 @@ import io.delta.standalone.types.StructField;
 /**
  * Represents a constraint defined on a Delta table which writers must verify before writing.
  * Constraints can come in one of two ways:
- * - A CHECK constraint which is stored in {@link Metadata#getConfiguration()}
+ * - A CHECK constraint which is stored in {@link Metadata#getConfiguration()}. CHECK constraints
+ *   are stored as the key-value pair "delta.constraints.{constraintName}" --> "{expression}"
  * - A column invariant which is stored in {@link StructField#getMetadata()}
+ *   TODO: provide more details here
  */
 public final class Constraint {
 
+    /**
+     * This is the key-prefix for the check constraint key "delta.constraints.{constraintName}" in
+     * {@link Metadata#getConfiguration()}
+     */
     public static final String CHECK_CONSTRAINT_KEY_PREFIX = "delta.constraints.";
     @Nonnull private final String name;
     @Nonnull private final String expression;
