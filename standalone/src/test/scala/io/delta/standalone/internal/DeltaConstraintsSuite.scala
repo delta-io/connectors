@@ -113,10 +113,6 @@ class DeltaConstraintsSuite extends FunSuite {
     )
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // CHECK constraints
-  ///////////////////////////////////////////////////////////////////////////
-
   test("addCheckConstraint") {
     // add a constraint
     var metadata = Metadata.builder().build().withCheckConstraint("name", "expression")
