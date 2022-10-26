@@ -329,7 +329,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
 
     // cannot set appendOnly=true with too low a protocol version
     withTempDir { dir =>
-      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 1)
       val metadata = MetadataJ.builder().schema(schema)
@@ -349,7 +349,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
 
     // can enable appendOnly with sufficient protocol version
     withTempDir { dir =>
-      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 1)
       val metadata = MetadataJ.builder().schema(schema)

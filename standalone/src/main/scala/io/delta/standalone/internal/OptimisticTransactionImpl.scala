@@ -292,7 +292,7 @@ private[internal] class OptimisticTransactionImpl(
     }
 
     val protocolOpt = finalActions.collectFirst{ case p: Protocol => p }
-    if (protocolOpt.isDefined) {
+    protocolOpt.foreach { protocol =>
       // TODO: we've decided to block directly committing protocol actions. This would be a breaking
       //  change since current releases do allow committing Protocol(1,2)
 
@@ -300,11 +300,11 @@ private[internal] class OptimisticTransactionImpl(
       // connector
       // TODO: Once all Protocol version upgrades go through our protocol-specific APIs these checks
       //  will be performed in those individual methods and these can be removed here
-      deltaLog.assertProtocolRead(protocolOpt.get)
-      deltaLog.assertProtocolWrite(protocolOpt.get)
+      deltaLog.assertProtocolRead(protocol)
+      deltaLog.assertProtocolWrite(protocol)
       // TODO: to maintain past behavior for now we don't allow writerVersion < 2
-      assert(protocolOpt.get.minWriterVersion >= 2,
-        s"Invalid Protocol ${protocolOpt.get.simpleString}. " +
+      assert(protocol.minWriterVersion >= 2,
+        s"Invalid Protocol ${protocol.simpleString}. " +
           s"Currently only Protocol readerVersion 1 and readerVersion 2 is supported")
     }
 

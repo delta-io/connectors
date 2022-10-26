@@ -62,7 +62,7 @@ object TestUtils {
    * Get a DeltaLog instance with the connector's supported protocol set to Standalone's supported
    * protocol.
    */
-  def getDeltaLogWithStandaloneAsConnector(conf: Configuration, path: String) : DeltaLogImpl = {
+  def getDeltaLogWithMaxFeatureSupport(conf: Configuration, path: String) : DeltaLogImpl = {
     DeltaLogImpl.forTable(conf, path,
       Action.maxSupportedReaderVersion, Action.maxSupportedWriterVersion)
   }
