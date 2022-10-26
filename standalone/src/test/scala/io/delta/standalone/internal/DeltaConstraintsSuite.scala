@@ -154,7 +154,7 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // cannot add a check constraint to a table with too low a protocol version
     withTempDir { dir =>
-      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 2)
       val metadata = Metadata.builder().schema(schema).build()
@@ -172,7 +172,7 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // can commit and retrieve check constraint for table with sufficient protocol version
     withTempDir { dir =>
-      val log = getDeltaLogWithStandaloneAsConnector(new Configuration(), dir.getCanonicalPath)
+      val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 3)
       val metadata = Metadata.builder().schema(schema).build()
