@@ -21,6 +21,7 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.Constraint
 import io.delta.standalone.types.StructType
 
+import io.delta.standalone.internal.ConstraintImpl
 import io.delta.standalone.internal.exception.DeltaErrors
 
 /**
@@ -60,14 +61,18 @@ private[internal] object InvariantUtils {
     columns.map {
       case (_, field) =>
         val rule = field.getMetadata.get(INVARIANTS_FIELD).asInstanceOf[String]
-        val invariant = Option(JsonUtils.mapper.readValue[PersistedRule](rule).unwrap) match {
-          case Some(PersistedExpression(exprString)) =>
-            exprString
-          case _ =>
-             // todo: clarify when we might hit this?
-             throw DeltaErrors.unrecognizedInvariant()
+        try {
+          val invariant = Option(JsonUtils.mapper.readValue[PersistedRule](rule).unwrap) match {
+            case Some(PersistedExpression(exprString)) =>
+              exprString
+            case _ =>
+              throw DeltaErrors.misformattedInvariant(rule)
+          }
+          ConstraintImpl(s"EXPRESSION($invariant)", invariant)
+        } catch {
+          case e: com.fasterxml.jackson.databind.JsonMappingException =>
+            throw DeltaErrors.misformattedInvariant(rule)
         }
-        new Constraint(s"EXPRESSION($invariant)", invariant)
     }
   }
 

@@ -23,42 +23,71 @@ import org.scalatest.FunSuite
 import io.delta.standalone.{Constraint, Operation}
 
 import io.delta.standalone.actions.Metadata
-import io.delta.standalone.types.{FieldMetadata, IntegerType, StringType, StructField, StructType}
+import io.delta.standalone.types.{ArrayType, FieldMetadata, IntegerType, MapType, StringType, StructField, StructType}
 
 import io.delta.standalone.internal.util.InvariantUtils
 import io.delta.standalone.internal.util.TestUtils._
 
 class DeltaConstraintsSuite extends FunSuite {
 
-  private def testGetConstraints(configuration: Map[String, String],
+  private def testGetConstraints(
+      configuration: Map[String, String] = Map.empty,
+      schema: StructType = null,
       expectedConstraints: Seq[Constraint]): Unit = {
-    val metadata = Metadata.builder().configuration(configuration.asJava).build()
-    assert(metadata.getConstraints.asScala == expectedConstraints)
+
+    val metadata = Metadata.builder().configuration(configuration.asJava).schema(schema).build()
+    assert(expectedConstraints.toSet == metadata.getConstraints.asScala.toSet)
   }
 
+<<<<<<< HEAD
   test("getConstraints") {
+=======
+  private def getCheckConstraintKey(name: String): String = {
+    Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // CHECK constraints
+  ///////////////////////////////////////////////////////////////////////////
+
+  test("getConstraints with check constraints") {
+>>>>>>> b9581ea1 (updateds)
     // no constraints
     assert(Metadata.builder().build().getConstraints.isEmpty)
 
     // retrieve one check constraints
     testGetConstraints(
+<<<<<<< HEAD
       Map(ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1"),
       Seq(ConstraintImpl("constraint1", "expression1"))
+=======
+      configuration = Map(getCheckConstraintKey("constraint1") -> "expression1"),
+      expectedConstraints = Seq(new Constraint("constraint1", "expression1"))
+>>>>>>> b9581ea1 (updateds)
     )
 
     // retrieve two check constraints
     testGetConstraints(
+<<<<<<< HEAD
       Map(
         ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1",
         ConstraintImpl.getCheckConstraintKey("constraint2") -> "expression2"
       ),
       Seq(ConstraintImpl("constraint1", "expression1"),
         ConstraintImpl("constraint2", "expression2"))
+=======
+      configuration = Map(
+        getCheckConstraintKey("constraint1") -> "expression1",
+        getCheckConstraintKey("constraint2") -> "expression2"
+      ),
+      expectedConstraints = Seq(new Constraint("constraint1", "expression1"),
+        new Constraint("constraint2", "expression2"))
+>>>>>>> b9581ea1 (updateds)
     )
 
     // check constraint key format
     testGetConstraints(
-      Map(
+      configuration = Map(
         // should be retrieved, preserves expression case
         ConstraintImpl.getCheckConstraintKey("constraints") -> "EXPRESSION",
         ConstraintImpl.getCheckConstraintKey("delta.constraints") ->
@@ -72,9 +101,15 @@ class DeltaConstraintsSuite extends FunSuite {
         "DELTA.CONSTRAINTS.constraint4" -> "expression4",
         "deltaxconstraintsxname" -> "expression5"
       ),
+<<<<<<< HEAD
       Seq(ConstraintImpl("constraints", "EXPRESSION"),
         ConstraintImpl("delta.constraints", "expression0"),
         ConstraintImpl(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
+=======
+      expectedConstraints = Seq(new Constraint("constraints", "EXPRESSION"),
+        new Constraint("delta.constraints", "expression0"),
+        new Constraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
+>>>>>>> b9581ea1 (updateds)
     )
   }
 
@@ -200,77 +235,100 @@ class DeltaConstraintsSuite extends FunSuite {
   // column invariants
   ///////////////////////////////////////////////////////////////////////////
 
-  // I guess just test get??
-  test("column invariants") {
-    val expr = "value < 3"
-    var metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      InvariantUtils.PersistedExpression(expr).json)
+  def fieldMetadataWithInvariant(expr: String): FieldMetadata = {
+    FieldMetadata.builder()
+      .putString(
+        InvariantUtils.INVARIANTS_FIELD,
+        InvariantUtils.PersistedExpression(expr).json)  // {"expression":{"expression":"$expr"}}
       .build()
-    var schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
-
-    metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      """{"expression":{"expression":"value < 3"}}""")
-      .build()
-    schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
-
-    metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      """{"expression":{"foo":"value < 3"}}""")
-      .build()
-    schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
-
-    metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      """{"foo":{"foo":"value < 3"}}""")
-      .build()
-    schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
   }
 
-  test("column invariants 2") {
-    val expr = "value < 3"
-    var metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      """{"expression":{}}""")
-      .build()
-    var schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
+  test("getConstraints with column invariants") {
+
+    // no column invariants
+    testGetConstraints(
+      schema = new StructType()
+        .add("col1", new IntegerType())
+        .add("col2", new IntegerType()),
+      expectedConstraints = Seq.empty
+    )
+
+    // top-level column with a column invariant
+    val structField1 = new StructField("col1", new IntegerType(), true,
+      fieldMetadataWithInvariant("col1 < 3"))
+    testGetConstraints(
+      schema = new StructType().add(structField1),
+      expectedConstraints = Seq(new Constraint("EXPRESSION(col1 < 3)", "col1 < 3"))
+    )
+
+    // two top-level columns with column invariant
+    val structField2 = new StructField("col2", new IntegerType(), true, fieldMetadataWithInvariant("col2 < 3"))
+    testGetConstraints(
+      schema = new StructType(Array(structField1, structField2)),
+      expectedConstraints = Seq(new Constraint("EXPRESSION(col1 < 3)", "col1 < 3"),
+        new Constraint("EXPRESSION(col2 < 3)", "col2 < 3"))
+    )
+
+    // nested column with a column invariant
+    val nestedStructField = new StructField("col1", new IntegerType(), true,
+      fieldMetadataWithInvariant("nested.col1 < 3"))
+    testGetConstraints(
+      schema = new StructType().add(
+        new StructField(
+          "nested",
+          new StructType().add(nestedStructField)
+        )),
+      expectedConstraints = Seq(new Constraint("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"))
+    )
+
+    // nested column + top-level column with column invariant
+    testGetConstraints(
+      schema = new StructType().add(
+        new StructField(
+          "nested",
+          new StructType().add(nestedStructField),
+          true,
+          fieldMetadataWithInvariant("nested is null")
+        )),
+      expectedConstraints = Seq(new Constraint("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"),
+        new Constraint("EXPRESSION(nested is null)", "nested is null"))
+    )
+
+    // ignore constraints from Array<StructType> column
+    val arrayStructField = new StructField(
+      "array",
+      new ArrayType(new StructType().add(structField1), true)
+    )
+    testGetConstraints(
+      schema = new StructType().add(arrayStructField),
+      expectedConstraints = Seq.empty
+    )
+
+    // ignore constraints from Map<StructType, StructType> column
+    val mapStructField = new StructField(
+      "map",
+      new MapType(
+        new StructType().add(structField1),
+        new StructType().add(structField2),
+        true
+      )
+    )
+    testGetConstraints(
+      schema = new StructType().add(mapStructField),
+      expectedConstraints = Seq.empty
+    )
   }
 
-  test("column invariants 3") {
-    val expr = "value < 3"
-    var metadata = FieldMetadata.builder().putString(
-      InvariantUtils.INVARIANTS_FIELD,
-      """{"expression":"value < 3"}""")
+  test("misformatted invariant") {
+    val expr = """{"expression":"col1 < 3"}"""
+    val fieldMetadata = FieldMetadata.builder()
+      .putString(InvariantUtils.INVARIANTS_FIELD, expr)
       .build()
-    var schema = new StructType()
-      .add("key", new StringType())
-      .add(new StructField("value", new IntegerType(), true, metadata))
-    // scalastyle:off
-    println(Metadata.builder().schema(schema).build().getConstraints())
+    val schema = new StructType()
+      .add(new StructField("col1", new IntegerType(), true, fieldMetadata))
+    testException[IllegalStateException](
+      Metadata.builder().schema(schema).build().getConstraints,
+      s"Misformatted invariant: $expr"
+    )
   }
-
-
-  // test where they are? look at what you've implemented to decide what needs to be tested
-
 }

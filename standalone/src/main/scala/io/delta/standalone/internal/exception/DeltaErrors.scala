@@ -400,7 +400,7 @@ private[internal] object DeltaErrors {
     new IllegalArgumentException(s"Cannot drop nonexistent constraint '$name'.")
   }
 
-<<<<<<< HEAD
+
   def changeColumnMappingModeNotSupported(oldMode: String, newMode: String): Throwable = {
     new ColumnMappingUnsupportedException(
       s"Changing column mapping mode from $oldMode to $newMode is not supported.")
@@ -419,14 +419,13 @@ private[internal] object DeltaErrors {
       oldSchema: StructType, newSchema: StructType): Throwable = {
     new ColumnMappingUnsupportedException(
       "Schema change is detected: \n" +
-      s"old schema: ${oldSchema.getTreeString}\n" +
-      s"new schema: ${newSchema.getTreeString}\n" +
-      "Schema changes are not allowed during the change of column mapping mode.")
-=======
-  def unrecognizedInvariant(): Throwable = {
-    // todo: investigate when we see this
-    new UnsupportedOperationException("Unrecognized invariant.")
->>>>>>> 99e648e2 (save)
+        s"old schema: ${oldSchema.getTreeString}\n" +
+        s"new schema: ${newSchema.getTreeString}\n" +
+        "Schema changes are not allowed during the change of column mapping mode.")
+  }
+
+  def misformattedInvariant(expr: String): Throwable = {
+    new IllegalStateException(s"Misformatted invariant: $expr")
   }
 
   def missingColumnId(mode: DeltaColumnMappingMode, field: String): Throwable = {
