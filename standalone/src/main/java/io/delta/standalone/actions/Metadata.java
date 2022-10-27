@@ -33,7 +33,6 @@ import io.delta.standalone.internal.ConstraintImpl;
 import io.delta.standalone.internal.exception.DeltaErrors;
 import io.delta.standalone.internal.util.InvariantUtils;
 
-
 /**
  * Updates the metadata of the table. The first version of a table must contain
  * a {@link Metadata} action. Subsequent {@link Metadata} actions completely

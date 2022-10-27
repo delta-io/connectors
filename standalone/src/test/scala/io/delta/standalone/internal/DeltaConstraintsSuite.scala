@@ -231,7 +231,7 @@ class DeltaConstraintsSuite extends FunSuite {
   // column invariants
   ///////////////////////////////////////////////////////////////////////////
 
-  def fieldMetadataWithInvariant(expr: String): FieldMetadata = {
+  private def fieldMetadataWithInvariant(expr: String): FieldMetadata = {
     FieldMetadata.builder()
       .putString(
         InvariantUtils.INVARIANTS_FIELD,
