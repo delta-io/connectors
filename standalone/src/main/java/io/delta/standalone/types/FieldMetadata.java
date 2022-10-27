@@ -128,6 +128,12 @@ public final class FieldMetadata {
     public static class Builder {
         private Map<String, Object> metadata = new HashMap<String, Object>();
 
+        /** Add all entries in the given metadata to current object in building */
+        public Builder withMetadata(FieldMetadata metadata) {
+            this.metadata.putAll(metadata.getEntries());
+            return this;
+        }
+
         public Builder putNull(String key) {
             metadata.put(key, null);
             return this;

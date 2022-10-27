@@ -250,4 +250,25 @@ private[internal] object DeltaConfigs extends Logging {
     _ => true,
     "needs to be a boolean.",
     Some(new Protocol(0, 2)))
+
+  val COLUMN_MAPPING_MODE = buildConfig[DeltaColumnMappingMode](
+    "columnMapping.mode",
+    "none",
+    DeltaColumnMappingMode(_),
+    _ => true,
+    "",
+    minimumProtocolVersion = Some(DeltaColumnMapping.MIN_PROTOCOL_VERSION))
+
+  /**
+   * Maximum columnId used in the schema so far for column mapping. Internal property that cannot
+   * be set by users.
+   */
+  val COLUMN_MAPPING_MAX_ID = buildConfig[Long](
+    "columnMapping.maxColumnId",
+    "0",
+    _.toLong,
+    _ => true,
+    "",
+    minimumProtocolVersion = Some(DeltaColumnMapping.MIN_PROTOCOL_VERSION),
+    userConfigurable = false)
 }

@@ -27,7 +27,7 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import io.delta.standalone.Constraint
 import io.delta.standalone.types.StructType
 
-import io.delta.standalone.internal.DeltaConfigs
+import io.delta.standalone.internal.{DeltaColumnMappingMode, DeltaConfigs}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
@@ -245,6 +245,15 @@ private[internal] case class Metadata(
   @JsonIgnore
   lazy val partitionSchema: StructType =
     new StructType(partitionColumns.map(c => schema.get(c)).toArray)
+
+  @JsonIgnore
+  lazy val columnMappingMode: DeltaColumnMappingMode =
+    DeltaConfigs.COLUMN_MAPPING_MODE.fromMetadata(this)
+
+  /** Column mapping max id used so far in this table */
+  @JsonIgnore
+  lazy val columnMappingMaxId: Long =
+    DeltaConfigs.COLUMN_MAPPING_MAX_ID.fromMetadata(this)
 
   override def wrap: SingleAction = SingleAction(metaData = this)
 }

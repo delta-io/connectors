@@ -22,9 +22,10 @@ import scala.annotation.varargs
 
 import org.apache.hadoop.fs.Path
 
-import io.delta.standalone.exceptions._
+import io.delta.standalone.exceptions.{ColumnMappingUnsupportedException, _}
 import io.delta.standalone.types.{DataType, StructType}
 
+import io.delta.standalone.internal.{DeltaColumnMapping, DeltaConfigs}
 import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
 import io.delta.standalone.internal.util.JsonUtils
 
@@ -319,6 +320,10 @@ private[internal] object DeltaErrors {
       s"The Delta table configuration $prop cannot be specified by the user")
   }
 
+  def unsupportedColumnMappingMode(mode: String): Throwable =
+    new ColumnMappingUnsupportedException(s"The column mapping mode `$mode` is " +
+      s"not supported for this Delta version. Please upgrade if you want to use this mode.")
+
   def unknownConfigurationKeyException(confKey: String): Throwable = {
     new DeltaStandaloneException(s"Unknown configuration was specified: $confKey")
   }
@@ -381,6 +386,28 @@ private[internal] object DeltaErrors {
 
   def checkConstraintDoesNotExist(name: String): Throwable = {
     new IllegalArgumentException(s"Cannot drop nonexistent constraint '$name'.")
+
+  def changeColumnMappingModeNotSupported(oldMode: String, newMode: String): Throwable = {
+    new ColumnMappingUnsupportedException(
+      s"Changing column mapping mode from $oldMode to $newMode is not supported.")
+  }
+
+  def changeColumnMappingModeOnOldProtocol(currentProtocol: Protocol): Throwable = {
+    new ColumnMappingUnsupportedException(
+      "Your current table protocol version does not support changing column mapping modes " +
+        s"using ${DeltaConfigs.COLUMN_MAPPING_MODE.key}.\n" +
+        s"Required Delta protocol version for column mapping: " +
+        s"${DeltaColumnMapping.MIN_PROTOCOL_VERSION.toString}.\n" +
+        s"Your table's current Delta protocol version: $currentProtocol")
+  }
+
+  def schemaChangeDuringMappingModeChangeNotSupported(
+      oldSchema: StructType, newSchema: StructType): Throwable = {
+    new ColumnMappingUnsupportedException(
+      "Schema change is detected: \n" +
+      s"old schema: ${oldSchema.getTreeString}\n" +
+      s"new schema: ${newSchema.getTreeString}\n" +
+      "Schema changes are not allowed during the change of column mapping mode.")
   }
 
   ///////////////////////////////////////////////////////////////////////////

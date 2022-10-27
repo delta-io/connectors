@@ -17,12 +17,17 @@
 package io.delta.standalone.internal.util
 
 import io.delta.standalone.exceptions.DeltaStandaloneException
-import io.delta.standalone.types.{ArrayType, DataType, MapType, StructType}
+import io.delta.standalone.types.{ArrayType, DataType, MapType, StructField, StructType}
 
 /**
  * Utils to merge table schema with data schema.
  */
 private[internal] object SchemaMergingUtils {
+
+  type Resolver = (String, String) => Boolean
+
+  val DELTA_COL_RESOLVER: (String, String) => Boolean =
+    (a: String, b: String) => a.equalsIgnoreCase(b)
 
   /**
    * Returns all column names in this schema as a flat list. For example, a schema like:
@@ -87,5 +92,47 @@ private[internal] object SchemaMergingUtils {
       throw new DeltaStandaloneException(
         s"Found duplicate column(s) $colType: ${duplicateColumns.mkString(", ")}")
     }
+  }
+
+  /**
+   * (Copy of similar named method in Delta on Spark project (https://github.com/delta-io/),
+   * file: core/src/main/scala/org/apache/spark/sql/delta/schema/SchemaMergingUtils.scala.
+   * Only thing changed is type classes).
+   *
+   * Transform (nested) columns in a schema.
+   *
+   * @param schema to transform.
+   * @param tf function to apply.
+   * @return the transformed schema.
+   */
+  def transformColumns(
+      schema: StructType)(
+      tf: (Seq[String], StructField, Resolver) => StructField): StructType = {
+    def transform[E <: DataType](path: Seq[String], dt: E): E = {
+      val newDt = dt match {
+        case s: StructType =>
+          new StructType(
+            s.getFields().map(field => {
+              val newField = tf(path, field, DELTA_COL_RESOLVER)
+              val newDataType = transform(path :+ field.getName, newField.getDataType())
+
+              // maintain the old name as we recurse into the subfields
+              newField.withNewDataType(newDataType)
+            }).toArray)
+        case a: ArrayType =>
+          new ArrayType(
+            transform(path :+ "element", a.getElementType()),
+            a.containsNull())
+        case m: MapType =>
+          new MapType(
+            transform(path :+ "key", m.getKeyType()),
+            transform(path :+ "value", m.getValueType()),
+            m.valueContainsNull()
+          )
+        case other => other
+      }
+      newDt.asInstanceOf[E]
+    }
+    transform(Seq.empty, schema)
   }
 }
