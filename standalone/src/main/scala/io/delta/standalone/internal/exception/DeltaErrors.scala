@@ -386,6 +386,7 @@ private[internal] object DeltaErrors {
 
   def checkConstraintDoesNotExist(name: String): Throwable = {
     new IllegalArgumentException(s"Cannot drop nonexistent constraint '$name'.")
+  }
 
   def changeColumnMappingModeNotSupported(oldMode: String, newMode: String): Throwable = {
     new ColumnMappingUnsupportedException(
