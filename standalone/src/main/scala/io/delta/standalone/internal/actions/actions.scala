@@ -89,7 +89,12 @@ private[internal] object Protocol {
       s"protocol version ($MIN_WRITER_VERSION_PROP) as part of table properties")
   }
 
-  /** Check that the protocol is compatible with any features enabled in the table metadata */
+  /**
+   * Checks that the table protocol is sufficient for any features enabled in the table metadata.
+   * For writer features, we check for sufficient writer version. For reader features, we check
+   * for sufficient reader version. And for reader and writer features, we check for sufficient
+   * reader and writer version.
+   */
   def checkMetadataFeatureProtocolCompatibility(metadata: Metadata, protocol: Protocol): Unit = {
 
     def insufficientProtocol(requiredProtocol: Protocol): Boolean = {

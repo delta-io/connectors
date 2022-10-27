@@ -24,8 +24,9 @@ import io.delta.standalone.types.StructField;
  * Constraints can come in one of two ways:
  * - A CHECK constraint which is stored in {@link Metadata#getConfiguration()}. CHECK constraints
  *   are stored as the key-value pair ("delta.constraints.{constraintName}", "{expression}")
- * - A column invariant which is stored in {@link StructField#getMetadata()}
- *   TODO: provide more details here
+ * - A column invariant which is stored in {@link StructField#getMetadata()}. See
+ *   <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#column-invariants">Column Invariants</a>
+ *   for more information.
  */
 public interface Constraint {
 
