@@ -161,7 +161,8 @@ public final class Metadata implements Action {
      * Returns a new {@link Metadata} instance with the same properties as this instance but with
      * the specified check constraint added to this instance's {@code configuration}. The check
      * constraint will be added as the key-value pair "delta.constraints.{name}" --> "{expression}".
-     * todo: document what a check constraint is
+     * A check constraint's {@code expression} must be enforced for each input row when writing data
+     * and all for existing rows.
      *
      * @param name  the name of the check constraint (without the "delta.constraints" prefix)
      * @param expression  the condition to enforce as a SQL string
