@@ -342,8 +342,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
           new Operation(Operation.Name.MANUAL_UPDATE),
           "test-engine-info"
         ),
-        "Feature appendOnly requires at least writer version 2 but current " +
-          "table protocol is (1,1)"
+        "Feature appendOnly requires at least minWriterVersion = 2"
       )
     }
 

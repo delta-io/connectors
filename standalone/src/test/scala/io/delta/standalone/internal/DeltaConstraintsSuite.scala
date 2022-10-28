@@ -170,8 +170,7 @@ class DeltaConstraintsSuite extends FunSuite {
           new Operation(Operation.Name.MANUAL_UPDATE),
           "test-engine-info"
         ),
-        "Feature checkConstraint requires at least writer version 3 but current " +
-          "table protocol is (1,2)"
+        "Feature checkConstraint requires at least minWriterVersion = 3"
       )
     }
 
