@@ -35,38 +35,34 @@ class DeltaConstraintsSuite extends FunSuite {
     assert(metadata.getConstraints.asScala == expectedConstraints)
   }
 
-  private def getCheckConstraintKey(name: String): String = {
-    Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name
-  }
-
   test("getConstraints") {
     // no constraints
     assert(Metadata.builder().build().getConstraints.isEmpty)
 
     // retrieve one check constraints
     testGetConstraints(
-      Map(getCheckConstraintKey("constraint1") -> "expression1"),
-      Seq(new Constraint("constraint1", "expression1"))
+      Map(ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1"),
+      Seq(ConstraintImpl("constraint1", "expression1"))
     )
 
     // retrieve two check constraints
     testGetConstraints(
       Map(
-        getCheckConstraintKey("constraint1") -> "expression1",
-        getCheckConstraintKey("constraint2") -> "expression2"
+        ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1",
+        ConstraintImpl.getCheckConstraintKey("constraint2") -> "expression2"
       ),
-      Seq(new Constraint("constraint1", "expression1"),
-        new Constraint("constraint2", "expression2"))
+      Seq(ConstraintImpl("constraint1", "expression1"),
+        ConstraintImpl("constraint2", "expression2"))
     )
 
     // check constraint key format
     testGetConstraints(
       Map(
         // should be retrieved, preserves expression case
-        getCheckConstraintKey("constraints") -> "EXPRESSION",
-        getCheckConstraintKey("delta.constraints") ->
+        ConstraintImpl.getCheckConstraintKey("constraints") -> "EXPRESSION",
+        ConstraintImpl.getCheckConstraintKey("delta.constraints") ->
           "expression0",
-        getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX) ->
+        ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX) ->
           "expression1",
         // should not be retrieved since they don't have the "delta.constraints." prefix
         "constraint1" -> "expression1",
@@ -75,16 +71,17 @@ class DeltaConstraintsSuite extends FunSuite {
         "DELTA.CONSTRAINTS.constraint4" -> "expression4",
         "deltaxconstraintsxname" -> "expression5"
       ),
-      Seq(new Constraint("constraints", "EXPRESSION"),
-        new Constraint("delta.constraints", "expression0"),
-        new Constraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
+      Seq(ConstraintImpl("constraints", "EXPRESSION"),
+        ConstraintImpl("delta.constraints", "expression0"),
+        ConstraintImpl(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
     )
   }
 
   test("addCheckConstraint") {
     // add a constraint
     var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
-    assert(metadata.getConfiguration.get(getCheckConstraintKey("name")).contains("expression"))
+    assert(metadata.getConfiguration.get(ConstraintImpl.getCheckConstraintKey("name"))
+      == "expression")
 
     // add an already existing constraint
     testException[IllegalArgumentException](
@@ -102,22 +99,23 @@ class DeltaConstraintsSuite extends FunSuite {
 
     // stores constraint lower case in metadata.configuration
     metadata = Metadata.builder().build().addCheckConstraint("NAME", "expression")
-    assert(metadata.getConfiguration.get(getCheckConstraintKey("name")).contains("expression"))
+    assert(metadata.getConfiguration.get(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX + "name")
+      == "expression")
 
     // add constraint with name='delta.constraints.'
     metadata = Metadata.builder().build()
-      .addCheckConstraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression")
+      .addCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression")
     assert(metadata.getConfiguration
-      .get(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX))
-      .contains("expression"))
+      .get(ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX))
+      == "expression")
   }
 
   test("removeCheckConstraint") {
     // remove a constraint
-    val configuration = Map(getCheckConstraintKey("name") -> "expression").asJava
+    val configuration = Map(ConstraintImpl.getCheckConstraintKey("name") -> "expression").asJava
     var metadata = Metadata.builder().configuration(configuration).build()
       .removeCheckConstraint("name")
-    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("name")))
+    assert(!metadata.getConfiguration.containsKey(ConstraintImpl.getCheckConstraintKey("name")))
 
     // remove a non-existent constraint
     val e = intercept[IllegalArgumentException](
@@ -128,22 +126,28 @@ class DeltaConstraintsSuite extends FunSuite {
     // not-case sensitive
     metadata = Metadata.builder().configuration(configuration).build()
       .removeCheckConstraint("NAME")
-    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("name")))
-    assert(!metadata.getConfiguration.containsKey(getCheckConstraintKey("NAME")))
+    assert(!metadata.getConfiguration.containsKey(
+      ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX + "name"))
+    assert(!metadata.getConfiguration
+      .containsKey(
+        ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX + "NAME"))
 
     // remove constraint with name='delta.constraints.'
-    metadata = Metadata.builder().configuration(
-      Map(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX) -> "expression").asJava)
+    metadata = Metadata.builder()
+      .configuration(
+        Map(
+          ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX) ->
+          "expression").asJava)
       .build()
-      .removeCheckConstraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX)
+      .removeCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)
     assert(!metadata.getConfiguration
-      .containsKey(getCheckConstraintKey(Constraint.CHECK_CONSTRAINT_KEY_PREFIX)))
+      .containsKey(ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)))
   }
 
   test("addCheckConstraint/removeCheckConstraint + getConstraints") {
     // add a constraint
     var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
-    assert(metadata.getConstraints.asScala == Seq(new Constraint("name", "expression")))
+    assert(metadata.getConstraints.asScala == Seq(ConstraintImpl("name", "expression")))
 
     // remove the constraint
     metadata = metadata.removeCheckConstraint("name")
@@ -184,7 +188,7 @@ class DeltaConstraintsSuite extends FunSuite {
         "test-engine-info"
       )
       assert(log.startTransaction().metadata().getConstraints.asScala ==
-        Seq(new Constraint("test", "col1 < 0")))
+        Seq(ConstraintImpl("test", "col1 < 0")))
     }
   }
 }

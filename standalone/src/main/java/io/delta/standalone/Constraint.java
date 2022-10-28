@@ -16,15 +16,8 @@
 
 package io.delta.standalone;
 
-import java.util.Objects;
-
-import javax.annotation.Nonnull;
-
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.types.StructField;
-
-// TODO: if we ever plan to support not-null constraints as a java class should we name this
-//  "CheckConstraint" even though we will also be presenting invariants in this form?
 
 /**
  * Represents a constraint defined on a Delta table which writers must verify before writing.
@@ -34,55 +27,15 @@ import io.delta.standalone.types.StructField;
  * - A column invariant which is stored in {@link StructField#getMetadata()}
  *   TODO: provide more details here
  */
-public final class Constraint {
-
-    /**
-     * This is the key-prefix for the check constraint key "delta.constraints.{constraintName}" in
-     * {@link Metadata#getConfiguration()}
-     */
-    public static final String CHECK_CONSTRAINT_KEY_PREFIX = "delta.constraints.";
-    @Nonnull private final String name;
-    @Nonnull private final String expression;
-
-    public Constraint(
-            @Nonnull String name,
-            @Nonnull String expression) {
-        this.name = name;
-        this.expression = expression;
-    }
+public interface Constraint {
 
     /**
      * @return the name of this constraint
      */
-    @Nonnull
-    public String getName() {
-        return name;
-    }
+    String getName();
 
     /**
      * @return the expression to enforce of this constraint as a SQL string
      */
-    @Nonnull
-    public String getExpression() {
-        return expression;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("%s (%s)", name, expression);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Constraint constraint = (Constraint) o;
-        return Objects.equals(name, constraint.name) &&
-                Objects.equals(expression, constraint.expression);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(name, expression);
-    }
+    String getExpression();
 }
