@@ -140,8 +140,8 @@ class DeltaConstraintsSuite extends FunSuite {
           "expression").asJava)
       .build()
       .removeCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)
-    assert(!metadata.getConfiguration
-      .containsKey(ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)))
+    assert(!metadata.getConfiguration.containsKey(
+      ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)))
   }
 
   test("addCheckConstraint/removeCheckConstraint + getConstraints") {
