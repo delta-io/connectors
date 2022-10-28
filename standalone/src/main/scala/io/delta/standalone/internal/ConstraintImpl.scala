@@ -38,10 +38,6 @@ private[internal] case class ConstraintImpl(name: String, expression: String) ex
 
 private[standalone] object ConstraintImpl {
 
-  def apply(name: String, expression: String): Constraint = {
-    new ConstraintImpl(name, expression)
-  }
-
   /**
    * Extracts constraints from the table properties. These include both CHECK constraints stored in
    * the [[Metadata#getConfiguration( )]] and column invariants stored in the
