@@ -23,7 +23,7 @@ import io.delta.standalone.types.StructField;
  * Represents a constraint defined on a Delta table which writers must verify before writing.
  * Constraints can come in one of two ways:
  * - A CHECK constraint which is stored in {@link Metadata#getConfiguration()}. CHECK constraints
- *   are stored as the key-value pair "delta.constraints.{constraintName}" --> "{expression}"
+ *   are stored as the key-value pair ("delta.constraints.{constraintName}", "{expression}")
  * - A column invariant which is stored in {@link StructField#getMetadata()}
  *   TODO: provide more details here
  */
