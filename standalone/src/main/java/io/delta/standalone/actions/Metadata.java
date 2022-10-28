@@ -152,13 +152,14 @@ public final class Metadata implements Action {
      * A check constraint's {@code expression} must be enforced for each input row when writing data
      * and all for existing rows.
      *
-     * @param name  the name of the check constraint (without the "delta.constraints" prefix)
+     * @param name  the case-insensitive name of the check constraint (without the
+     *              "delta.constraints" prefix)
      * @param expression  the condition to enforce as a SQL string
      * @return a new {@link Metadata} instance with the same properties as this instance but with
      *         the added check constraint
      * @throws IllegalArgumentException if a constraint with name already exists
      */
-    public Metadata addCheckConstraint(String name, String expression) throws Throwable {
+    public Metadata withCheckConstraint(String name, String expression) throws Throwable {
         String fullKey = ConstraintImpl.getCheckConstraintKey(name);
         if (configuration.containsKey(fullKey)) {
             // todo: decide if we want to throw an error here
@@ -173,13 +174,13 @@ public final class Metadata implements Action {
      * Returns a new {@link Metadata} instance with the same properties as this instance but with
      * the specified check constraint removed from this instance's {@code configuration}
      *
-     * @param name  the name of the check constraint to remove (without the "delta.constraints"
-     *              prefix)
+     * @param name  the case-insensitive name of the check constraint to remove (without the
+     *              "delta.constraints" prefix)
      * @return a new {@link Metadata} instance with the same properties as this instance but with
      *         the specified check constraint removed
      * @throws IllegalArgumentException if a constraint with name does not exist
      */
-    public Metadata removeCheckConstraint(String name) throws Throwable {
+    public Metadata withoutCheckConstraint(String name) throws Throwable {
         final String fullKey = ConstraintImpl.getCheckConstraintKey(name);
         if (!configuration.containsKey(fullKey)) {
             // todo: decide if we want to throw an error here

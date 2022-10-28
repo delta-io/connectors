@@ -371,11 +371,23 @@ private[internal] object DeltaErrors {
       "non-partitioned column")
   }
 
-  def insufficientWriterVersion(existingProtocol: Protocol, minWriterVersion: Int,
+  def insufficientTableProtocolVersion(tableProtocol: Protocol, minProtocol: Protocol,
       featureString: String): Throwable = {
-    new DeltaStandaloneException(
-      s"Feature $featureString requires at least writer version $minWriterVersion but current " +
-        s"table protocol is ${existingProtocol.simpleString}")
+    val hasMinReaderVersion = minProtocol.minReaderVersion > 0
+    val hasMinWriterVersion = minProtocol.minWriterVersion > 0
+
+    val minVersionMsg = Seq(
+      (s"minReaderVersion = ${minProtocol.minReaderVersion}", hasMinReaderVersion),
+      (s"minWriterVersion = ${minProtocol.minWriterVersion}", hasMinWriterVersion)
+    ).filter(_._2).map(_._1).mkString(" and ")
+
+    val msg =
+      s"""
+        |Feature $featureString requires at least $minVersionMsg
+        |but current table protocol is ${tableProtocol.detailedString}. Please upgrade the table
+        |protocol to use $featureString.
+        |""".stripMargin
+    new DeltaStandaloneException(msg)
   }
 
   def checkConstraintAlreadyExists(name: String, expression: String): Throwable = {

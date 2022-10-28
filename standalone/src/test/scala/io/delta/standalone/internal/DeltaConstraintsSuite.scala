@@ -79,32 +79,32 @@ class DeltaConstraintsSuite extends FunSuite {
 
   test("addCheckConstraint") {
     // add a constraint
-    var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
+    var metadata = Metadata.builder().build().withCheckConstraint("name", "expression")
     assert(metadata.getConfiguration.get(ConstraintImpl.getCheckConstraintKey("name"))
       == "expression")
 
     // add an already existing constraint
     testException[IllegalArgumentException](
-      metadata.addCheckConstraint("name", "expression2"),
+      metadata.withCheckConstraint("name", "expression2"),
       "Constraint 'name' already exists. Please remove the old constraint first.\n" +
         "Old constraint: expression"
     )
 
     // not-case sensitive
     testException[IllegalArgumentException](
-      metadata.addCheckConstraint("NAME", "expression2"),
+      metadata.withCheckConstraint("NAME", "expression2"),
       "Constraint 'NAME' already exists. Please remove the old constraint first.\n" +
         "Old constraint: expression"
     )
 
     // stores constraint lower case in metadata.configuration
-    metadata = Metadata.builder().build().addCheckConstraint("NAME", "expression")
+    metadata = Metadata.builder().build().withCheckConstraint("NAME", "expression")
     assert(metadata.getConfiguration.get(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX + "name")
       == "expression")
 
     // add constraint with name='delta.constraints.'
     metadata = Metadata.builder().build()
-      .addCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression")
+      .withCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression")
     assert(metadata.getConfiguration
       .get(ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX))
       == "expression")
@@ -114,18 +114,18 @@ class DeltaConstraintsSuite extends FunSuite {
     // remove a constraint
     val configuration = Map(ConstraintImpl.getCheckConstraintKey("name") -> "expression").asJava
     var metadata = Metadata.builder().configuration(configuration).build()
-      .removeCheckConstraint("name")
+      .withoutCheckConstraint("name")
     assert(!metadata.getConfiguration.containsKey(ConstraintImpl.getCheckConstraintKey("name")))
 
     // remove a non-existent constraint
     val e = intercept[IllegalArgumentException](
-      Metadata.builder().build().removeCheckConstraint("name")
+      Metadata.builder().build().withoutCheckConstraint("name")
     ).getMessage
     assert(e.contains("Cannot drop nonexistent constraint 'name'"))
 
     // not-case sensitive
     metadata = Metadata.builder().configuration(configuration).build()
-      .removeCheckConstraint("NAME")
+      .withoutCheckConstraint("NAME")
     assert(!metadata.getConfiguration.containsKey(
       ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX + "name"))
     assert(!metadata.getConfiguration
@@ -139,18 +139,18 @@ class DeltaConstraintsSuite extends FunSuite {
           ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX) ->
           "expression").asJava)
       .build()
-      .removeCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)
+      .withoutCheckConstraint(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)
     assert(!metadata.getConfiguration.containsKey(
       ConstraintImpl.getCheckConstraintKey(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX)))
   }
 
   test("addCheckConstraint/removeCheckConstraint + getConstraints") {
     // add a constraint
-    var metadata = Metadata.builder().build().addCheckConstraint("name", "expression")
+    var metadata = Metadata.builder().build().withCheckConstraint("name", "expression")
     assert(metadata.getConstraints.asScala == Seq(ConstraintImpl("name", "expression")))
 
     // remove the constraint
-    metadata = metadata.removeCheckConstraint("name")
+    metadata = metadata.withoutCheckConstraint("name")
     assert(Metadata.builder().build().getConstraints.isEmpty)
   }
 
@@ -163,7 +163,7 @@ class DeltaConstraintsSuite extends FunSuite {
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 2)
       val metadata = Metadata.builder().schema(schema).build()
-        .addCheckConstraint("test", "col1 < 0")
+        .withCheckConstraint("test", "col1 < 0")
       testException[RuntimeException](
         txn.commit(
           Iterable(metadata).asJava,
@@ -181,7 +181,7 @@ class DeltaConstraintsSuite extends FunSuite {
       val txn = log.startTransaction()
       txn.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 3)
       val metadata = Metadata.builder().schema(schema).build()
-        .addCheckConstraint("test", "col1 < 0")
+        .withCheckConstraint("test", "col1 < 0")
       txn.commit(
         Iterable(metadata).asJava,
         new Operation(Operation.Name.MANUAL_UPDATE),
