@@ -21,7 +21,6 @@ import java.util.Locale
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.Constraint
-
 import io.delta.standalone.actions.Metadata
 
 import io.delta.standalone.internal.util.InvariantUtils

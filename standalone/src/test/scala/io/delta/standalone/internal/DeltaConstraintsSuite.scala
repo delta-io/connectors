@@ -39,50 +39,28 @@ class DeltaConstraintsSuite extends FunSuite {
     assert(expectedConstraints.toSet == metadata.getConstraints.asScala.toSet)
   }
 
-<<<<<<< HEAD
-  test("getConstraints") {
-=======
-  private def getCheckConstraintKey(name: String): String = {
-    Constraint.CHECK_CONSTRAINT_KEY_PREFIX + name
-  }
-
   ///////////////////////////////////////////////////////////////////////////
   // CHECK constraints
   ///////////////////////////////////////////////////////////////////////////
 
   test("getConstraints with check constraints") {
->>>>>>> b9581ea1 (updateds)
     // no constraints
     assert(Metadata.builder().build().getConstraints.isEmpty)
 
     // retrieve one check constraints
     testGetConstraints(
-<<<<<<< HEAD
-      Map(ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1"),
-      Seq(ConstraintImpl("constraint1", "expression1"))
-=======
-      configuration = Map(getCheckConstraintKey("constraint1") -> "expression1"),
-      expectedConstraints = Seq(new Constraint("constraint1", "expression1"))
->>>>>>> b9581ea1 (updateds)
+      configuration = Map(ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1"),
+      expectedConstraints = Seq(ConstraintImpl("constraint1", "expression1"))
     )
 
     // retrieve two check constraints
     testGetConstraints(
-<<<<<<< HEAD
-      Map(
+      configuration = Map(
         ConstraintImpl.getCheckConstraintKey("constraint1") -> "expression1",
         ConstraintImpl.getCheckConstraintKey("constraint2") -> "expression2"
       ),
-      Seq(ConstraintImpl("constraint1", "expression1"),
+      expectedConstraints = Seq(ConstraintImpl("constraint1", "expression1"),
         ConstraintImpl("constraint2", "expression2"))
-=======
-      configuration = Map(
-        getCheckConstraintKey("constraint1") -> "expression1",
-        getCheckConstraintKey("constraint2") -> "expression2"
-      ),
-      expectedConstraints = Seq(new Constraint("constraint1", "expression1"),
-        new Constraint("constraint2", "expression2"))
->>>>>>> b9581ea1 (updateds)
     )
 
     // check constraint key format
@@ -101,15 +79,9 @@ class DeltaConstraintsSuite extends FunSuite {
         "DELTA.CONSTRAINTS.constraint4" -> "expression4",
         "deltaxconstraintsxname" -> "expression5"
       ),
-<<<<<<< HEAD
-      Seq(ConstraintImpl("constraints", "EXPRESSION"),
+      expectedConstraints = Seq(ConstraintImpl("constraints", "EXPRESSION"),
         ConstraintImpl("delta.constraints", "expression0"),
         ConstraintImpl(ConstraintImpl.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
-=======
-      expectedConstraints = Seq(new Constraint("constraints", "EXPRESSION"),
-        new Constraint("delta.constraints", "expression0"),
-        new Constraint(Constraint.CHECK_CONSTRAINT_KEY_PREFIX, "expression1"))
->>>>>>> b9581ea1 (updateds)
     )
   }
 
@@ -254,7 +226,7 @@ class DeltaConstraintsSuite extends FunSuite {
       fieldMetadataWithInvariant("col1 < 3"))
     testGetConstraints(
       schema = new StructType().add(structField1),
-      expectedConstraints = Seq(new Constraint("EXPRESSION(col1 < 3)", "col1 < 3"))
+      expectedConstraints = Seq(ConstraintImpl("EXPRESSION(col1 < 3)", "col1 < 3"))
     )
 
     // two top-level columns with column invariant
@@ -262,8 +234,8 @@ class DeltaConstraintsSuite extends FunSuite {
       fieldMetadataWithInvariant("col2 < 3"))
     testGetConstraints(
       schema = new StructType(Array(structField1, structField2)),
-      expectedConstraints = Seq(new Constraint("EXPRESSION(col1 < 3)", "col1 < 3"),
-        new Constraint("EXPRESSION(col2 < 3)", "col2 < 3"))
+      expectedConstraints = Seq(ConstraintImpl("EXPRESSION(col1 < 3)", "col1 < 3"),
+        ConstraintImpl("EXPRESSION(col2 < 3)", "col2 < 3"))
     )
 
     // nested column with a column invariant
@@ -275,7 +247,7 @@ class DeltaConstraintsSuite extends FunSuite {
           "nested",
           new StructType().add(nestedStructField)
         )),
-      expectedConstraints = Seq(new Constraint("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"))
+      expectedConstraints = Seq(ConstraintImpl("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"))
     )
 
     // nested column + top-level column with column invariant
@@ -287,8 +259,8 @@ class DeltaConstraintsSuite extends FunSuite {
           true,
           fieldMetadataWithInvariant("nested is null")
         )),
-      expectedConstraints = Seq(new Constraint("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"),
-        new Constraint("EXPRESSION(nested is null)", "nested is null"))
+      expectedConstraints = Seq(ConstraintImpl("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"),
+        ConstraintImpl("EXPRESSION(nested is null)", "nested is null"))
     )
 
     // ignore constraints from Array<StructType> column
@@ -368,7 +340,7 @@ class DeltaConstraintsSuite extends FunSuite {
         "test-engine-info"
       )
       assert(log.startTransaction().metadata().getConstraints.asScala ==
-        Seq(new Constraint("EXPRESSION(col1 > 3)", "col1 > 3")))
+        Seq(ConstraintImpl("EXPRESSION(col1 > 3)", "col1 > 3")))
     }
   }
 }
