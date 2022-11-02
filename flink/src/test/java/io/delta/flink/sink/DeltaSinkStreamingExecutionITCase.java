@@ -58,12 +58,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.Row;
-import org.junit.Ignore;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -129,7 +124,7 @@ public class DeltaSinkStreamingExecutionITCase {
         );
     }
 
-    @Ignore
+    @Disabled
     @ParameterizedTest(name = "triggerFailover = {0}, isPartitioned = {1}")
     @MethodSource("deltaSinkArguments")
     public void testFileSink(boolean isPartitioned, boolean triggerFailover) throws Exception {
