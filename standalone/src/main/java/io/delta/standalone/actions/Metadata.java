@@ -162,7 +162,6 @@ public final class Metadata implements Action {
     public Metadata withCheckConstraint(String name, String expression) throws Throwable {
         String fullKey = ConstraintImpl.getCheckConstraintKey(name);
         if (configuration.containsKey(fullKey)) {
-            // todo: decide if we want to throw an error here
             throw DeltaErrors.checkConstraintAlreadyExists(name, configuration.get(fullKey));
         }
         Map<String, String> newConfiguration = new HashMap(configuration);
@@ -183,7 +182,6 @@ public final class Metadata implements Action {
     public Metadata withoutCheckConstraint(String name) throws Throwable {
         final String fullKey = ConstraintImpl.getCheckConstraintKey(name);
         if (!configuration.containsKey(fullKey)) {
-            // todo: decide if we want to throw an error here
             throw DeltaErrors.checkConstraintDoesNotExist(name);
         }
         Map<String, String> newConfiguration = new HashMap(configuration);

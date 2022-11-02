@@ -68,9 +68,7 @@ private[standalone] object ConstraintImpl {
     CHECK_CONSTRAINT_KEY_PREFIX + name.toLowerCase(Locale.ROOT)
   }
 
-  private[internal] def getCheckConstraints(configuration: Map[String, String])
-      : Seq[Constraint] = {
-
+  private[internal] def getCheckConstraints(configuration: Map[String, String]): Seq[Constraint] = {
     val prefixRegex = CHECK_CONSTRAINT_KEY_PREFIX.replace(".", "\\.")
     configuration
       .filterKeys(_.startsWith(CHECK_CONSTRAINT_KEY_PREFIX))
