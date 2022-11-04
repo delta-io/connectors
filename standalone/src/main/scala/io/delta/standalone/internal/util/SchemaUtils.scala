@@ -137,8 +137,7 @@ private[standalone] object SchemaUtils {
             // and the type of the field must be compatible, too
             && isDatatypeWriteCompatible(existingField.getDataType, newField.getDataType)
             // and no column invariant is added or altered
-            &&
-            Option(newField.getMetadata.get(InvariantUtils.INVARIANTS_FIELD)).forall(
+            && Option(newField.getMetadata.get(InvariantUtils.INVARIANTS_FIELD)).forall(
               _ == existingField.getMetadata.get(InvariantUtils.INVARIANTS_FIELD)))
         }
       }
