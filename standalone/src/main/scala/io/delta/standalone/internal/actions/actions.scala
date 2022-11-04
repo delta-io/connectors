@@ -105,8 +105,11 @@ private[internal] object Protocol {
     // look at Protocol.requiredMinimumProtocol in Delta
 
     // Column invariants
-    if (InvariantUtils.getFromSchema(metadata.schema).size > 0 && protocol.minWriterVersion < 2) {
-      throw DeltaErrors.insufficientWriterVersion(protocol, 2, "columnInvariants")
+    val columnInvariantsMinProtocol = Protocol(0, 2)
+    if (InvariantUtils.getFromSchema(metadata.schema).size > 0 &&
+      insufficientProtocol(columnInvariantsMinProtocol)) {
+      throw DeltaErrors.insufficientTableProtocolVersion(protocol,
+        columnInvariantsMinProtocol, "columnInvariants")
     }
 
     // Append-only

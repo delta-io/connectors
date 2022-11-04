@@ -91,6 +91,7 @@ private[standalone] object SchemaUtils {
    *   - Drops any column that is present in the current schema
    *   - Converts nullable=true to nullable=false for any column
    *   - Changes any datatype
+   *   - Adds a new column invariant or changes an existing column invariant for any column
    */
   def isWriteCompatible(existingSchema: StructType, newSchema: StructType): Boolean = {
 
@@ -134,7 +135,11 @@ private[standalone] object SchemaUtils {
             // if existing value is nullable, so should be the new value
             && (!existingField.isNullable || newField.isNullable)
             // and the type of the field must be compatible, too
-            && isDatatypeWriteCompatible(existingField.getDataType, newField.getDataType))
+            && isDatatypeWriteCompatible(existingField.getDataType, newField.getDataType)
+            // and no column invariant is added or altered
+            &&
+            Option(newField.getMetadata.get(InvariantUtils.INVARIANTS_FIELD)).forall(
+              _ == existingField.getMetadata.get(InvariantUtils.INVARIANTS_FIELD)))
         }
       }
     }

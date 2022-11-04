@@ -25,6 +25,7 @@ import io.delta.standalone.{Constraint, Operation}
 import io.delta.standalone.actions.Metadata
 import io.delta.standalone.types.{ArrayType, FieldMetadata, IntegerType, MapType, StringType, StructField, StructType}
 
+import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.internal.util.InvariantUtils
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -341,6 +342,53 @@ class DeltaConstraintsSuite extends FunSuite {
       )
       assert(log.startTransaction().metadata().getConstraints.asScala ==
         Seq(ConstraintImpl("EXPRESSION(col1 > 3)", "col1 > 3")))
+    }
+  }
+
+  test("cannot add or change a column invariant in the schema") {
+    val structField = new StructField("col1", new IntegerType())
+    val schemaWithNoInvariant = new StructType().add(structField)
+    val schemaWithInvariant1 = new StructType().add(
+      new StructField(structField.getName, structField.getDataType, structField.isNullable,
+        fieldMetadataWithInvariant("col1 > 1"))
+    )
+    val schemaWithInvariant2 = new StructType().add(
+      new StructField(structField.getName, structField.getDataType, structField.isNullable,
+        fieldMetadataWithInvariant("col1 > 2"))
+    )
+
+    // These are formatted as (originalSchema, updatedSchema, shouldFail)
+    // We will create a table with originalSchema in transaction 1, and in transaction 2 attempt to
+    // change the schema to updatedSchema. shouldFail is whether we expect transaction 2 to fail
+    Seq(
+      (schemaWithNoInvariant, schemaWithInvariant1, true), // cannot add a column invariant
+      (schemaWithInvariant1, schemaWithInvariant2, true), // cannot change a column invariant
+      (schemaWithInvariant1, schemaWithNoInvariant, false) // we don't explicitly prevent removal
+    ).foreach { case (originalSchema, updatedSchema, shouldFail) =>
+      withTempDir { dir =>
+        val log = getDeltaLogWithMaxFeatureSupport(new Configuration(), dir.getCanonicalPath)
+        val txn1 = log.startTransaction()
+        txn1.asInstanceOf[OptimisticTransactionImpl].upgradeProtocolVersion(1, 2)
+        txn1.updateMetadata(Metadata.builder().schema(originalSchema).build())
+        // This invariant does not apply when the table is empty or if the current commit is
+        // removing all the files in the table
+        val addFile = AddFile("path/to/file/test.parquet", Map(), 0, 0, true)
+        txn1.commit(
+          addFile :: Nil,
+          new Operation(Operation.Name.MANUAL_UPDATE),
+          "test-engine-info"
+        )
+        val txn2 = log.startTransaction()
+        txn2.updateMetadata(txn2.metadata().copyBuilder().schema(updatedSchema).build())
+        if (shouldFail) {
+          testException[IllegalStateException](
+            txn2.commit(Seq.empty, new Operation(Operation.Name.MANUAL_UPDATE), "test-engine-info"),
+            "Detected incompatible schema change:"
+          )
+        } else {
+          txn2.commit(Seq.empty, new Operation(Operation.Name.MANUAL_UPDATE), "test-engine-info")
+        }
+      }
     }
   }
 }
