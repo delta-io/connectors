@@ -258,10 +258,10 @@ class DeltaConstraintsSuite extends FunSuite {
           "nested",
           new StructType().add(nestedStructField),
           true,
-          fieldMetadataWithInvariant("nested is null")
+          fieldMetadataWithInvariant("nested is not null")
         )),
       expectedConstraints = Seq(ConstraintImpl("EXPRESSION(nested.col1 < 3)", "nested.col1 < 3"),
-        ConstraintImpl("EXPRESSION(nested is null)", "nested is null"))
+        ConstraintImpl("EXPRESSION(nested is not null)", "nested is not null"))
     )
 
     // ignore constraints from Array<StructType> column
