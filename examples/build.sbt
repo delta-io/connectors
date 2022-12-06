@@ -37,7 +37,7 @@ def getStandaloneVersion(): String = {
     println("Using Delta version " + version)
     version
   } else {
-    "0.5.0"
+    "0.6.0"
   }
 }
 
@@ -59,7 +59,7 @@ lazy val helloWorld = (project in file("hello-world")) settings (
   extraMavenRepo
 )
 
-val flinkVersion = "1.15.2"
+val flinkVersion = "1.15.3"
 val flinkHadoopVersion = "3.1.0"
 lazy val flinkExample = (project in file("flink-example")) settings (
   name := "flink",
@@ -72,6 +72,8 @@ lazy val flinkExample = (project in file("flink-example")) settings (
     "io.delta" %% "delta-standalone" % getStandaloneVersion(),
     "org.apache.flink" %% "flink-parquet" % flinkVersion,
     "org.apache.flink" % "flink-table-common" % flinkVersion,
+    "org.apache.flink" % "flink-connector-files" % flinkVersion,
+    "org.apache.flink" % "flink-table-runtime" % flinkVersion,
     "org.apache.hadoop" % "hadoop-client" % flinkHadoopVersion,
 
     // Log4j runtime dependencies
