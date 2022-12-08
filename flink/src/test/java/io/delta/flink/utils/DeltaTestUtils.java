@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -25,6 +27,13 @@ import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
+import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.catalog.CatalogTable;
+import org.apache.flink.table.catalog.ObjectIdentifier;
+import org.apache.flink.table.catalog.ResolvedCatalogTable;
+import org.apache.flink.table.catalog.ResolvedSchema;
+import org.apache.flink.table.factories.DynamicTableFactory;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
@@ -34,6 +43,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
+
+import io.delta.standalone.DeltaLog;
 
 public class DeltaTestUtils {
 
@@ -85,6 +96,9 @@ public class DeltaTestUtils {
     public static final String TEST_VERSIONED_DELTA_TABLE =
         "/test-data/test-non-partitioned-delta-table-4-versions";
 
+    public static final String TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR =
+        "/test-data/test-table-api";
+
     public static void initTestForAllDataTypes(String targetTablePath)
         throws IOException {
         initTestFor(TEST_DELTA_TABLE_ALL_DATA_TYPES, targetTablePath);
@@ -110,6 +124,11 @@ public class DeltaTestUtils {
         initTestFor(TEST_VERSIONED_DELTA_TABLE, targetTablePath);
     }
 
+    public static void initTestForTableApiTable(String targetTablePath)
+        throws IOException {
+        initTestFor(TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR, targetTablePath);
+    }
+
     public static void initTestFor(String testDeltaTableInitialStateNpDir, String targetTablePath)
         throws IOException {
         File resourcesDirectory = new File("src/test/resources");
@@ -118,6 +137,41 @@ public class DeltaTestUtils {
         FileUtils.copyDirectory(
             new File(initialTablePath),
             new File(targetTablePath));
+    }
+
+    /**
+     * In this method we check in short time intervals for the total time of 10 seconds whether
+     * the DeltaLog for the table has been already created by the Flink job running in the deamon
+     * thread.
+     *
+     * @param deltaLog {@link DeltaLog} instance for test table
+     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
+     *                              created
+     */
+    public static void waitUntilDeltaLogExists(DeltaLog deltaLog) throws InterruptedException {
+        waitUntilDeltaLogExists(deltaLog, 0L);
+    }
+
+    /**
+     * In this method we check in short time intervals for the total time of 20 seconds whether
+     * the DeltaLog for the table has been already created by the Flink job running in the deamon
+     * thread and whether the table version is equal or higher than specified.
+     *
+     * @param deltaLog {@link DeltaLog} instance for test table
+     * @param minVersion minimum version of the table
+     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
+     *                              created
+     */
+    public static void waitUntilDeltaLogExists(DeltaLog deltaLog, Long minVersion)
+        throws InterruptedException {
+        int i = 0;
+        while (deltaLog.snapshot().getVersion() < minVersion) {
+            if (i > 20) throw new RuntimeException(
+                "Timeout. DeltaLog for table has not been initialized");
+            i++;
+            Thread.sleep(1000);
+            deltaLog.update();
+        }
     }
 
     public static void triggerFailover(FailoverType type, JobID jobId, Runnable afterFailAction,
@@ -449,5 +503,26 @@ public class DeltaTestUtils {
                 "Unable to modify " + logFile + " last modified timestamp.",
                 logFile.toFile().setLastModified(System.currentTimeMillis()), equalTo(true));
         }
+    }
+
+    public static DynamicTableFactory.Context createTableContext(
+        ResolvedSchema schema, Map<String, String> options) {
+
+        return new FactoryUtil.DefaultDynamicTableContext(
+            ObjectIdentifier.of("default", "default", "context_1"),
+            new ResolvedCatalogTable(
+                CatalogTable.of(
+                    Schema.newBuilder().fromResolvedSchema(schema).build(),
+                    "mock context",
+                    Collections.emptyList(),
+                    options
+                ),
+                schema
+            ),
+            Collections.emptyMap(),
+            new Configuration(),
+            DeltaTestUtils.class.getClassLoader(),
+            false
+        );
     }
 }

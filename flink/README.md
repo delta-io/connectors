@@ -389,7 +389,7 @@ libraryDependencies ++= Seq(
   "org.apache.flink" %% "flink-parquet" % flinkVersion,
   "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
   "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
-  "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided")
+  "org.apache.flink" %% "flink-table-runtime" % flinkVersion % "provided")
 ```
 
 ## Building

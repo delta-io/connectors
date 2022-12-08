@@ -404,6 +404,7 @@ public class DeltaSinkTestUtils {
                 .withBucketAssigner(getTestPartitionAssigner())
                 .build();
         }
+
         return DeltaSink
             .forRowData(
                 new Path(deltaTablePath),
