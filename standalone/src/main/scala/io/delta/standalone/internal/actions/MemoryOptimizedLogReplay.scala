@@ -34,6 +34,7 @@ private[internal] class MemoryOptimizedLogReplay(
     logStore: LogStore,
     val hadoopConf: Configuration,
     timeZone: TimeZone) {
+  import ParsedPartitionValuesCodec._
 
   /**
    * @return a [[CloseableIterator]] of tuple (Action, isLoadedFromCheckpoint) in reverse

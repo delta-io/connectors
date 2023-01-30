@@ -29,7 +29,7 @@ import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
-import io.delta.standalone.internal.util.ComparisonUtil
+import io.delta.standalone.internal.util.{ComparisonUtil, FileNames}
 
 class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUtil {
 
@@ -210,6 +210,43 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
            |maximum supported protocol version (1,2).
            |Please upgrade to a newer release or use a connector with a higher supported protocol.
            |""".stripMargin))
+    }
+  }
+
+  test("compare checkpoint schema and contents") {
+    withTempDirAndLogs { (_, standaloneLog, internalStandaloneLog, ossLog) =>
+
+      // commit and checkpoint standalone with writeStatsAsStruct = true
+      standaloneLog.startTransaction().commit(
+        (ss.metadata.copyBuilder()
+          .configuration(Map("delta.checkpoint.writeStatsAsStruct" ->  "true").asJava)
+          .build() :: Nil).asJava, ss.op, ss.engineInfo)
+      standaloneLog.startTransaction().commit(ss.addFiles.asJava, ss.op, ss.engineInfo)
+      internalStandaloneLog.update()
+      internalStandaloneLog.checkpoint()
+
+      val ssCheckpointPath = FileNames.checkpointFileSingular(
+        internalStandaloneLog.logPath,
+        internalStandaloneLog.snapshot.version)
+      val ssCheckpoint = spark.read.format("parquet").load(ssCheckpointPath.toString)
+
+      // commit and checkpoint delta-spark with writeStatsAsStruct = true
+      ossLog.startTransaction().commit(
+        oo.metadata.copy(configuration = Map("delta.checkpoint.writeStatsAsStruct" ->  "true"))
+          :: Nil,
+        oo.op)
+      ossLog.startTransaction().commit(oo.addFiles, oo.op)
+      ossLog.update()
+      ossLog.checkpoint()
+
+      val ossCheckpointPath = FileNames.checkpointFileSingular(
+        ossLog.logPath,
+        ossLog.snapshot.version)
+      val ossCheckpoint = spark.read.format("parquet").load(ossCheckpointPath.toString)
+
+      // check the schema and contents are the same
+      assert(ossCheckpoint.schema == ssCheckpoint.schema)
+      checkAnswer(ossCheckpoint, ssCheckpoint)
     }
   }
 

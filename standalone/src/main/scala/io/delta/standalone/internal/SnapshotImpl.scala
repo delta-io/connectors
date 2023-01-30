@@ -33,7 +33,7 @@ import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ, 
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.expressions.Expression
 
-import io.delta.standalone.internal.actions.{AddFile, InMemoryLogReplay, MemoryOptimizedLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
+import io.delta.standalone.internal.actions.{AddFile, InMemoryLogReplay, MemoryOptimizedLogReplay, Metadata, Parquet4sSingleActionWrapper, ParsedPartitionValuesCodec, Protocol, RemoveFile, SetTransaction, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
@@ -57,6 +57,7 @@ private[internal] class SnapshotImpl(
     val timestamp: Long) extends Snapshot with Logging {
 
   import SnapshotImpl._
+  import ParsedPartitionValuesCodec._
 
   private val memoryOptimizedLogReplay =
     new MemoryOptimizedLogReplay(files, deltaLog.store, hadoopConf, deltaLog.timezone)

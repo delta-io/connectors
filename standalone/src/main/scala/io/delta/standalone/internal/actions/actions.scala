@@ -23,8 +23,10 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.github.mjakubowski84.parquet4s.{NullValue, OptionalValueCodec, ParquetSchemaResolver, RowParquetRecord, SchemaDef, Value, ValueCodec, ValueCodecConfiguration}
+import org.apache.parquet.schema.{PrimitiveType, Type}
 
-import io.delta.standalone.types.StructType
+import io.delta.standalone.types._
 
 import io.delta.standalone.internal.{ConstraintImpl, DeltaColumnMapping, DeltaColumnMappingMode, DeltaConfigs, IdMapping, NameMapping}
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -172,6 +174,12 @@ private[internal] sealed trait FileAction extends Action {
 }
 
 /**
+ * Used to encode the "partitionValues_parsed" field when writing AddFiles in checkpoints.
+ */
+private[internal] case class ParsedPartitionValues(partitionSchema: StructType,
+  partitionValues: Map[String, String])
+
+/**
  * Adds a new file to the table. When multiple [[AddFile]] file actions
  * are seen with the same `path` only the metadata from the last one is
  * kept.
@@ -185,7 +193,9 @@ private[internal] case class AddFile(
     dataChange: Boolean,
     @JsonRawValue
     stats: String = null,
-    tags: Map[String, String] = null) extends FileAction {
+    tags: Map[String, String] = null,
+    @JsonIgnore
+    partitionValues_parsed: ParsedPartitionValues = null) extends FileAction {
   require(path.nonEmpty)
 
   override def wrap: SingleAction = SingleAction(add = this)
@@ -198,6 +208,11 @@ private[internal] case class AddFile(
     // scalastyle:off
     RemoveFile(path, Some(timestamp), dataChange)
     // scalastyle:on
+  }
+
+  // todo: instead of directly altering AddFile action we could add a wrapper class
+  def withPartitionValuesParsed(partitionSchema: StructType): AddFile = {
+    copy(partitionValues_parsed = ParsedPartitionValues(partitionSchema, partitionValues))
   }
 }
 
@@ -536,3 +551,84 @@ private[internal] case class Parquet4sSingleActionWrapper(
     commitInfo
   )
 }
+
+/**
+ * Provides a custom encoder for encoding [[ParsedPartitionValues]] into the
+ * "add.partitionValues_parsed" field when checkpointing. Also provides a util method for generating
+ * the "add.partitionValues_parsed" parquet types from the partition ([[StructType]]) schema.
+ */
+object ParsedPartitionValuesCodec {
+
+  implicit val parsedPartitionValuesCodec: ValueCodec[ParsedPartitionValues] =
+    new OptionalValueCodec[ParsedPartitionValues] {
+      override def decodeNonNull(
+        value: Value,
+        configuration: ValueCodecConfiguration): ParsedPartitionValues = {
+        // We don't use or expose partitionValues_parsed so we can just store null
+        null
+      }
+
+      override def encodeNonNull(
+        data: ParsedPartitionValues,
+        configuration: ValueCodecConfiguration): Value = {
+        RowParquetRecord(data.partitionSchema.getFields.map { field =>
+          // todo: use physical name
+          val stringValue = data.partitionValues(field.getName)
+          val value = if (stringValue == null ) {
+            NullValue
+          } else {
+            field.getDataType match {
+              // todo: use this by consolidating the decodePartition and codec map code?
+              case _: StringType => ValueCodec.stringCodec.encode(stringValue, configuration)
+              case _: TimestampType => ValueCodec.sqlTimestampCodec
+                .encode(java.sql.Timestamp.valueOf(stringValue), configuration)
+              case _: DateType => ValueCodec.sqlDateCodec
+                .encode(java.sql.Date.valueOf(stringValue), configuration)
+              case _: IntegerType => ValueCodec.intCodec.encode(stringValue.toInt, configuration)
+              case _: LongType => ValueCodec.longCodec.encode(stringValue.toLong, configuration)
+              case _: ByteType => ValueCodec.byteCodec.encode(stringValue.toByte, configuration)
+              case _: ShortType => ValueCodec.shortCodec.encode(stringValue.toShort, configuration)
+              case _: BooleanType => ValueCodec.booleanCodec
+                .encode(stringValue.toBoolean, configuration)
+              case _: FloatType => ValueCodec.floatCodec.encode(stringValue.toFloat, configuration)
+              case _: DoubleType => ValueCodec.doubleCodec
+                .encode(stringValue.toDouble, configuration)
+              case _: DecimalType => ValueCodec.decimalCodec.encode(
+                new java.math.BigDecimal(stringValue), configuration)
+              case _: BinaryType => ValueCodec.arrayCodec[Byte, Array].encode(
+                stringValue.getBytes("UTF-8"), configuration)
+              case _ =>
+                throw new RuntimeException(
+                  s"Unknown encode data type ${field.getDataType.getTypeName}, $stringValue")
+            }
+          }
+          (field.getName, value)
+        }: _*)
+      }
+    }
+
+  def partitionSchemaToParquetTypes(schema: StructType): Seq[Type] = {
+    schema.getFields.map { field =>
+      field.getDataType match {
+        case _: StringType => ParquetSchemaResolver.stringSchema(field.getName)
+        case _: TimestampType => ParquetSchemaResolver.sqlTimestampSchema(field.getName)
+        case _: DateType => ParquetSchemaResolver.sqlDateSchema(field.getName)
+        case _: IntegerType => ParquetSchemaResolver.intSchema(field.getName)
+        case _: LongType => ParquetSchemaResolver.longSchema(field.getName)
+        case _: ByteType => ParquetSchemaResolver.byteSchema(field.getName)
+        case _: ShortType => ParquetSchemaResolver.shortSchema(field.getName)
+        case _: BooleanType => ParquetSchemaResolver.booleanSchema(field.getName)
+        case _: FloatType => ParquetSchemaResolver.floatSchema(field.getName)
+        case _: DoubleType => ParquetSchemaResolver.doubleSchema(field.getName)
+        case _: DecimalType => ParquetSchemaResolver.decimalSchema(field.getName)
+        case _: BinaryType => SchemaDef.primitive(
+          PrimitiveType.PrimitiveTypeName.BINARY, required = false)(field.getName)
+        case _ =>
+          throw new RuntimeException(
+            s"Unknown partition data type ${field.getDataType.getTypeName}")
+      }
+    }
+  }
+}
+
+

@@ -22,12 +22,14 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
-import com.github.mjakubowski84.parquet4s.ParquetWriter
+import com.github.mjakubowski84.parquet4s.{Cursor, ParquetSchemaResolver, ParquetWriter, SchemaDef, SkippingParquetSchemaResolver}
+import com.github.mjakubowski84.parquet4s.ParquetSchemaResolver.TypedSchemaDef
 import io.delta.storage.CloseableIterator
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
+import org.apache.parquet.schema.Type
 
-import io.delta.standalone.internal.actions.SingleAction
+import io.delta.standalone.internal.actions.{Metadata, ParsedPartitionValues, ParsedPartitionValuesCodec, SingleAction}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.util.FileNames._
@@ -206,6 +208,37 @@ private[internal] trait Checkpoints {
 }
 
 private[internal] object Checkpoints extends Logging {
+
+  /**
+   * We omit or include fields in the checkpoint based on the following rules:
+   * - "add.partitionValues_parsed": required when the table is partitioned and the table property
+   *   delta.checkpoint.writeStatsAsStruct is set to true.
+   * - "add.stats": required when statistics are available and the table property
+   *   delta.checkpoint.writeStatsAsJson is set to true. When the property is false this field
+   *   should be omitted.
+   * - "add.stats_parsed": required when statistics are available and the table property
+   *   delta.checkpoint.writeStatsAsStruct is set to true. When the property is false this field
+   *   should be omitted.
+   * - "remove.tags" should always be omitted
+   * - "cdc" and "commitInfo" should always be omitted. Since these are fields in SingleAction we
+   *   need to skip them using SkippingParquetSchemaResolver even though we never write these
+   *   actions to a checkpoint.
+   * */
+  private def fieldsToSkip(metadata: Metadata): Seq[String] = {
+    var fieldsToSkip = Seq("remove.tags", "commitInfo", "cdc")
+    if (!DeltaConfigs.CHECKPOINT_WRITE_STATS_AS_JSON.fromMetadata(metadata)) {
+      fieldsToSkip = fieldsToSkip ++ Seq("add.stats")
+    }
+    if (!DeltaConfigs.CHECKPOINT_WRITE_STATS_AS_STRUCT.fromMetadata(metadata).contains(true)) {
+      // todo: we currently never write stats_parsed
+      fieldsToSkip = fieldsToSkip ++ Seq("add.stats_parsed")
+      fieldsToSkip = fieldsToSkip ++ Seq("add.partitionValues_parsed")
+    } else if (metadata.partitionColumns.isEmpty) {
+      fieldsToSkip = fieldsToSkip ++ Seq("add.partitionValues_parsed")
+    }
+    fieldsToSkip
+  }
+
   /**
    * Writes out the contents of a [[Snapshot]] into a checkpoint file that
    * can be used to short-circuit future replays of the log.
@@ -225,12 +258,45 @@ private[internal] object Checkpoints extends Logging {
     // Use the string in the closure as Path is not Serializable.
     val path = checkpointFileSingular(snapshot.path, snapshot.version).toString
 
+    // We define a SkippingParquetSchemaResolver to omit fields from the checkpoint
+    val skippedFields = fieldsToSkip(snapshot.metadataScala)
+    implicit def singleActionResolver(implicit rest: SkippingParquetSchemaResolver[SingleAction])
+        : ParquetSchemaResolver[SingleAction] = {
+
+      new ParquetSchemaResolver[SingleAction] {
+        override def resolveSchema: List[Type] =
+          rest.resolveSchema(Cursor.skipping(skippedFields))
+      }
+    }
+
+    // To encode partitionValues_parsed, we need to define its type and import our custom encoder
+    import ParsedPartitionValuesCodec._
+    implicit val parsedPartitionValuesSchema: TypedSchemaDef[ParsedPartitionValues] =
+      SchemaDef.group(partitionSchemaToParquetTypes(snapshot.metadataScala.partitionSchema): _*)
+        .typed[ParsedPartitionValues]
+
+    // Prepare partitionValues_parsed field in the addFiles
+    var addFiles = if (skippedFields.contains("add.partitionValues_parsed")) {
+      // Make sure partitionValues_parsed is null when we are not writing the field
+      snapshot.allFilesScala.map(_.copy(partitionValues_parsed = null))
+    } else {
+      snapshot.allFilesScala.map(
+        _.withPartitionValuesParsed(snapshot.metadataScala.partitionSchema))
+    }
+
+    // Any skipped fields must be null or we will see a parquet4s error
+    addFiles = if (skippedFields.contains("add.stats")) {
+      snapshot.allFilesScala.map(_.copy(stats = null))
+    } else {
+      addFiles
+    }
+
     // Exclude commitInfo, CDC
     val actions: Seq[SingleAction] = (
-        Seq(snapshot.metadataScala, snapshot.protocolScala) ++
+      Seq(snapshot.metadataScala, snapshot.protocolScala) ++
         snapshot.setTransactionsScala ++
-        snapshot.allFilesScala ++
-        snapshot.tombstonesScala
+        addFiles ++
+        snapshot.tombstonesScala.map(_.copy(tags = null)) // We always skip remove.tags
       ).map(_.wrap)
 
     val writtenPath =
