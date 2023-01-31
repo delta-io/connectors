@@ -29,6 +29,8 @@ import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{DataType, StructType}
 import io.delta.standalone.internal.util.{ComparisonUtil, FileNames}
 
 class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUtil {
@@ -243,10 +245,28 @@ class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUti
         ossLog.logPath,
         ossLog.snapshot.version)
       val ossCheckpoint = spark.read.format("parquet").load(ossCheckpointPath.toString)
+        // remove.tags will be removed in the next Delta release
+        .withColumn("remove", col("remove").dropFields("tags"))
 
-      // check the schema and contents are the same
-      assert(ossCheckpoint.schema == ssCheckpoint.schema)
-      checkAnswer(ossCheckpoint, ssCheckpoint)
+      // Check the schema and contents are the same
+      // AddFile fields are in a different order so we need to sort fields
+      def sortFields(dataType: DataType): DataType = dataType match {
+        case schema: StructType =>
+          new StructType(schema.fields.sortBy(_.name).map( field =>
+            field.copy(dataType = sortFields(field.dataType))
+          ))
+        case _ => dataType
+      }
+      assert(sortFields(ossCheckpoint.schema) == sortFields(ssCheckpoint.schema))
+
+      // AddFile fields are in a different order so we need to expand and sort
+      val nestedFields = ossCheckpoint.schema.flatMap { col =>
+        col.dataType.asInstanceOf[StructType].fieldNames.map(col.name + "." + _)
+      }.sorted
+      checkAnswer(
+        ossCheckpoint.select(nestedFields.map(col): _*),
+        ssCheckpoint.select(nestedFields.map(col): _*)
+      )
     }
   }
 
