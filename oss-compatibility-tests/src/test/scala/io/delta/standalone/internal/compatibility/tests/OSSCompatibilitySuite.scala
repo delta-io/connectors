@@ -25,12 +25,12 @@ import scala.collection.JavaConverters._
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.delta.{DeltaLog => OSSDeltaLog}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{DataType, StructType}
 
 import io.delta.standalone.{DeltaLog => StandaloneDeltaLog}
 
 import io.delta.standalone.internal.{DeltaLogImpl => InternalStandaloneDeltaLog}
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DataType, StructType}
 import io.delta.standalone.internal.util.{ComparisonUtil, FileNames}
 
 class OSSCompatibilitySuite extends OssCompatibilitySuiteBase with ComparisonUtil {
