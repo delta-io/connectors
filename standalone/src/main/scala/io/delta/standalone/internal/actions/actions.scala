@@ -19,7 +19,7 @@ package io.delta.standalone.internal.actions
 import java.net.URI
 import java.sql.Timestamp
 
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreType, JsonInclude}
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -176,8 +176,11 @@ private[internal] sealed trait FileAction extends Action {
 /**
  * Used to encode the "partitionValues_parsed" field when writing AddFiles in checkpoints.
  */
-private[internal] case class ParsedPartitionValues(partitionSchema: StructType,
-  partitionValues: Map[String, String])
+@JsonIgnoreType
+private[internal] case class ParsedPartitionValues(
+  partitionSchema: StructType,
+  partitionValues: Map[String, String]
+)
 
 /**
  * Adds a new file to the table. When multiple [[AddFile]] file actions
@@ -191,10 +194,8 @@ private[internal] case class AddFile(
     size: Long,
     modificationTime: Long,
     dataChange: Boolean,
-    @JsonRawValue
     stats: String = null,
     tags: Map[String, String] = null,
-    @JsonIgnore
     partitionValues_parsed: ParsedPartitionValues = null) extends FileAction {
   require(path.nonEmpty)
 
