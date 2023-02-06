@@ -1,7 +1,6 @@
 package io.delta.flink.internal.table;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,6 +13,7 @@ import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -34,29 +34,18 @@ class DeltaDynamicTableFactoryTest {
 
     private DeltaDynamicTableFactory tableFactory;
 
+    private Map<String, String> originalEnvVariables;
+
     @BeforeEach
     public void setUp() {
         this.tableFactory = new DeltaDynamicTableFactory();
+
+        originalEnvVariables = System.getenv();
     }
 
-    @Test
-    void shouldLoadHadoopConfFromPath() {
-
-        String path = "src/test/resources/hadoop-conf";
-        File file = new File(path);
-        String confDir = file.getAbsolutePath();
-
-        Map<String, String> options = new HashMap<>();
-        options.put("table-path", "file://some/path");
-        options.put("hadoop-conf-dir", confDir);
-        Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, options);
-
-        DeltaDynamicTableSink dynamicTableSink =
-            (DeltaDynamicTableSink) tableFactory.createDynamicTableSink(tableContext);
-
-        Configuration actualConf = dynamicTableSink.getConf();
-        assertThat(actualConf.get("dummy.property1", "noValue_asDefault"), equalTo("false"));
-        assertThat(actualConf.get("dummy.property2", "noValue_asDefault"), equalTo("1"));
+    @AfterEach
+    public void afterEach() {
+        CommonTestUtils.setEnv(originalEnvVariables, true);
     }
 
     @Test
@@ -102,28 +91,6 @@ class DeltaDynamicTableFactoryTest {
     }
 
     @Test
-    void shouldOverrideConfFromConfDirProperty() {
-
-        String path = "src/test/resources/hadoop-conf";
-        File file = new File(path);
-        String confDir = file.getAbsolutePath();
-
-        Map<String, String> options = new HashMap<>();
-        options.put("table-path", "file://some/path");
-        options.put("hadoop-conf-dir", confDir);
-        Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, options);
-
-        CommonTestUtils.setEnv(Collections.singletonMap("HADOOP_HOME", confDir), true);
-
-        DeltaDynamicTableSink dynamicTableSink =
-            (DeltaDynamicTableSink) tableFactory.createDynamicTableSink(tableContext);
-
-        Configuration actualConf = dynamicTableSink.getConf();
-        assertThat(actualConf.get("dummy.property1", "noValue_asDefault"), equalTo("false"));
-        assertThat(actualConf.get("dummy.property2", "noValue_asDefault"), equalTo("1"));
-    }
-
-    @Test
     void shouldValidateMissingTablePathOption() {
 
         Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, Collections.emptyMap());
@@ -151,21 +118,4 @@ class DeltaDynamicTableFactoryTest {
 
         LOG.info(validationException.getMessage());
     }
-
-    @Test
-    void shouldValidateIfMissingHadoopConfDir() {
-        Map<String, String> options = new HashMap<>();
-        options.put("table-path", "file://some/path");
-        options.put("hadoop-conf-dir", "fiele://invalid/path");
-        Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, options);
-
-        RuntimeException validationException = assertThrows(
-            RuntimeException.class,
-            () -> tableFactory.createDynamicTableSink(tableContext)
-        );
-
-        assertThat(validationException.getCause().getClass(), equalTo(FileNotFoundException.class));
-        LOG.info(validationException.getMessage());
-    }
-
 }

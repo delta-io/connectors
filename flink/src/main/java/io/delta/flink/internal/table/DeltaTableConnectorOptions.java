@@ -35,20 +35,6 @@ public class DeltaTableConnectorOptions {
             .noDefaultValue();
 
     /**
-     * Path to folder with Hadoop Conf containing files such as:
-     * <ul>
-     *     <li>core-site.xml</li>
-     *     <li>hdfs-site.xml</li>
-     *     <li>yarn-site.xml</li>
-     *     <li>mapred-site.xml</li>
-     * </ul>
-     */
-    public static final ConfigOption<String> HADOOP_CONF_DIR =
-        ConfigOptions.key("hadoop-conf-dir")
-            .stringType()
-            .noDefaultValue();
-
-    /**
      * Indicator whether we should try to update table's schema with stream's schema in case
      * those will not match. The update is not guaranteed as there will be still some checks
      * performed whether the updates to the schema are compatible.

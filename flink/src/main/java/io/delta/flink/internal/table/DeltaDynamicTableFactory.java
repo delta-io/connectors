@@ -18,37 +18,38 @@
 package io.delta.flink.internal.table;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
+import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
+import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
 /**
- * Creates a {@link DynamicTableSink} instance representing DeltaLake table.
+ * Creates a {@link DynamicTableSink} and {@link DynamicTableSource} instance representing DeltaLake
+ * table.
  *
  * <p>
  * This implementation automatically resolves all necessary object for creating instance of {@link
- * io.delta.flink.sink.DeltaSink} except Delta table's path that needs to be provided explicitly.
+ * io.delta.flink.sink.DeltaSink} and {@link io.delta.flink.source.DeltaSource} except Delta table's
+ * path that needs to be provided explicitly.
  */
-public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
+public class DeltaDynamicTableFactory implements DynamicTableSinkFactory,
+    DynamicTableSourceFactory {
 
     public static final String IDENTIFIER = "delta";
-
-    public final org.apache.flink.configuration.Configuration emptyClusterConfig =
-        new org.apache.flink.configuration.Configuration();
 
     @Override
     public String factoryIdentifier() {
@@ -62,12 +63,14 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
             FactoryUtil.createTableFactoryHelper(this, context);
         helper.validate();
 
+
         ReadableConfig tableOptions = helper.getOptions();
         ResolvedSchema tableSchema = context.getCatalogTable().getResolvedSchema();
 
-        Configuration conf = resolveHadoopConf(tableOptions);
+        Configuration conf =
+            HadoopUtils.getHadoopConfiguration(GlobalConfiguration.loadConfiguration());
 
-        RowType rowType = (RowType) tableSchema.toSinkRowDataType().getLogicalType();
+        RowType rowType = (RowType) tableSchema.toPhysicalRowDataType().getLogicalType();
 
         Boolean shouldTryUpdateSchema = tableOptions
             .getOptional(DeltaTableConnectorOptions.MERGE_SCHEMA)
@@ -83,6 +86,37 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
     }
 
     @Override
+    public DynamicTableSource createDynamicTableSource(Context context) {
+        FactoryUtil.TableFactoryHelper helper =
+            FactoryUtil.createTableFactoryHelper(this, context);
+        helper.validate();
+
+        ReadableConfig tableOptions = helper.getOptions();
+        Configuration hadoopConf =
+            HadoopUtils.getHadoopConfiguration(GlobalConfiguration.loadConfiguration());
+
+        List<String> columns = ((RowType) context
+            .getCatalogTable()
+            .getResolvedSchema()
+            .toPhysicalRowDataType()
+            .getLogicalType()
+        ).getFieldNames();
+
+        return new DeltaDynamicTableSource(
+            hadoopConf,
+            tableOptions,
+            columns
+        );
+    }
+
+    @Override
+    public Set<ConfigOption<?>> forwardOptions() {
+        final Set<ConfigOption<?>> options = new HashSet<>();
+        options.add(DeltaTableConnectorOptions.TABLE_PATH);
+        return options;
+    }
+
+    @Override
     public Set<ConfigOption<?>> requiredOptions() {
         final Set<ConfigOption<?>> options = new HashSet<>();
         options.add(DeltaTableConnectorOptions.TABLE_PATH);
@@ -92,53 +126,12 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
         final Set<ConfigOption<?>> options = new HashSet<>();
-        options.add(DeltaTableConnectorOptions.HADOOP_CONF_DIR);
         options.add(DeltaTableConnectorOptions.MERGE_SCHEMA);
+
+        // TODO With Delta Catalog, this option will be injected only through query hints.
+        //  The DDL validation will be done in Delta Catalog during "createTable" operation.
+        options.add(DeltaFlinkJobSpecificOptions.MODE);
         return options;
-    }
-
-    /**
-     * Tries to resolve Hadoop conf from conf dir provided as table option or from environment
-     * variable HADOOP_HOME and HADOOP_CONF_DIR.
-     * <p>
-     * The configuration will be resolved in below order, where every next element will override
-     * configuration loaded from previous one.
-     * <ul>
-     *     <li>HADOOP_HOME environment variable</li>
-     *     <li>HADOOP_CONF_DIR environment variable</li>
-     *     <li>"hadoop-conf-dir" table property</li>
-     * </ul>
-     *
-     * @param tableOptions Flink Table's options resolved for given table
-     * @return {@link Configuration} object
-     */
-    private Configuration resolveHadoopConf(ReadableConfig tableOptions) {
-
-        Configuration userHadoopConf = null;
-        Optional<String> hadoopConfDirOptional =
-            tableOptions.getOptional(DeltaTableConnectorOptions.HADOOP_CONF_DIR);
-
-        if (hadoopConfDirOptional.isPresent()) {
-            userHadoopConf = loadHadoopConfFromFolder(hadoopConfDirOptional.get());
-            if (userHadoopConf == null) {
-                throw new RuntimeException(
-                    "Failed to resolve Hadoop userHadoopConf file from given path",
-                    new FileNotFoundException(
-                        "Couldn't resolve Hadoop userHadoopConf at given path: " +
-                            hadoopConfDirOptional.get()));
-            }
-        }
-
-        // We are using helper method HadoopUtils.getHadoopConfiguration to resolve
-        // cluster's Hadoop configuration. This method looks for Hadoop config in env variables and
-        // Flink cluster configuration. For this moment DynamicTableSinkFactory does not have
-        // access to Flink's configuration that is why we are passing "dummy" config as an argument.
-        Configuration hadoopConfiguration = HadoopUtils.getHadoopConfiguration(emptyClusterConfig);
-        if (userHadoopConf != null) {
-            hadoopConfiguration.addResource(userHadoopConf);
-        }
-
-        return hadoopConfiguration;
     }
 
     /**

@@ -90,6 +90,10 @@ public class DeltaSinkTestUtils {
         new RowType.RowField("col2", new VarCharType(VarCharType.MAX_LENGTH))
     ));
 
+    /**
+     * {@link org.apache.flink.table.data.util.DataFormatConverters.DataFormatConverter} for
+     * {@link #TEST_ROW_TYPE}
+     */
     @SuppressWarnings("unchecked")
     public static final DataFormatConverters.DataFormatConverter<RowData, Row>
         TEST_ROW_TYPE_CONVERTER = DataFormatConverters.getConverterForDataType(

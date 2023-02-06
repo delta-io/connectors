@@ -9,42 +9,62 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.delta.flink.utils.RecordCounterToFail.FailCheck;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.highavailability.nonha.embedded.HaLeadershipControl;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.RpcServiceSharing;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
 import org.apache.flink.table.api.Schema;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;
 import org.apache.flink.table.catalog.ResolvedSchema;
+import org.apache.flink.table.data.util.DataFormatConverters;
 import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemTestHelper;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.column.page.PageReadStore;
+import org.apache.parquet.example.data.simple.SimpleGroup;
+import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.ColumnIOFactory;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.io.RecordReader;
+import org.apache.parquet.schema.MessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 
 import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Snapshot;
+import io.delta.standalone.actions.AddFile;
 
 public class DeltaTestUtils {
 
@@ -524,5 +544,109 @@ public class DeltaTestUtils {
             DeltaTestUtils.class.getClassLoader(),
             false
         );
+    }
+
+    public static List<Integer> readParquetTable(String tablePath) throws Exception {
+        try (Stream<java.nio.file.Path> stream = Files.list(Paths.get((tablePath)))) {
+            Set<String> collect = stream
+                .filter(file -> !Files.isDirectory(file))
+                .map(java.nio.file.Path::getFileName)
+                .map(java.nio.file.Path::toString)
+                .filter(name -> !name.contains("inprogress"))
+                .collect(Collectors.toSet());
+
+            List<Integer> data = new ArrayList<>();
+            for (String fileName : collect) {
+                System.out.println(fileName);
+                data.addAll(readParquetFile(
+                        new Path(tablePath + fileName),
+                        new org.apache.hadoop.conf.Configuration()
+                    )
+                );
+            }
+            return data;
+        }
+    }
+
+    public static StreamExecutionEnvironment getTestStreamEnv(boolean streamingMode) {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.getConfig().setRestartStrategy(RestartStrategies.noRestart());
+
+        if (streamingMode) {
+            env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
+            env.enableCheckpointing(1000, CheckpointingMode.EXACTLY_ONCE);
+        } else {
+            env.setRuntimeMode(RuntimeExecutionMode.BATCH);
+        }
+
+        return env;
+    }
+
+    /**
+     * Verifies if Delta table under parameter {@code tablePath} contains expected number of rows
+     * with given rowType format.
+     *
+     * @param tablePath               Path to Delta table.
+     * @param rowType                 {@link RowType} for test Delta table.
+     * @param expectedNumberOfRecords expected number of row in Delta table.
+     * @return Head snapshot of Delta table.
+     * @throws IOException If any issue while reading Delta Table.
+     */
+    @SuppressWarnings("unchecked")
+    public static Snapshot verifyDeltaTable(
+            String tablePath,
+            RowType rowType,
+            Integer expectedNumberOfRecords) throws IOException {
+
+        DeltaLog deltaLog = DeltaLog.forTable(DeltaTestUtils.getHadoopConf(), tablePath);
+        Snapshot snapshot = deltaLog.snapshot();
+        List<AddFile> deltaFiles = snapshot.getAllFiles();
+        int finalTableRecordsCount = TestParquetReader
+            .readAndValidateAllTableRecords(
+                deltaLog,
+                rowType,
+                DataFormatConverters.getConverterForDataType(
+                    TypeConversions.fromLogicalToDataType(rowType)));
+        long finalVersion = snapshot.getVersion();
+
+        LOG.info(
+            String.format(
+                "RESULTS: final record count: [%d], final table version: [%d], number of Delta "
+                    + "files: [%d]",
+                finalTableRecordsCount,
+                finalVersion,
+                deltaFiles.size()
+            )
+        );
+
+        assertThat(finalTableRecordsCount, equalTo(expectedNumberOfRecords));
+        return snapshot;
+    }
+
+    private static List<Integer> readParquetFile(
+            Path filePath,
+            org.apache.hadoop.conf.Configuration hadoopConf) throws IOException {
+
+        ParquetFileReader reader = ParquetFileReader.open(
+            HadoopInputFile.fromPath(filePath, hadoopConf)
+        );
+
+        MessageType schema = reader.getFooter().getFileMetaData().getSchema();
+        PageReadStore pages;
+
+        List<Integer> data = new LinkedList<>();
+        while ((pages = reader.readNextRowGroup()) != null) {
+            long rows = pages.getRowCount();
+            MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
+            RecordReader recordReader =
+                columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
+
+            for (int i = 0; i < rows; i++) {
+                SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
+                data.add(simpleGroup.getInteger("age", 0));
+            }
+        }
+        Collections.sort(data);
+        return data;
     }
 }
