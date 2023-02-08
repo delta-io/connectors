@@ -55,8 +55,15 @@ private[internal] trait LogStoreProvider {
       new DelegatingLogStore(hadoopConf)
     } else {
       // scalastyle:off classforname
+      // Do not pass a null class loader
+      // - https://github.com/netty/netty/issues/7290
+      // - https://bugs.openjdk.java.net/browse/JDK-7008595
+      var loader = Thread.currentThread().getContextClassLoader
+      if (loader == null) {
+        loader = this.getClass().getClassLoader
+      }
       val logStoreClass =
-        Class.forName(className, true, Thread.currentThread().getContextClassLoader)
+        Class.forName(className, true, loader)
       // scalastyle:on classforname
 
       if (classOf[LogStore].isAssignableFrom(logStoreClass)) {
