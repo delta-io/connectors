@@ -35,7 +35,7 @@ public class DeltaCatalogFactory implements CatalogFactory {
      */
     @Override
     public Catalog createCatalog(Context context) {
-        // TODO FlinkSQL_PR_6 - inject proper decorated catalog based on catalog properties
+        // TODO FlinkSQL_PR_9 - inject proper decorated catalog based on catalog properties
         Catalog decoratedCatalog = new GenericInMemoryCatalog(context.getName(), "default");
         Configuration hadoopConfiguration =
             HadoopUtils.getHadoopConfiguration(GlobalConfiguration.loadConfiguration());
