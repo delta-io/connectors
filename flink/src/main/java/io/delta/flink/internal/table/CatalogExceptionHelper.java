@@ -1,8 +1,12 @@
 package io.delta.flink.internal.table;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ObjectPath;
@@ -14,6 +18,8 @@ import io.delta.standalone.types.StructType;
 // TODO DC - consider extending CatalogException for more concrete types like
 //  "DeltaSchemaMismatchException" etc.
 public final class CatalogExceptionHelper {
+
+    private static final String INVALID_PROPERTY_TEMPLATE = " - '%s'";
 
     private CatalogExceptionHelper() {}
 
@@ -90,6 +96,40 @@ public final class CatalogExceptionHelper {
         );
     }
 
+    public static CatalogException invalidDdlOptionException(InvalidDdlOptions invalidOptions) {
+
+        String invalidTablePropertiesUsed = invalidOptions.getInvalidTableProperties().stream()
+            .map(tableProperty -> String.format(INVALID_PROPERTY_TEMPLATE, tableProperty))
+            .collect(Collectors.joining("\n"));
+
+        String usedJobSpecificOptions = invalidOptions.getJobSpecificOptions().stream()
+            .map(jobProperty -> String.format(INVALID_PROPERTY_TEMPLATE, jobProperty))
+            .collect(Collectors.joining("\n"));
+
+        String exceptionMessage = "DDL contains invalid properties. "
+            + "DDL can have only delta table properties or arbitrary user options only.";
+
+        if (invalidTablePropertiesUsed.length() > 0) {
+            exceptionMessage = String.join(
+                "\n",
+                exceptionMessage,
+                String.format("Invalid options used:\n%s", invalidTablePropertiesUsed)
+            );
+        }
+
+        if (usedJobSpecificOptions.length() > 0) {
+            exceptionMessage = String.join(
+                "\n",
+                exceptionMessage,
+                String.format(
+                    "DDL contains job specific options. Job specific options can be used only via "
+                        + "Query hints.\nUsed Job specific options:\n%s", usedJobSpecificOptions)
+            );
+        }
+
+        return new CatalogException(exceptionMessage);
+    }
+
     /**
      * A container class that contains DDL and _delta_log property values for given DDL option.
      */
@@ -108,6 +148,33 @@ public final class CatalogExceptionHelper {
             this.optionName = optionName;
             this.ddlOptionValue = ddlOptionValue;
             this.deltaLogPropertyValue = deltaLogPropertyValue;
+        }
+    }
+
+    public static class InvalidDdlOptions {
+
+        private final Set<String> jobSpecificOptions = new HashSet<>();
+
+        private final Set<String> invalidTableProperties = new HashSet<>();
+
+        public void addJobSpecificOption(String jobSpecificOption) {
+            this.jobSpecificOptions.add(jobSpecificOption);
+        }
+
+        public void addInvalidTableProperty(String invalidTableProperty) {
+            this.invalidTableProperties.add(invalidTableProperty);
+        }
+
+        public boolean hasInvalidOptions() {
+            return !(jobSpecificOptions.isEmpty() && invalidTableProperties.isEmpty());
+        }
+
+        public Collection<String> getJobSpecificOptions() {
+            return Collections.unmodifiableSet(this.jobSpecificOptions);
+        }
+
+        public Collection<String> getInvalidTableProperties() {
+            return Collections.unmodifiableSet(this.invalidTableProperties);
         }
     }
 

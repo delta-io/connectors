@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.delta.flink.internal.ConnectorUtils;
 import io.delta.flink.utils.RecordCounterToFail.FailCheck;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.api.common.JobID;
@@ -63,8 +64,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 
 import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Operation;
+import io.delta.standalone.Operation.Name;
+import io.delta.standalone.OptimisticTransaction;
 import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.Metadata;
+import io.delta.standalone.actions.Metadata.Builder;
+import io.delta.standalone.types.StructType;
 
 public class DeltaTestUtils {
 
@@ -648,5 +655,57 @@ public class DeltaTestUtils {
         }
         Collections.sort(data);
         return data;
+    }
+
+    /**
+     * Creates a Delta table with single Metadata action containing table properties and schema
+     * passed via `configuration` and `schema` parameters. If Delta table exists under specified
+     * tablePath properties and schema will be committed to existing Delta table as new
+     * transaction.
+     * <p>
+     * The `schema` argument can be null if Delta table exists under `tablePath`. In that case only
+     * table properties from `configuration` parameter will be added to the Delta table.
+     *
+     * @param tablePath     path for Delta table.
+     * @param configuration configuration with table properties that should be added to Delta
+     *                      table.
+     * @param schema        schema for Delta table. Can be null if Delta table already exists.
+     * @return {@link DeltaLog} instance for created or updated Delta table.
+     */
+    public static DeltaLog setupDeltaTable(
+            String tablePath,
+            Map<String, String> configuration,
+            StructType schema) {
+
+        DeltaLog deltaLog =
+            DeltaLog.forTable(DeltaTestUtils.getHadoopConf(), tablePath);
+
+        if (!deltaLog.tableExists() && (schema == null || schema.getFieldNames().length == 0)) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "Schema cannot be null/empty if table does not exists under given path %s",
+                    tablePath));
+        }
+
+        // Set delta table property. DDL will try to override it with different value
+        OptimisticTransaction transaction = deltaLog.startTransaction();
+        Builder newMetadataBuilder = transaction.metadata()
+            .copyBuilder()
+            .configuration(configuration);
+
+        if (schema != null) {
+            newMetadataBuilder.schema(schema);
+        }
+
+        Metadata updatedMetadata = newMetadataBuilder
+            .build();
+
+        transaction.updateMetadata(updatedMetadata);
+        transaction.commit(
+            Collections.singletonList(updatedMetadata),
+            new Operation((deltaLog.tableExists()) ? Name.SET_TABLE_PROPERTIES : Name.CREATE_TABLE),
+            ConnectorUtils.ENGINE_INFO
+        );
+        return deltaLog;
     }
 }

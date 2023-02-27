@@ -117,16 +117,22 @@ public class DeltaCatalog {
             );
         }
 
+        // These are taken from the DDL OPTIONS.
         Map<String, String> ddlOptions = catalogTable.getOptions();
         String deltaTablePath = ddlOptions.get(DeltaTableConnectorOptions.TABLE_PATH.key());
         if (StringUtils.isNullOrWhitespaceOnly(deltaTablePath)) {
             throw new CatalogException("Path to Delta table cannot be null or empty.");
         }
 
-        // TODO FlinkSQL_PR_5 add DDL option validation
-        // DeltaCatalogTableHelper.validateDdlOptions(ddlOptions);
-        // Map<String, String> deltaDdlOptions =
-        //    DeltaCatalogTableHelper.filterMetastoreDdlOptions(ddlOptions);
+        // DDL options validation
+        DeltaCatalogTableHelper.validateDdlOptions(ddlOptions);
+
+        // At this point what we should have in ddlOptions are only delta table
+        // properties, connector type, table path and arbitrary user-defined table properties.
+        // We don't want to store connector type or table path in _delta_log, so we will filter
+        // those.
+        Map<String, String> filteredDdlOptions =
+            DeltaCatalogTableHelper.filterMetastoreDdlOptions(ddlOptions);
 
         CatalogBaseTable table = catalogTable.getCatalogTable();
 
@@ -157,7 +163,7 @@ public class DeltaCatalog {
             // _delta_log.
             Map<String, String> deltaLogProperties =
                 DeltaCatalogTableHelper.prepareDeltaTableProperties(
-                    ddlOptions, // TODO FlinkSQL_PR_5 use deltaDdlOptions here
+                    filteredDdlOptions,
                     tableCatalogPath,
                     deltaMetadata,
                     false // allowOverride = false
@@ -188,7 +194,7 @@ public class DeltaCatalog {
             Metadata metadata = Metadata.builder()
                 .schema(ddlDeltaSchema)
                 .partitionColumns(ddlPartitionColumns)
-                .configuration(ddlOptions) // TODO FlinkSQL_PR_5 use deltaDdlOptions here
+                .configuration(filteredDdlOptions)
                 .name(tableCatalogPath.getObjectName())
                 .build();
 

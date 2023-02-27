@@ -17,6 +17,11 @@
  */
 package io.delta.flink.internal.table;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import io.delta.flink.source.internal.DeltaSourceOptions;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.core.fs.Path;
@@ -48,6 +53,21 @@ public class DeltaFlinkJobSpecificOptions {
             .enumType(TableMode.class)
             .defaultValue(TableMode.BATCH);
 
+    /**
+     * Set of allowed Job specific options for SELECT statements that can be passed used Flink's
+     * query hint.
+     */
+    public static final Set<String> SOURCE_JOB_OPTIONS = Stream.of(
+        MODE.key(),
+        DeltaSourceOptions.VERSION_AS_OF.key(),
+        DeltaSourceOptions.TIMESTAMP_AS_OF.key(),
+        DeltaSourceOptions.STARTING_VERSION.key(),
+        DeltaSourceOptions.STARTING_TIMESTAMP.key(),
+        DeltaSourceOptions.UPDATE_CHECK_INTERVAL.key(),
+        DeltaSourceOptions.UPDATE_CHECK_INITIAL_DELAY.key(),
+        DeltaSourceOptions.IGNORE_DELETES.key(),
+        DeltaSourceOptions.IGNORE_CHANGES.key()
+    ).collect(Collectors.toSet());
 
     /**
      * Expected values for {@link DeltaFlinkJobSpecificOptions#MODE} job specific option. Based on

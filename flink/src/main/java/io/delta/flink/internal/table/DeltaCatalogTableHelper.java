@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.delta.flink.internal.ConnectorUtils;
+import io.delta.flink.internal.table.CatalogExceptionHelper.InvalidDdlOptions;
 import io.delta.flink.internal.table.CatalogExceptionHelper.MismatchedDdlOptionAndDeltaTableProperty;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.flink.table.api.Schema;
@@ -30,6 +31,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.LogicalTypeDataTypeConverter;
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Operation;
@@ -206,6 +208,23 @@ public final class DeltaCatalogTableHelper {
     }
 
     /**
+     * Prepare a map of Delta table properties that should be added to Delta {@link Metadata}
+     * action. This method filter the original DDL options and remove options such as {@code
+     * connector} and {@code table-path}.
+     *
+     * @param ddlOptions original DDL options passed via CREATE Table WITH ( ) clause.
+     * @return Map od Delta table properties that should be added to Delta's {@link Metadata}
+     * action.
+     */
+    public static Map<String, String> filterMetastoreDdlOptions(Map<String, String> ddlOptions) {
+        return ddlOptions.entrySet().stream()
+            .filter(entry ->
+                !(entry.getKey().contains(FactoryUtil.CONNECTOR.key())
+                    || entry.getKey().contains(DeltaTableConnectorOptions.TABLE_PATH.key()))
+            ).collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+    }
+
+    /**
      * Prepare catalog table to store in metastore. This table will have only selected
      * options from DDL and an empty schema.
      */
@@ -263,16 +282,24 @@ public final class DeltaCatalogTableHelper {
             Metadata deltaMetadata,
             boolean allowOverride) {
 
-        // TODO FlinkSQL_PR_5 add asserts to ensure that "table-path" and "connector" options are
-        //  not included in filteredDdlOptions
+        checkArgument(
+            !filteredDdlOptions.containsKey(DeltaTableConnectorOptions.TABLE_PATH.key()),
+            String.format("Filtered DDL options should not contain %s option.",
+                DeltaTableConnectorOptions.TABLE_PATH.key())
+        );
+        checkArgument(
+            !filteredDdlOptions.containsKey(FactoryUtil.CONNECTOR.key()),
+            String.format("Filtered DDL options should not contain %s option.",
+                FactoryUtil.CONNECTOR.key())
+        );
 
         List<MismatchedDdlOptionAndDeltaTableProperty> invalidDdlOptions = new LinkedList<>();
         Map<String, String> deltaLogProperties = new HashMap<>(deltaMetadata.getConfiguration());
         for (Entry<String, String> ddlOption : filteredDdlOptions.entrySet()) {
             // will return the previous value for the key, else `null` if no such previous value
-            // existed
+            // existed.
             String existingDeltaPropertyValue =
-                deltaLogProperties.putIfAbsent(ddlOption.getKey(), ddlOption.getValue());
+                deltaLogProperties.put(ddlOption.getKey(), ddlOption.getValue());
 
             if (!allowOverride
                 && existingDeltaPropertyValue != null
@@ -295,6 +322,44 @@ public final class DeltaCatalogTableHelper {
             );
         }
         return deltaLogProperties;
+    }
+
+    /**
+     * Validate DDL options to check whether any invalid table properties or Job specific options
+     * where used. This method will throw the {@link CatalogException} if provided ddlOptions
+     * contain any key that starts with
+     * <ul>
+     *     <li>spark.</li>
+     *     <li>delta.logStore.</li>
+     *     <li>io.delta.</li>
+     *     <li>parquet.</li>
+     * </ul>
+     * <p>
+     * or any of Job specific options {@link DeltaFlinkJobSpecificOptions#SOURCE_JOB_OPTIONS}
+     *
+     * @param ddlOptions DDL options to validate.
+     * @throws CatalogException when invalid option used.
+     */
+    public static void validateDdlOptions(Map<String, String> ddlOptions) {
+        InvalidDdlOptions invalidDdlOptions = new InvalidDdlOptions();
+        for (String ddlOption : ddlOptions.keySet()) {
+
+            // validate for Flink Job specific options in DDL
+            if (DeltaFlinkJobSpecificOptions.SOURCE_JOB_OPTIONS.contains(ddlOption)) {
+                invalidDdlOptions.addJobSpecificOption(ddlOption);
+            }
+
+            // validate for Delta log Store config and parquet config.
+            if (ddlOption.startsWith("spark.") ||
+                ddlOption.startsWith("delta.logStore") ||
+                ddlOption.startsWith("io.delta") ||
+                ddlOption.startsWith("parquet.")) {
+                invalidDdlOptions.addInvalidTableProperty(ddlOption);
+            }
+        }
+        if (invalidDdlOptions.hasInvalidOptions()) {
+            throw CatalogExceptionHelper.invalidDdlOptionException(invalidDdlOptions);
+        }
     }
 
     /**
