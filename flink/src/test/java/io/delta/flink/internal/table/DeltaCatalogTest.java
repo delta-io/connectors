@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.delta.standalone.DeltaLog;
+import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.types.StructType;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,7 +75,7 @@ class DeltaCatalogTest {
     @ParameterizedTest
     @NullSource  // pass a null value
     @ValueSource(strings = {"", " "})
-    public void testThrowCreateTableInvalidTablePath(String deltaTablePath) {
+    public void shouldThrow_createTable_invalidTablePath(String deltaTablePath) {
 
         DeltaCatalogBaseTable deltaCatalogTable = setUpCatalogTable(
             (deltaTablePath == null) ? Collections.emptyMap() : Collections.singletonMap(
@@ -92,7 +93,7 @@ class DeltaCatalogTest {
     }
 
     @Test
-    public void testThrowCreateTableIfInvalidTableOptionUsed() {
+    public void shouldThrow_createTable_invalidTableOption() {
 
         Map<String, String> invalidOptions = Stream.of(
                 "spark.some.option",
@@ -115,7 +116,7 @@ class DeltaCatalogTest {
     }
 
     @Test
-    public void testThrowCreateTableIfJobSpecificOptionUsed() {
+    public void shouldThrow_createTable_jobSpecificOption() {
 
         // This test will not check if options are mutual excluded.
         // This is covered by table Factory and Source builder tests.
@@ -154,7 +155,7 @@ class DeltaCatalogTest {
     }
 
     @Test
-    public void testThrowCreateTableIfJobSpecificOptionAndInvalidTableOptionsAreUsed() {
+    public void shouldThrow_createTable_jobSpecificOption_and_invalidTableOptions() {
 
         // This test will not check if options are mutual excluded.
         // This is covered by table Factory and Source builder tests.
@@ -198,7 +199,7 @@ class DeltaCatalogTest {
     }
 
     @Test
-    public void testThrowIfMismatchedDdlOptionAndDeltaTableProperty() {
+    public void shouldThrow_mismatchedDdlOption_and_deltaTableProperty() {
 
         String tablePath = this.ddlOptions.get(
             DeltaTableConnectorOptions.TABLE_PATH.key()
@@ -209,7 +210,9 @@ class DeltaCatalogTest {
         DeltaLog deltaLog = DeltaTestUtils.setupDeltaTable(
             tablePath,
             configuration,
-            new StructType(TestTableData.DELTA_FIELDS)
+            Metadata.builder()
+                .schema(new StructType(TestTableData.DELTA_FIELDS))
+                .build()
         );
 
         assertThat(deltaLog.tableExists())

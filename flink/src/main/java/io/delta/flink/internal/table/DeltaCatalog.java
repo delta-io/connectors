@@ -110,7 +110,7 @@ public class DeltaCatalog {
             throw new TableAlreadyExistException(this.catalogName, tableCatalogPath);
         }
 
-        if (!databaseExists(catalogTable.getDatabaseName())) {
+        if (!decoratedCatalog.databaseExists(catalogTable.getDatabaseName())) {
             throw new DatabaseNotExistException(
                 this.catalogName,
                 catalogTable.getDatabaseName()
@@ -285,13 +285,54 @@ public class DeltaCatalog {
         return DeltaLog.forTable(hadoopConf, deltaTablePath).tableExists();
     }
 
-    public void alterTable(DeltaCatalogBaseTable newCatalogTable) throws CatalogException {
+    /**
+     * Executes ALTER operation on Delta table. Currently, only changing table name and
+     * changing/setting table properties is supported using ALTER statement.
+     * <p>
+     * Changing table name: {@code ALTER TABLE sourceTable RENAME TO newSourceTable}
+     * <p>
+     * Setting table property: {@code ALTER TABLE sourceTable SET ('userCustomProp'='myVal')}
+     *
+     * @param newCatalogTable catalog table with new name and properties defined by ALTER
+     *                        statement.
+     */
+    public void alterTable(DeltaCatalogBaseTable newCatalogTable) {
+        // Flink's Default SQL dialect support ALTER statements ONLY for changing table name
+        // (Catalog::renameTable(...) and for changing/setting table properties. Schema/partition
+        // change for Flink default SQL dialect is not supported.
+        Map<String, String> alterTableDdlOptions = newCatalogTable.getOptions();
+        String deltaTablePath =
+            alterTableDdlOptions.get(DeltaTableConnectorOptions.TABLE_PATH.key());
 
-        // TODO FlinkSQL_PR_6
-        throw new UnsupportedOperationException("Not yet implemented.");
-    }
+        // DDL options validation
+        DeltaCatalogTableHelper.validateDdlOptions(alterTableDdlOptions);
 
-    private boolean databaseExists(String databaseName) {
-        return this.decoratedCatalog.databaseExists(databaseName);
+        // At this point what we should have in ddlOptions are only delta table
+        // properties, connector type, table path and user defined options. We don't want to
+        // store connector type or table path in _delta_log, so we will filter those.
+        Map<String, String> filteredDdlOptions =
+            DeltaCatalogTableHelper.filterMetastoreDdlOptions(alterTableDdlOptions);
+
+        DeltaLog deltaLog = DeltaLog.forTable(hadoopConf, deltaTablePath);
+        Metadata originalMetaData = deltaLog.update().getMetadata();
+
+        // Add new properties to metadata.
+        // Throw if DDL Delta table properties override previously defined properties from
+        // _delta_log.
+        Map<String, String> deltaLogProperties =
+            DeltaCatalogTableHelper.prepareDeltaTableProperties(
+                filteredDdlOptions,
+                newCatalogTable.getTableCatalogPath(),
+                originalMetaData,
+                true // allowOverride = true
+            );
+
+        Metadata updatedMetadata = originalMetaData.copyBuilder()
+            .configuration(deltaLogProperties)
+            .build();
+
+        // add properties to _delta_log
+        DeltaCatalogTableHelper
+            .commitToDeltaLog(deltaLog, updatedMetadata, Operation.Name.SET_TABLE_PROPERTIES);
     }
 }

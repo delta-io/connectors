@@ -71,7 +71,6 @@ import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.actions.Metadata.Builder;
-import io.delta.standalone.types.StructType;
 
 public class DeltaTestUtils {
 
@@ -658,6 +657,20 @@ public class DeltaTestUtils {
     }
 
     /**
+     * Creates a Delta table with single Metadata action containing table properties passed via
+     * configuration argument or adds table properties to existing Delta table.
+     *
+     * @param tablePath     path where which Delta table will be created.
+     * @param configuration table properties that will be added to Delta table.
+     * @return a {@link DeltaLog} instance for created Delta table.
+     */
+    public static DeltaLog setupDeltaTableWithProperties(
+            String tablePath,
+            Map<String, String> configuration) {
+        return setupDeltaTable(tablePath, configuration, null);
+    }
+
+    /**
      * Creates a Delta table with single Metadata action containing table properties and schema
      * passed via `configuration` and `schema` parameters. If Delta table exists under specified
      * tablePath properties and schema will be committed to existing Delta table as new
@@ -669,18 +682,18 @@ public class DeltaTestUtils {
      * @param tablePath     path for Delta table.
      * @param configuration configuration with table properties that should be added to Delta
      *                      table.
-     * @param schema        schema for Delta table. Can be null if Delta table already exists.
+     * @param metadata      metadata for Delta table. Can be null if Delta table already exists.
      * @return {@link DeltaLog} instance for created or updated Delta table.
      */
     public static DeltaLog setupDeltaTable(
             String tablePath,
             Map<String, String> configuration,
-            StructType schema) {
+            Metadata metadata) {
 
         DeltaLog deltaLog =
             DeltaLog.forTable(DeltaTestUtils.getHadoopConf(), tablePath);
 
-        if (!deltaLog.tableExists() && (schema == null || schema.getFieldNames().length == 0)) {
+        if (!deltaLog.tableExists() && (metadata == null || metadata.getSchema() == null)) {
             throw new IllegalArgumentException(
                 String.format(
                     "Schema cannot be null/empty if table does not exists under given path %s",
@@ -693,8 +706,10 @@ public class DeltaTestUtils {
             .copyBuilder()
             .configuration(configuration);
 
-        if (schema != null) {
-            newMetadataBuilder.schema(schema);
+        if (metadata != null) {
+            newMetadataBuilder
+                .schema(metadata.getSchema())
+                .partitionColumns(metadata.getPartitionColumns());
         }
 
         Metadata updatedMetadata = newMetadataBuilder
@@ -707,5 +722,28 @@ public class DeltaTestUtils {
             ConnectorUtils.ENGINE_INFO
         );
         return deltaLog;
+    }
+
+    public static MiniClusterWithClientResource buildCluster(int parallelismLevel) {
+
+        return new MiniClusterWithClientResource(
+            buildClusterResourceConfig(parallelismLevel));
+    }
+
+    public static MiniClusterResourceConfiguration buildClusterResourceConfig(
+        int parallelismLevel) {
+
+        Configuration configuration = new Configuration();
+
+        // By default, let's check for leaked classes in tests.
+        configuration.set(CoreOptions.CHECK_LEAKED_CLASSLOADER, true);
+
+        return new MiniClusterResourceConfiguration.Builder()
+            .setNumberTaskManagers(1)
+            .setNumberSlotsPerTaskManager(parallelismLevel)
+            .setRpcServiceSharing(RpcServiceSharing.DEDICATED)
+            .withHaLeadershipControl()
+            .setConfiguration(configuration)
+            .build();
     }
 }
