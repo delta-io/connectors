@@ -65,7 +65,7 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
 
     private final Path basePath;
 
-    private final Configuration conf;
+    private final Configuration hadoopConf;
 
     private final RowType rowType;
 
@@ -86,28 +86,27 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
     /**
      * Constructor for creating sink of Flink dynamic table to Delta table.
      *
-     * @param basePath              full Delta table path
-     * @param conf                  Hadoop's configuration
-     * @param rowType               Flink's logical type with the structure of the events in the
-     *                              stream
-     * @param mergeSchema whether we should try to update table's schema with stream's
-     *                              schema in case those will not match
-     * @param catalogTable          represents the unresolved metadata of derived by Flink framework
-     *                              from table's DDL
+     * @param basePath     full Delta table path
+     * @param hadoopConf   Hadoop's configuration
+     * @param rowType      Flink's logical type with the structure of the events in the stream
+     * @param mergeSchema  whether we should try to update table's schema with stream's schema in
+     *                     case those will not match
+     * @param catalogTable represents the unresolved metadata of derived by Flink framework from
+     *                     table's DDL
      */
     public DeltaDynamicTableSink(
             Path basePath,
-            Configuration conf,
+            Configuration hadoopConf,
             RowType rowType,
             boolean mergeSchema,
             CatalogTable catalogTable) {
 
-        this(basePath, conf, rowType, mergeSchema, catalogTable, new LinkedHashMap<>());
+        this(basePath, hadoopConf, rowType, mergeSchema, catalogTable, new LinkedHashMap<>());
     }
 
     private DeltaDynamicTableSink(
             Path basePath,
-            Configuration conf,
+            Configuration hadoopConf,
             RowType rowType,
             boolean mergeSchema,
             CatalogTable catalogTable,
@@ -115,7 +114,7 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
 
         this.basePath = basePath;
         this.rowType = rowType;
-        this.conf = conf;
+        this.hadoopConf = hadoopConf;
         this.catalogTable = catalogTable;
         this.mergeSchema = mergeSchema;
         this.staticPartitionSpec = staticPartitionSpec;
@@ -146,10 +145,10 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
         DeltaSinkBuilder<RowData> builder =
             new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
                 this.basePath,
-                this.conf,
+                this.hadoopConf,
                 ParquetRowDataBuilder.createWriterFactory(
                     this.rowType,
-                    this.conf,
+                    this.hadoopConf,
                     PARQUET_UTC_TIMESTAMP
                 ),
                 new BasePathBucketAssigner<>(),
@@ -179,7 +178,7 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
     public DynamicTableSink copy() {
         return new DeltaDynamicTableSink(
             this.basePath,
-            this.conf,
+            this.hadoopConf,
             this.rowType,
             this.mergeSchema,
             this.catalogTable,
@@ -233,7 +232,7 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
     }
 
     @VisibleForTesting
-    Configuration getConf() {
-        return new Configuration(conf);
+    Configuration getHadoopConf() {
+        return new Configuration(hadoopConf);
     }
 }

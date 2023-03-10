@@ -235,7 +235,7 @@ public final class DeltaCatalogTableHelper {
         // For computed and meta columns are not supported.
         Map<String, String> optionsToStoreInMetastore = new HashMap<>();
         optionsToStoreInMetastore.put(FactoryUtil.CONNECTOR.key(),
-            DeltaDynamicTableFactory.IDENTIFIER);
+            DeltaDynamicTableFactory.DELTA_CONNECTOR_IDENTIFIER);
         optionsToStoreInMetastore.put(DeltaTableConnectorOptions.TABLE_PATH.key(),
             deltaTablePath);
 

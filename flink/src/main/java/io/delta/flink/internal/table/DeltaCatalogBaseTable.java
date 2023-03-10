@@ -36,7 +36,8 @@ public class DeltaCatalogBaseTable {
         this.catalogTable = catalogTable;
 
         String connectorType = catalogTable.getOptions().get(FactoryUtil.CONNECTOR.key());
-        this.isDeltaTable = DeltaDynamicTableFactory.IDENTIFIER.equals(connectorType);
+        this.isDeltaTable =
+            DeltaDynamicTableFactory.DELTA_CONNECTOR_IDENTIFIER.equals(connectorType);
     }
 
     public ObjectPath getTableCatalogPath() {

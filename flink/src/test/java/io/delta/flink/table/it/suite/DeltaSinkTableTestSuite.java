@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.table;
+package io.delta.flink.table.it.suite;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,6 +37,7 @@ import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
@@ -58,8 +59,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static io.delta.flink.utils.DeltaTestUtils.buildCluster;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -72,11 +71,9 @@ import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.data.RowRecord;
 
-public class DeltaSinkTableITCase {
+public abstract class DeltaSinkTableTestSuite {
 
     private static final int PARALLELISM = 2;
-
-    private static final Logger LOG = LoggerFactory.getLogger(DeltaSinkTableITCase.class);
 
     private static final String TEST_SOURCE_TABLE_NAME = "test_source_table";
 
@@ -300,20 +297,23 @@ public class DeltaSinkTableITCase {
         assertThat(recordCount, equalTo(expectedNumberOfRows));
     }
 
+    // TODO FlinkSQL_PR_8
+    //public void testThrowOnInvalidQueryHints() throws Exception { }
+
     private String buildInsertAllFieldsSql(boolean useStaticPartition) {
 
         if (useStaticPartition) {
             return String.format(
                 "INSERT INTO %s PARTITION(col1='val1') SELECT col2, col3 FROM %s",
-                DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-                DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+                DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+                DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
             );
         }
 
         return String.format(
             "INSERT INTO %s SELECT * FROM %s",
-            DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-            DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+            DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+            DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
         );
     }
 
@@ -322,29 +322,29 @@ public class DeltaSinkTableITCase {
         if (useStaticPartition) {
             return String.format(
                 "INSERT INTO %s PARTITION(col1='val1') (col2) (SELECT col2 FROM %s)",
-                DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-                DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+                DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+                DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
             );
         }
 
         return String.format(
             "INSERT INTO %s (col1) (SELECT col1 FROM %s)",
-            DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-            DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+            DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+            DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
         );
     }
 
     private String buildInsertOneFieldSqlNullCasts(
-        boolean useStaticPartition,
-        boolean includeOptionalOptions) {
+            boolean useStaticPartition,
+            boolean includeOptionalOptions) {
 
         if (useStaticPartition) {
             return String.format(
                 "INSERT INTO %s PARTITION(col1='val1') (SELECT col2, cast(null as INT)"
                     + ((includeOptionalOptions) ? ", cast(null as INT) " : "")
                     + " FROM %s)",
-                DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-                DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+                DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+                DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
             );
         }
 
@@ -352,8 +352,8 @@ public class DeltaSinkTableITCase {
             "INSERT INTO %s (SELECT col1, cast(null as VARCHAR), cast(null as INT) "
                 + ((includeOptionalOptions) ? ", cast(null as INT) " : "")
                 + "FROM %s)",
-            DeltaSinkTableITCase.TEST_SINK_TABLE_NAME,
-            DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME
+            DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
+            DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
         );
     }
 
@@ -470,6 +470,7 @@ public class DeltaSinkTableITCase {
 
         StreamExecutionEnvironment streamEnv = getTestStreamEnv(!useBoundedMode);
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(streamEnv);
+        setupDeltaCatalog(tableEnv);
 
         if (useBoundedMode) {
             // will use datagen for Source Table
@@ -544,7 +545,7 @@ public class DeltaSinkTableITCase {
                 + "'number-of-rows' = '%s',"
                 + " 'rows-per-second' = '5'"
                 + ")",
-            DeltaSinkTableITCase.TEST_SOURCE_TABLE_NAME,
+            DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME,
             rows);
     }
 
@@ -571,8 +572,10 @@ public class DeltaSinkTableITCase {
                 + optionalTableOptions
                 + " 'table-path' = '%s'"
                 + ")",
-            DeltaSinkTableITCase.TEST_SINK_TABLE_NAME, tablePath);
+            DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME, tablePath);
     }
+
+    public abstract void setupDeltaCatalog(TableEnvironment tableEnv);
 
     private static class RowTypeColumnarRowProducer implements RowProducer {
 

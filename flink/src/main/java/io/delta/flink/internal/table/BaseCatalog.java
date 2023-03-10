@@ -41,9 +41,7 @@ public abstract class BaseCatalog extends AbstractCatalog {
 
     @Override
     public Optional<Factory> getFactory() {
-        // TODO FlinkSQL_PR_7
-        //return Optional.of(DeltaDynamicTableFactory.fromCatalog());
-        return Optional.empty();
+        return Optional.of(DeltaDynamicTableFactory.fromCatalog());
     }
 
     // By design, we will remove only metastore information during drop table.

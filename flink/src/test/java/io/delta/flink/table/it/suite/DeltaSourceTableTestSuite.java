@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.table;
+package io.delta.flink.table.it.suite;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +34,7 @@ import io.delta.flink.utils.TableUpdateDescriptor;
 import io.delta.flink.utils.TestDescriptor;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.types.logical.RowType;
@@ -41,7 +42,7 @@ import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.StringUtils;
-import org.hamcrest.CoreMatchers;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -58,11 +59,9 @@ import static io.delta.flink.utils.ExecutionITCaseTestConstants.DATA_COLUMN_TYPE
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.NAME_COLUMN_VALUES;
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.SMALL_TABLE_COUNT;
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.SURNAME_COLUMN_VALUES;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DeltaSourceTableITCase {
+public abstract class DeltaSourceTableTestSuite {
 
     private static final int PARALLELISM = 2;
 
@@ -133,13 +132,82 @@ public class DeltaSourceTableITCase {
         miniClusterResource.after();
     }
 
-    @ParameterizedTest
+    /**
+     * Flink by design does not allow using Streaming sources in Batch environment. This tests
+     * verifies if source created by streaming query is in fact Continuous/Streaming source.
+     */
+    @Test
+    public void testThrowIfUsingStreamingSourceInBatchEnv() {
+
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
+            getTestStreamEnv(false) // streamingMode = false
+        );
+
+        setupDeltaCatalog(tableEnv);
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedTablePath, SMALL_TABLE_SCHEMA)
+        );
+
+        String selectSql = "SELECT * FROM sourceTable /*+ OPTIONS('mode' = 'streaming') */";
+
+        RuntimeException exception =
+            assertThrows(RuntimeException.class, () -> tableEnv.executeSql(selectSql));
+
+        Assertions.assertThat(exception.getMessage())
+            .contains(
+                "Querying an unbounded table",
+                "in batch mode is not allowed. The table source is unbounded."
+            );
+    }
+
+    /**
+     * Flink allows using bounded sources in streaming environment. This tests verifies if source
+     * created by simple SELECT statement tha should be backed by bounded source can be run in
+     * streaming environment.
+     */
+    @Test
+    public void testUsingBatchSourceInStreamingEnv() throws Exception {
+
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
+            getTestStreamEnv(true) // streamingMode = true
+        );
+
+        setupDeltaCatalog(tableEnv);
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedTablePath, SMALL_TABLE_SCHEMA)
+        );
+
+        String selectSql = "SELECT * FROM sourceTable";
+
+        // WHEN
+        TableResult tableResult = tableEnv.executeSql(selectSql);
+
+        // THEN
+        List<Row> results = new ArrayList<>();
+        tableResult.await(10, TimeUnit.SECONDS);
+        try (CloseableIterator<Row> collect = tableResult.collect()) {
+            while (collect.hasNext()) {
+                results.add(collect.next());
+            }
+        }
+
+        // A rough assertion on an actual data. Full assertions are done in other tests.
+        Assertions.assertThat(results).hasSize(2);
+    }
+
+    @ParameterizedTest(name = "mode = {0}")
     @ValueSource(strings = {"", "batch", "BATCH", "baTCH"})
     public void testBatchTableJob(String jobMode) throws Exception {
 
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
             getTestStreamEnv(false) // streamingMode = false
         );
+
+        setupDeltaCatalog(tableEnv);
 
         // CREATE Source TABLE
         tableEnv.executeSql(
@@ -151,11 +219,14 @@ public class DeltaSourceTableITCase {
 
         String selectSql = String.format("SELECT * FROM sourceTable %s", connectorModeHint);
 
-        Table resultTable = tableEnv.sqlQuery(selectSql);
+        TableResult resultTable = tableEnv.executeSql(selectSql);
 
-        DataStream<Row> rowDataStream = tableEnv.toDataStream(resultTable);
-
-        List<Row> resultData = DeltaTestUtils.testBoundedStream(rowDataStream, miniClusterResource);
+        List<Row> resultData = new ArrayList<>();
+        try (CloseableIterator<Row> collect = resultTable.collect()) {
+            while (collect.hasNext()) {
+                resultData.add(collect.next());
+            }
+        }
 
         List<String> readNames =
             resultData.stream()
@@ -170,27 +241,29 @@ public class DeltaSourceTableITCase {
             resultData.stream().map(row -> (int) row.getFieldAs(2)).collect(Collectors.toSet());
 
         // THEN
-        assertThat("Source read different number of rows that Delta Table have.",
-            resultData.size(),
-            equalTo(SMALL_TABLE_COUNT));
+        Assertions.assertThat(resultData)
+            .withFailMessage("Source read different number of rows that Delta Table have."
+                + "\nExpected: %d,\nActual: %d", SMALL_TABLE_COUNT, resultData.size())
+            .hasSize(SMALL_TABLE_COUNT);
 
         // check for column values
-        assertThat("Source produced different values for [name] column",
-            readNames,
-            equalTo(NAME_COLUMN_VALUES));
+        Assertions.assertThat(readNames)
+            .withFailMessage("Source produced different values for [name] column")
+            .containsExactlyElementsOf(NAME_COLUMN_VALUES);
 
-        assertThat("Source produced different values for [surname] column",
-            readSurnames,
-            equalTo(SURNAME_COLUMN_VALUES));
+        Assertions.assertThat(readSurnames)
+            .withFailMessage("Source produced different values for [surname] column")
+            .containsExactlyElementsOf(SURNAME_COLUMN_VALUES);
 
-        assertThat("Source produced different values for [age] column", readAge,
-            equalTo(AGE_COLUMN_VALUES));
+        Assertions.assertThat(readAge)
+            .withFailMessage("Source produced different values for [age] column")
+            .containsExactlyElementsOf(AGE_COLUMN_VALUES);
 
         // Checking that we don't have more columns.
         assertNoMoreColumns(resultData, 3);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "mode = {0}")
     @ValueSource(strings = {"streaming", "STREAMING", "streamING"})
     public void testStreamingTableJob(String jobMode) throws Exception {
 
@@ -208,6 +281,8 @@ public class DeltaSourceTableITCase {
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
             getTestStreamEnv(true) // streamingMode = true
         );
+
+        setupDeltaCatalog(tableEnv);
 
         // CREATE Source TABLE
         tableEnv.executeSql(
@@ -243,15 +318,13 @@ public class DeltaSourceTableITCase {
                 .collect(Collectors.toSet());
 
         // THEN
-        assertThat("Source read different number of rows that Delta Table have.",
-            totalNumberOfRows,
-            CoreMatchers.equalTo(initialTableSize + numberOfTableUpdateBulks * rowsPerTableUpdate)
-        );
+        Assertions.assertThat(totalNumberOfRows)
+            .withFailMessage("Source read different number of rows that Delta Table have.")
+            .isEqualTo(initialTableSize + numberOfTableUpdateBulks * rowsPerTableUpdate);
 
-        assertThat("Source Produced Different Rows that were in Delta Table",
-            uniqueValues.size(),
-            CoreMatchers.equalTo(initialTableSize + numberOfTableUpdateBulks * rowsPerTableUpdate)
-        );
+        Assertions.assertThat(uniqueValues)
+            .withFailMessage("Source Produced Different Rows that were in Delta Table")
+            .hasSize(initialTableSize + numberOfTableUpdateBulks * rowsPerTableUpdate);
     }
 
     @Test
@@ -261,6 +334,8 @@ public class DeltaSourceTableITCase {
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
             getTestStreamEnv(false) // streamingMode = false
         );
+
+        setupDeltaCatalog(tableEnv);
 
         // CREATE Source TABLE
         tableEnv.executeSql(
@@ -287,61 +362,32 @@ public class DeltaSourceTableITCase {
         // The table that we read has 1100 records, where col1 with sequence value from 0 to 1099.
         // the WHERE query filters all records with col1 <= 500, so we expect 599 records
         // produced by SELECT query.
-        assertThat("SELECT with WHERE read different number of rows that expected.",
-            resultData.size(),
-            equalTo(599)
-        );
+        Assertions.assertThat(resultData)
+            .withFailMessage("SELECT with WHERE read different number of rows that expected.")
+            .hasSize(599);
 
-        assertThat("SELECT with WHERE read different unique values for column col1.",
-            readCol1Values.size(),
-            equalTo(599)
-        );
+        Assertions.assertThat(readCol1Values)
+            .withFailMessage("SELECT with WHERE read different unique values for column col1.")
+            .hasSize(599);
 
-        assertThat(readCol1Values.get(0), equalTo(501L));
-        assertThat(readCol1Values.get(readCol1Values.size() - 1), equalTo(1099L));
+        Assertions.assertThat(readCol1Values.get(0)).isEqualTo(501L);
+        Assertions.assertThat(readCol1Values.get(readCol1Values.size() - 1)).isEqualTo(1099L);
 
         // Checking that we don't have more columns.
         assertNoMoreColumns(resultData, 3);
     }
 
-    @Test
-    public void testSelectComputedColumns() throws Exception {
+    // TODO FlinkSQL_PR_8
+    // public void testThrowOnInvalidQueryHints(String queryMode) { }
 
-        // GIVEN
-        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
-            getTestStreamEnv(false) // streamingMode = false
-        );
+    // TODO FlinkSQL_PR_8
+    // public void testThrowOnMutuallyExcludedQueryHints(String queryHints) {}
 
-        String computedColumnsSchema = ""
-            + "col1 BIGINT,"
-            + "col2 BIGINT,"
-            + "col3 VARCHAR,"
-            + "col4 AS col1 * col2";
+    // TODO FlinkSQL_PR_8
+    // public void testThrowWhenInvalidOptionForMode(String queryHints) { }
 
-        // CREATE Source TABLE
-        tableEnv.executeSql(
-            buildSourceTableSql(nonPartitionedLargeTablePath, computedColumnsSchema)
-        );
-
-        // WHEN
-        String selectSql = "SELECT col1, col2, col4 FROM sourceTable";
-
-        TableResult tableResult = tableEnv.executeSql(selectSql);
-
-        List<Row> results = new ArrayList<>();
-        tableResult.await(10, TimeUnit.SECONDS);
-        try (CloseableIterator<Row> collect = tableResult.collect()) {
-            while (collect.hasNext()) {
-                results.add(collect.next());
-            }
-        }
-
-        assertThat(results.isEmpty(), equalTo(false));
-        for (Row row : results) {
-            assertThat(row.getField("col4"),
-                equalTo((long) row.getField("col1") * (long) row.getField("col2")));
-        }
-    }
+    // TODO FlinkSQL_PR_8
+    // public void testJobSpecificOptionInBatch() throws Exception { }
 
     private String buildSourceTableSql(String tablePath, String schemaString) {
 
@@ -353,8 +399,10 @@ public class DeltaSourceTableITCase {
                 + " 'connector' = 'delta',"
                 + " 'table-path' = '%s'"
                 + ")",
-            DeltaSourceTableITCase.TEST_SOURCE_TABLE_NAME,
+            DeltaSourceTableTestSuite.TEST_SOURCE_TABLE_NAME,
             tablePath
         );
     }
+
+    public abstract void setupDeltaCatalog(TableEnvironment tableEnv);
 }
