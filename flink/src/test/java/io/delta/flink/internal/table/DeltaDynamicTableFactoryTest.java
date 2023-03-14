@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.delta.flink.utils.DeltaTestUtils;
 import org.apache.flink.core.testutils.CommonTestUtils;
@@ -95,6 +97,46 @@ class DeltaDynamicTableFactoryTest {
         LOG.info(validationException.getMessage());
     }
 
+    @Test
+    void shouldThrowIfUsedUnexpectedOption() {
+        options.put("table-path", "file://some/path");
+        options.put("invalid-Option", "MyTarget");
+        Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, options);
+
+        ValidationException sinkValidationException = assertThrows(
+            ValidationException.class,
+            () -> tableFactory.createDynamicTableSink(tableContext)
+        );
+
+        ValidationException sourceValidationException = assertThrows(
+            ValidationException.class,
+            () -> tableFactory.createDynamicTableSource(tableContext)
+        );
+
+        assertThat(sinkValidationException.getMessage())
+            .isEqualTo(""
+                + "Currently no job-specific options are allowed in INSERT SQL statements.\n"
+                + "Invalid options used:\n"
+                + " - 'invalid-Option'"
+            );
+        assertThat(sourceValidationException.getMessage())
+            .isEqualTo(""
+                + "Only job-specific options are allowed in SELECT SQL statement.\n"
+                + "Invalid options used: \n"
+                + " - 'invalid-Option'\n"
+                + "Allowed options:\n"
+                + " - 'mode'\n"
+                + " - 'startingTimestamp'\n"
+                + " - 'ignoreDeletes'\n"
+                + " - 'updateCheckIntervalMillis'\n"
+                + " - 'startingVersion'\n"
+                + " - 'ignoreChanges'\n"
+                + " - 'versionAsOf'\n"
+                + " - 'updateCheckDelayMillis'\n"
+                + " - 'timestampAsOf'"
+            );
+    }
+
     // Verifies that none Delta tables, DeltaDynamicTableFactory will return table factory proper
     // for connector type.
     @Test
@@ -136,6 +178,63 @@ class DeltaDynamicTableFactoryTest {
 
         assertThrowsNotUsingCatalog(sourceException);
         assertThrowsNotUsingCatalog(sinkException);
+    }
+
+    @Test
+    public void shouldThrowIfInvalidJobSpecificOptionsUsed() {
+
+        options.put("table-path", "file://some/path");
+        Map<String, String> invalidOptions = Stream.of(
+                "SPARK.some.option",
+                "spark.some.option",
+                "delta.logStore",
+                "io.delta.storage.S3DynamoDBLogStore.ddb.region",
+                "parquet.writer.max-padding"
+            )
+            .collect(Collectors.toMap(optionName -> optionName, s -> "aValue"));
+        this.options.putAll(invalidOptions);
+        Context tableContext = DeltaTestUtils.createTableContext(SCHEMA, this.options);
+
+        ValidationException sinkValidationException = assertThrows(
+            ValidationException.class,
+            () -> tableFactory.createDynamicTableSink(tableContext)
+        );
+
+        ValidationException sourceValidationException = assertThrows(
+            ValidationException.class,
+            () -> tableFactory.createDynamicTableSource(tableContext)
+        );
+
+        assertThat(sinkValidationException.getMessage())
+            .isEqualTo(""
+                + "Currently no job-specific options are allowed in INSERT SQL statements.\n"
+                + "Invalid options used:\n"
+                + " - 'SPARK.some.option'\n"
+                + " - 'spark.some.option'\n"
+                + " - 'delta.logStore'\n"
+                + " - 'io.delta.storage.S3DynamoDBLogStore.ddb.region'\n"
+                + " - 'parquet.writer.max-padding'"
+            );
+        assertThat(sourceValidationException.getMessage())
+            .isEqualTo(""
+                + "Only job-specific options are allowed in SELECT SQL statement.\n"
+                + "Invalid options used: \n"
+                + " - 'SPARK.some.option'\n"
+                + " - 'spark.some.option'\n"
+                + " - 'delta.logStore'\n"
+                + " - 'io.delta.storage.S3DynamoDBLogStore.ddb.region'\n"
+                + " - 'parquet.writer.max-padding'\n"
+                + "Allowed options:\n"
+                + " - 'mode'\n"
+                + " - 'startingTimestamp'\n"
+                + " - 'ignoreDeletes'\n"
+                + " - 'updateCheckIntervalMillis'\n"
+                + " - 'startingVersion'\n"
+                + " - 'ignoreChanges'\n"
+                + " - 'versionAsOf'\n"
+                + " - 'updateCheckDelayMillis'\n"
+                + " - 'timestampAsOf'"
+            );
     }
 
     private void assertThrowsNotUsingCatalog(RuntimeException exception) {

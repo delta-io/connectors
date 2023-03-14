@@ -26,6 +26,9 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import io.delta.flink.internal.options.DeltaOptionValidationException;
+import io.delta.flink.internal.table.DeltaFlinkJobSpecificOptions.QueryMode;
+import io.delta.flink.source.internal.DeltaSourceOptions;
 import io.delta.flink.utils.DeltaTestUtils;
 import io.delta.flink.utils.ExecutionITCaseTestConstants;
 import io.delta.flink.utils.FailoverType;
@@ -33,9 +36,11 @@ import io.delta.flink.utils.RecordCounterToFail.FailCheck;
 import io.delta.flink.utils.TableUpdateDescriptor;
 import io.delta.flink.utils.TestDescriptor;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
@@ -59,6 +64,7 @@ import static io.delta.flink.utils.ExecutionITCaseTestConstants.DATA_COLUMN_TYPE
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.NAME_COLUMN_VALUES;
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.SMALL_TABLE_COUNT;
 import static io.delta.flink.utils.ExecutionITCaseTestConstants.SURNAME_COLUMN_VALUES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public abstract class DeltaSourceTableTestSuite {
@@ -377,17 +383,204 @@ public abstract class DeltaSourceTableTestSuite {
         assertNoMoreColumns(resultData, 3);
     }
 
-    // TODO FlinkSQL_PR_8
-    // public void testThrowOnInvalidQueryHints(String queryMode) { }
+    @ParameterizedTest(name = "mode = {0}")
+    @ValueSource(strings = {"batch", "streaming"})
+    public void testThrowOnInvalidQueryHints(String queryMode) {
 
-    // TODO FlinkSQL_PR_8
-    // public void testThrowOnMutuallyExcludedQueryHints(String queryHints) {}
+        StreamExecutionEnvironment testStreamEnv =
+            QueryMode.BATCH.name().equals(queryMode) ? getTestStreamEnv(false)
+                : getTestStreamEnv(true);
 
-    // TODO FlinkSQL_PR_8
-    // public void testThrowWhenInvalidOptionForMode(String queryHints) { }
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(testStreamEnv);
 
-    // TODO FlinkSQL_PR_8
-    // public void testJobSpecificOptionInBatch() throws Exception { }
+        setupDeltaCatalog(tableEnv);
+
+        String invalidQueryHints = String.format(""
+            + "'spark.some.option' = '10',"
+            + "'delta.logStore' = 'someValue',"
+            + "'io.delta.storage.S3DynamoDBLogStore.ddb.region' = 'Poland',"
+            + "'parquet.writer.max-padding' = '10',"
+            + "'delta.appendOnly' = 'true',"
+            + "'customOption' = 'value',"
+            + "'%s' = '10'", DeltaSourceOptions.VERSION_AS_OF.key());
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedTablePath, SMALL_TABLE_SCHEMA)
+        );
+
+        String selectSql =
+            String.format("SELECT * FROM sourceTable /*+ OPTIONS(%s) */", invalidQueryHints);
+
+        ValidationException exception =
+            assertThrows(ValidationException.class, () -> tableEnv.executeSql(selectSql));
+
+        assertThat(exception.getCause().getMessage())
+            .isEqualTo(""
+                + "Only job-specific options are allowed in SELECT SQL statement.\n"
+                + "Invalid options used: \n"
+                + " - 'delta.appendOnly'\n"
+                + " - 'spark.some.option'\n"
+                + " - 'delta.logStore'\n"
+                + " - 'customOption'\n"
+                + " - 'io.delta.storage.S3DynamoDBLogStore.ddb.region'\n"
+                + " - 'parquet.writer.max-padding'\n"
+                + "Allowed options:\n"
+                + " - 'mode'\n"
+                + " - 'startingTimestamp'\n"
+                + " - 'ignoreDeletes'\n"
+                + " - 'updateCheckIntervalMillis'\n"
+                + " - 'startingVersion'\n"
+                + " - 'ignoreChanges'\n"
+                + " - 'versionAsOf'\n"
+                + " - 'updateCheckDelayMillis'\n"
+                + " - 'timestampAsOf'");
+    }
+
+    @ParameterizedTest(name = "queryHint = {0}")
+    @ValueSource(
+        strings = {
+            "'versionAsOf' = '10', 'timestampAsOf' = '2022-02-24T04:55:00.001', 'mode' = 'batch'",
+            "'startingVersion' = '10', 'startingTimestamp' = '2022-02-24T04:55:00.001', 'mode' = "
+                + "'streaming'"
+        })
+    public void testThrowOnMutuallyExclusiveQueryHints(String queryHints) {
+
+        StreamExecutionEnvironment testStreamEnv =
+            queryHints.contains(QueryMode.BATCH.name()) ? getTestStreamEnv(false)
+                : getTestStreamEnv(true);
+
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(testStreamEnv);
+
+        setupDeltaCatalog(tableEnv);
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedTablePath, SMALL_TABLE_SCHEMA)
+        );
+
+        String selectSql =
+            String.format("SELECT * FROM sourceTable /*+ OPTIONS(%s) */", queryHints);
+
+        DeltaOptionValidationException exception =
+            assertThrows(
+                DeltaOptionValidationException.class, () -> tableEnv.executeSql(selectSql));
+
+        assertThat(exception.getMessage())
+            .contains("Used mutually exclusive options for Source definition.");
+    }
+
+    @ParameterizedTest(name = "queryHint = {0}")
+    @ValueSource(
+        strings = {
+            "'versionAsOf' = '10', 'mode' = 'streaming'",
+            "'timestampAsOf' = '2022-02-24T04:55:00.001', 'mode' = 'streaming'",
+            "'startingVersion' = '10', 'mode' = 'batch'",
+            "'startingTimestamp' = '2022-02-24T04:55:00.001', 'mode' = 'batch'"
+        })
+    public void testThrowWhenInvalidOptionForMode(String queryHints) {
+
+        StreamExecutionEnvironment testStreamEnv =
+            queryHints.contains(QueryMode.BATCH.name()) ? getTestStreamEnv(false)
+                : getTestStreamEnv(true);
+
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(testStreamEnv);
+
+        setupDeltaCatalog(tableEnv);
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedTablePath, SMALL_TABLE_SCHEMA)
+        );
+
+        String selectSql =
+            String.format("SELECT * FROM sourceTable /*+ OPTIONS(%s) */", queryHints);
+
+        DeltaOptionValidationException exception =
+            assertThrows(
+                DeltaOptionValidationException.class, () -> tableEnv.executeSql(selectSql));
+
+        assertThat(exception.getMessage())
+            .contains("Used inapplicable option for source configuration.");
+    }
+
+    @Test
+    public void testJobSpecificOptionInBatch() throws Exception {
+
+        // GIVEN
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
+            getTestStreamEnv(false)
+        );
+
+        setupDeltaCatalog(tableEnv);
+
+        // CREATE Source TABLE
+        tableEnv.executeSql(
+            buildSourceTableSql(nonPartitionedLargeTablePath, LARGE_TABLE_SCHEMA)
+        );
+
+        // versionAsOf = 1 query hint.
+        String versionAsOf_1 = String.format("`%s` = '1'", DeltaSourceOptions.VERSION_AS_OF.key());
+
+        // versionAsOf = 5 query hint.
+        String versionAsOf_5 = String.format("`%s` = '5'", DeltaSourceOptions.VERSION_AS_OF.key());
+
+        // WHEN
+        TableResult tableResultHint1 = tableEnv.executeSql(
+            String.format("SELECT * FROM sourceTable /*+ OPTIONS(%s) */",
+                versionAsOf_1)
+        );
+        TableResult tableResultHint2 = tableEnv.executeSql(
+            String.format("SELECT * FROM sourceTable /*+ OPTIONS(%s) */",
+                versionAsOf_5)
+        );
+
+        // THEN
+        assertVersionAsOfResult(tableResultHint1, 200);
+        assertVersionAsOfResult(tableResultHint2, 600);
+    }
+
+    private void assertVersionAsOfResult(TableResult tableResult, int expectedRowCount)
+        throws Exception {
+
+        try (CloseableIterator<Row> collect = tableResult.collect()) {
+            int rowCount = 0;
+            long minCol1Value = 0;
+            long maxCol1Value = 0;
+            while (collect.hasNext()) {
+                rowCount++;
+                Row row = collect.next();
+                long col1Val = row.getFieldAs("col1");
+
+                if (minCol1Value > col1Val) {
+                    minCol1Value = col1Val;
+                    continue;
+                }
+
+                if (maxCol1Value < col1Val) {
+                    maxCol1Value = col1Val;
+                }
+            }
+
+            assertThat(rowCount)
+                .withFailMessage(
+                    "Query produced different number of rows than expected."
+                        + "\nExpected: %d\nActual: %d", expectedRowCount, rowCount)
+                .isEqualTo(expectedRowCount);
+
+            assertThat(minCol1Value)
+                .withFailMessage("Query produced different min value for col1."
+                    + "\nExpected: %dnActual: %d", 0, minCol1Value)
+                .isEqualTo(0);
+
+            // It is expected that col1 for table used in test will have sequence values from 0
+            // and + 1 for every row.
+            assertThat(maxCol1Value)
+                .withFailMessage("Query produced different max value for col1."
+                    + "\nExpected: %dnActual: %d", expectedRowCount - 1, maxCol1Value)
+                .isEqualTo(expectedRowCount - 1);
+        }
+    }
 
     private String buildSourceTableSql(String tablePath, String schemaString) {
 

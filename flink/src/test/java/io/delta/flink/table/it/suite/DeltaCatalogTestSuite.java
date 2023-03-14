@@ -370,7 +370,7 @@ public abstract class DeltaCatalogTestSuite {
     }
 
     /**
-     * Verifies that CREATE TABLE will throw exception when DDL contains job specific options.
+     * Verifies that CREATE TABLE will throw exception when DDL contains job-specific options.
      */
     @Test
     public void shouldThrow_createTable_jobSpecificOptions() throws Exception {
@@ -390,9 +390,9 @@ public abstract class DeltaCatalogTestSuite {
         String expectedValidationMessage = ""
             + "DDL contains invalid properties. DDL can have only delta table properties or "
             + "arbitrary user options only.\n"
-            + "DDL contains job specific options. Job specific options can be used only via Query"
+            + "DDL contains job-specific options. Job-specific options can be used only via Query"
             + " hints.\n"
-            + "Used Job specific options:\n"
+            + "Used job-specific options:\n"
             + " - 'startingTimestamp'\n"
             + " - 'ignoreDeletes'\n"
             + " - 'updateCheckIntervalMillis'\n"
@@ -406,7 +406,7 @@ public abstract class DeltaCatalogTestSuite {
     }
 
     /**
-     * Verifies that CREATE TABLE will throw exception when DDL contains job specific options.
+     * Verifies that CREATE TABLE will throw exception when DDL contains job-specific options.
      */
     @Test
     public void shouldThrow_createTable_jobSpecificOptions_and_invalidTableProperties()
@@ -436,9 +436,9 @@ public abstract class DeltaCatalogTestSuite {
             + " - 'delta.logStore'\n"
             + " - 'io.delta.storage.S3DynamoDBLogStore.ddb.region'\n"
             + " - 'parquet.writer.max-padding'\n"
-            + "DDL contains job specific options. Job specific options can be used only via Query"
+            + "DDL contains job-specific options. Job-specific options can be used only via Query"
             + " hints.\n"
-            + "Used Job specific options:\n"
+            + "Used job-specific options:\n"
             + " - 'startingTimestamp'\n"
             + " - 'ignoreDeletes'\n"
             + " - 'updateCheckIntervalMillis'\n"

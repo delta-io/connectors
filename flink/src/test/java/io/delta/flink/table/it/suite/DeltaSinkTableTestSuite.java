@@ -23,11 +23,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import io.delta.flink.sink.utils.CheckpointCountingSource;
 import io.delta.flink.sink.utils.CheckpointCountingSource.RowProducer;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
+import io.delta.flink.source.internal.DeltaSourceOptions;
 import io.delta.flink.utils.DeltaTestUtils;
 import io.delta.flink.utils.TestParquetReader;
 import org.apache.flink.api.common.RuntimeExecutionMode;
@@ -38,6 +40,7 @@ import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.table.api.TableEnvironment;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
@@ -50,11 +53,13 @@ import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
+import org.assertj.core.api.Assertions;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -64,6 +69,7 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Snapshot;
@@ -297,8 +303,56 @@ public abstract class DeltaSinkTableTestSuite {
         assertThat(recordCount, equalTo(expectedNumberOfRows));
     }
 
-    // TODO FlinkSQL_PR_8
-    //public void testThrowOnInvalidQueryHints() throws Exception { }
+    @Test
+    public void testThrowOnInvalidQueryHints() throws Exception {
+
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
+            getTestStreamEnv(false) // streamingMode = false
+        );
+
+        setupDeltaCatalog(tableEnv);
+
+        String invalidQueryHints = String.format(""
+            + "'spark.some.option' = '10',"
+            + "'delta.logStore' = 'someValue',"
+            + "'io.delta.storage.S3DynamoDBLogStore.ddb.region' = 'Poland',"
+            + "'parquet.writer.max-padding' = '10',"
+            + "'delta.appendOnly' = 'true',"
+            + "'customOption' = 'value',"
+            + "'%s' = '10'", DeltaSourceOptions.VERSION_AS_OF.key());
+
+        String deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
+
+        // CREATE Source TABLE
+        String sinkTable = String.format(""
+                + "CREATE TABLE sinkTable ("
+                + "col1 INT"
+                + ") "
+                + "WITH ("
+                + " 'connector' = 'delta',"
+                + " 'table-path' = '%s'"
+                + ")",
+            deltaTablePath);
+
+        tableEnv.executeSql(sinkTable).await(10, TimeUnit.SECONDS);
+        String selectSql =
+            String.format("INSERT INTO sinkTable /*+ OPTIONS(%s) */ VALUES (1)", invalidQueryHints);
+
+        ValidationException exception =
+            assertThrows(ValidationException.class, () -> tableEnv.executeSql(selectSql));
+
+        Assertions.assertThat(exception.getCause().getMessage())
+            .isEqualTo(""
+                + "Currently no job-specific options are allowed in INSERT SQL statements.\n"
+                + "Invalid options used:\n"
+                + " - 'delta.appendOnly'\n"
+                + " - 'spark.some.option'\n"
+                + " - 'delta.logStore'\n"
+                + " - 'customOption'\n"
+                + " - 'versionAsOf'\n"
+                + " - 'io.delta.storage.S3DynamoDBLogStore.ddb.region'\n"
+                + " - 'parquet.writer.max-padding'");
+    }
 
     private String buildInsertAllFieldsSql(boolean useStaticPartition) {
 

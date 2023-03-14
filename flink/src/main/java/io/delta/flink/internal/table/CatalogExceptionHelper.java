@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
@@ -20,6 +21,11 @@ import io.delta.standalone.types.StructType;
 public final class CatalogExceptionHelper {
 
     private static final String INVALID_PROPERTY_TEMPLATE = " - '%s'";
+
+    private static final String ALLOWED_SELECT_JOB_SPECIFIC_OPTIONS =
+        DeltaFlinkJobSpecificOptions.SOURCE_JOB_OPTIONS.stream()
+            .map(tableProperty -> String.format(INVALID_PROPERTY_TEMPLATE, tableProperty))
+            .collect(Collectors.joining("\n"));
 
     private CatalogExceptionHelper() {}
 
@@ -122,12 +128,43 @@ public final class CatalogExceptionHelper {
                 "\n",
                 exceptionMessage,
                 String.format(
-                    "DDL contains job specific options. Job specific options can be used only via "
-                        + "Query hints.\nUsed Job specific options:\n%s", usedJobSpecificOptions)
+                    "DDL contains job-specific options. Job-specific options can be used only via "
+                        + "Query hints.\nUsed job-specific options:\n%s", usedJobSpecificOptions)
             );
         }
 
         return new CatalogException(exceptionMessage);
+    }
+
+    public static ValidationException invalidInsertJobPropertyException(
+        Collection<String> invalidOptions) {
+        String insertJobSpecificOptions = invalidOptions.stream()
+            .map(tableProperty -> String.format(INVALID_PROPERTY_TEMPLATE, tableProperty))
+            .collect(Collectors.joining("\n"));
+
+        String message = String.format(
+            "Currently no job-specific options are allowed in INSERT SQL statements.\n"
+                + "Invalid options used:\n%s",
+            insertJobSpecificOptions);
+
+        return new ValidationException(message);
+    }
+
+    public static ValidationException invalidSelectJobPropertyException(
+        Collection<String> invalidOptions) {
+        String selectJobSpecificOptions = invalidOptions.stream()
+            .map(tableProperty -> String.format(INVALID_PROPERTY_TEMPLATE, tableProperty))
+            .collect(Collectors.joining("\n"));
+
+        String message = String.format(
+            "Only job-specific options are allowed in SELECT SQL statement.\n"
+                + "Invalid options used: \n%s\n"
+                + "Allowed options:\n%s",
+            selectJobSpecificOptions,
+            ALLOWED_SELECT_JOB_SPECIFIC_OPTIONS
+        );
+
+        return new ValidationException(message);
     }
 
     /**

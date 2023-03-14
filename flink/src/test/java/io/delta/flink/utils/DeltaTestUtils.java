@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.delta.flink.internal.ConnectorUtils;
+import io.delta.flink.source.internal.enumerator.supplier.TimestampFormatConverter;
 import io.delta.flink.utils.RecordCounterToFail.FailCheck;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.api.common.JobID;
@@ -745,5 +746,48 @@ public class DeltaTestUtils {
             .withHaLeadershipControl()
             .setConfiguration(configuration)
             .build();
+    }
+
+    /**
+     * Changes last modification time for delta log .json files.
+     *
+     * @param sourceTablePath        Path to delta log to change last modification time.
+     * @param lastModifiedTimestamps An array of times to which _delta_log .json files last
+     *                               modification time should be change to. If bigger than number of
+     *                               .json files under _delta_log, an exception will be thrown.
+     */
+    public static void changeDeltaLogLastModifyTimestamp(
+            String sourceTablePath,
+            String[] lastModifiedTimestamps) throws IOException {
+
+        List<java.nio.file.Path> sortedLogFiles =
+            Files.list(Paths.get(sourceTablePath + "/_delta_log"))
+                .filter(file -> file.getFileName().toUri().toString().endsWith(".json"))
+                .sorted()
+                .collect(Collectors.toList());
+
+        if (lastModifiedTimestamps.length > sortedLogFiles.size()) {
+            throw new IllegalArgumentException(String.format(""
+                    + "Delta log for table %s size, does not match"
+                    + " test's last modify argument size %d",
+                sourceTablePath, lastModifiedTimestamps.length
+            ));
+        }
+
+        int i = 0;
+        for (java.nio.file.Path logFile : sortedLogFiles) {
+            if (i >= lastModifiedTimestamps.length) {
+                break;
+            }
+            String timestampAsOfValue = lastModifiedTimestamps[i++];
+            long toTimestamp = TimestampFormatConverter.convertToTimestamp(timestampAsOfValue);
+            LOG.info(
+                "Changing Last Modified timestamp on file " + logFile
+                    + " to " + timestampAsOfValue + " -> " + timestampAsOfValue
+            );
+            assertThat(
+                "Unable to modify " + logFile + " last modified timestamp.",
+                logFile.toFile().setLastModified(toTimestamp), equalTo(true));
+        }
     }
 }

@@ -325,7 +325,7 @@ public final class DeltaCatalogTableHelper {
     }
 
     /**
-     * Validate DDL options to check whether any invalid table properties or Job specific options
+     * Validate DDL options to check whether any invalid table properties or job-specific options
      * where used. This method will throw the {@link CatalogException} if provided ddlOptions
      * contain any key that starts with
      * <ul>
@@ -335,7 +335,7 @@ public final class DeltaCatalogTableHelper {
      *     <li>parquet.</li>
      * </ul>
      * <p>
-     * or any of Job specific options {@link DeltaFlinkJobSpecificOptions#SOURCE_JOB_OPTIONS}
+     * or any of job-specific options {@link DeltaFlinkJobSpecificOptions#SOURCE_JOB_OPTIONS}
      *
      * @param ddlOptions DDL options to validate.
      * @throws CatalogException when invalid option used.
@@ -344,7 +344,7 @@ public final class DeltaCatalogTableHelper {
         InvalidDdlOptions invalidDdlOptions = new InvalidDdlOptions();
         for (String ddlOption : ddlOptions.keySet()) {
 
-            // validate for Flink Job specific options in DDL
+            // validate for Flink job-specific options in DDL
             if (DeltaFlinkJobSpecificOptions.SOURCE_JOB_OPTIONS.contains(ddlOption)) {
                 invalidDdlOptions.addJobSpecificOption(ddlOption);
             }

@@ -18,11 +18,11 @@
 package io.delta.flink.internal.table;
 
 import java.util.List;
+import java.util.Map.Entry;
 
-import io.delta.flink.internal.table.DeltaFlinkJobSpecificOptions.TableMode;
+import io.delta.flink.internal.table.DeltaFlinkJobSpecificOptions.QueryMode;
 import io.delta.flink.source.DeltaSource;
 import io.delta.flink.source.internal.builder.DeltaSourceBuilderBase;
-import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -39,7 +39,7 @@ public class DeltaDynamicTableSource implements ScanTableSource {
 
     private final Configuration hadoopConf;
 
-    private final ReadableConfig tableOptions;
+    private final QueryOptions queryOptions;
 
     private final List<String> columns;
 
@@ -47,16 +47,16 @@ public class DeltaDynamicTableSource implements ScanTableSource {
      * Constructor for creating Source of Flink dynamic table to Delta table.
      *
      * @param hadoopConf   Hadoop's configuration.
-     * @param tableOptions Table options returned by Catalog and resolved query plan.
+     * @param queryOptions Query options returned by Catalog and resolved query plan.
      * @param columns      Table's columns to extract from Delta table.
      */
     public DeltaDynamicTableSource(
             Configuration hadoopConf,
-            ReadableConfig tableOptions,
+            QueryOptions queryOptions,
             List<String> columns) {
 
         this.hadoopConf = hadoopConf;
-        this.tableOptions = tableOptions;
+        this.queryOptions = queryOptions;
         this.columns = columns;
     }
 
@@ -68,8 +68,8 @@ public class DeltaDynamicTableSource implements ScanTableSource {
     @Override
     public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
 
-        TableMode mode = tableOptions.get(DeltaFlinkJobSpecificOptions.MODE);
-        String tablePath = tableOptions.get(DeltaTableConnectorOptions.TABLE_PATH);
+        QueryMode mode = queryOptions.getQueryMode();
+        String tablePath = queryOptions.getDeltaTablePath();
 
         DeltaSourceBuilderBase<RowData, ?> sourceBuilder;
 
@@ -90,12 +90,16 @@ public class DeltaDynamicTableSource implements ScanTableSource {
 
         sourceBuilder.columnNames(columns);
 
+        for (Entry<String, String> queryOption : queryOptions.getJobSpecificOptions().entrySet()) {
+            sourceBuilder.option(queryOption.getKey(), queryOption.getValue());
+        }
+
         return SourceProvider.of(sourceBuilder.build());
     }
 
     @Override
     public DynamicTableSource copy() {
-        return new DeltaDynamicTableSource(this.hadoopConf, this.tableOptions, this.columns);
+        return new DeltaDynamicTableSource(this.hadoopConf, this.queryOptions, this.columns);
     }
 
     @Override

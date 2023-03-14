@@ -111,9 +111,8 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory,
             return sinkFactory.createDynamicTableSink(context);
         }
 
-        // TODO FlinkSQL_PR_8
         // This must have been a Delta Table, so continue with this factory
-        //DeltaTableFactoryHelper.validateSinkQueryOptions(options);
+        DeltaTableFactoryHelper.validateSinkQueryOptions(options);
 
         ResolvedSchema tableSchema = context.getCatalogTable().getResolvedSchema();
 
@@ -154,8 +153,7 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory,
         }
 
         // This must have been a Delta Table, so continue with this factory
-        // TODO FlinkSQL_PR_8
-        //QueryOptions queryOptions = DeltaTableFactoryHelper.validateSourceQueryOptions(options);
+        QueryOptions queryOptions = DeltaTableFactoryHelper.validateSourceQueryOptions(options);
 
         org.apache.hadoop.conf.Configuration hadoopConf =
             HadoopUtils.getHadoopConfiguration(GlobalConfiguration.loadConfiguration());
@@ -169,7 +167,7 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory,
 
         return new DeltaDynamicTableSource(
             hadoopConf,
-            options, // PR FlinkSql_PR_8 change to queryOptions
+            queryOptions,
             columns
         );
     }
