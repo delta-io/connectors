@@ -58,7 +58,7 @@ private[internal] trait LogStoreProvider {
       // Do not pass a null class loader
       // - https://github.com/netty/netty/issues/7290
       // - https://bugs.openjdk.java.net/browse/JDK-7008595
-      val classLoader = Option(Thread.currentThread().getContextClassLoader)
+      val classLoader: java.lang.ClassLoader = Option(Thread.currentThread().getContextClassLoader)
         .getOrElse(this.getClass().getClassLoader)
       val logStoreClass =
         Class.forName(className, true, logStoreClass)
