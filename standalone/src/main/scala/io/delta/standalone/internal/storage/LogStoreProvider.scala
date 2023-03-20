@@ -61,7 +61,7 @@ private[internal] trait LogStoreProvider {
       val classLoader = Option(Thread.currentThread().getContextClassLoader)
         .getOrElse(this.getClass().getClassLoader)
       val logStoreClass =
-        Class.forName(className, true, loader)
+        Class.forName(className, true, logStoreClass)
       // scalastyle:on classforname
 
       if (classOf[LogStore].isAssignableFrom(logStoreClass)) {
