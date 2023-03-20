@@ -26,9 +26,9 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 
 addSbtPlugin("com.eed3si9n" % "sbt-unidoc" % "0.4.2")
 
-addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.0")
+addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.1.2")
 
-addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "2.3")
+addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.9.15")
 
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.0.1")
 
