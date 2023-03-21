@@ -351,11 +351,14 @@ public abstract class DeltaSourceTableTestSuite {
         // WHEN
         String selectSql = "SELECT * FROM sourceTable WHERE col1 > 500";
 
-        Table resultTable = tableEnv.sqlQuery(selectSql);
+        TableResult resultTable = tableEnv.executeSql(selectSql);
 
-        DataStream<Row> rowDataStream = tableEnv.toDataStream(resultTable);
-
-        List<Row> resultData = DeltaTestUtils.testBoundedStream(rowDataStream, miniClusterResource);
+        List<Row> resultData = new ArrayList<>();
+        try(CloseableIterator<Row> collect = resultTable.collect()) {
+            while (collect.hasNext()) {
+                resultData.add(collect.next());
+            }
+        }
 
         // THEN
         List<Long> readCol1Values =
@@ -368,16 +371,16 @@ public abstract class DeltaSourceTableTestSuite {
         // The table that we read has 1100 records, where col1 with sequence value from 0 to 1099.
         // the WHERE query filters all records with col1 <= 500, so we expect 599 records
         // produced by SELECT query.
-        Assertions.assertThat(resultData)
+        assertThat(resultData)
             .withFailMessage("SELECT with WHERE read different number of rows that expected.")
             .hasSize(599);
 
-        Assertions.assertThat(readCol1Values)
+        assertThat(readCol1Values)
             .withFailMessage("SELECT with WHERE read different unique values for column col1.")
             .hasSize(599);
 
-        Assertions.assertThat(readCol1Values.get(0)).isEqualTo(501L);
-        Assertions.assertThat(readCol1Values.get(readCol1Values.size() - 1)).isEqualTo(1099L);
+        assertThat(readCol1Values.get(0)).isEqualTo(501L);
+        assertThat(readCol1Values.get(readCol1Values.size() - 1)).isEqualTo(1099L);
 
         // Checking that we don't have more columns.
         assertNoMoreColumns(resultData, 3);
