@@ -1,5 +1,6 @@
 package io.delta.flink.internal.table;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.flink.table.catalog.Catalog;
@@ -93,8 +94,9 @@ public class CatalogProxy extends BaseCatalog {
         if (catalogTable.isDeltaTable()) {
             // Delta standalone Metadata does not provide information about partition value.
             // This information is needed to build CatalogPartitionSpec
-            throw new CatalogException(
-                "Delta table connector does not support partition listing.");
+            // However, to make SELECT queries with partition column filter to work, we cannot throw
+            // an exception here, since this method will be called by flink-table planner.
+            return Collections.emptyList();
         } else {
             return this.decoratedCatalog.listPartitions(tablePath);
         }
@@ -121,13 +123,21 @@ public class CatalogProxy extends BaseCatalog {
     @Override
     public List<CatalogPartitionSpec> listPartitionsByFilter(
             ObjectPath tablePath,
-            List<Expression> filters) throws TableNotExistException, TableNotPartitionedException,
-        CatalogException {
+            List<Expression> filters)
+            throws TableNotExistException, TableNotPartitionedException, CatalogException {
 
         DeltaCatalogBaseTable catalogTable = getCatalogTable(tablePath);
         if (catalogTable.isDeltaTable()) {
             // Delta standalone Metadata does not provide information about partition value.
-            // This information is needed to build CatalogPartitionSpec
+            // This information is needed to build CatalogPartitionSpec.
+
+            // When implementing SupportsPartitionPushDown on DeltaDynamicTableSource, both
+            // SupportsPartitionPushDown::listPartitions() and this method here should return
+            // empty optional/empty list. The plan for Delta connector is to trick the planner
+            // into thinking the table is unpartitioned, which will force it to treat partition
+            // columns as data columns. This allows us to not list all the partitions in the
+            // table (on which we would apply this filter). Then we will get a data filter that
+            // we can apply to the scan we use to start reading from the delta log.
             throw new CatalogException(
                 "Delta table connector does not support partition listing by filter.");
         } else {

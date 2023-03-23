@@ -2,18 +2,32 @@ package io.delta.flink.table.it.suite;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import io.delta.flink.utils.CheckpointCountingSource;
+import io.delta.flink.utils.CheckpointCountingSource.RowProducer;
 import io.delta.flink.utils.DeltaTestUtils;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
+import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.util.DataFormatConverters;
+import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
+import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
+import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,11 +97,8 @@ public abstract class DeltaEndToEndTableTestSuite {
     @Test
     public void shouldReadAndWriteDeltaTable() throws Exception {
 
-        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
-            getTestStreamEnv(false) // streamingMode = false
-        );
-
-        setupDeltaCatalog(tableEnv);
+        // streamingMode = false
+        StreamTableEnvironment tableEnv = setupTableEnvAndDeltaCatalog(false);
 
         String sinkTableDdl =
             String.format("CREATE TABLE sinkTable ("
@@ -118,11 +129,8 @@ public abstract class DeltaEndToEndTableTestSuite {
     @Test
     public void shouldReadAndWriteDeltaTable_LikeTable() throws Exception {
 
-        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
-            getTestStreamEnv(false) // streamingMode = false
-        );
-
-        setupDeltaCatalog(tableEnv);
+        // streamingMode = false
+        StreamTableEnvironment tableEnv = setupTableEnvAndDeltaCatalog(false);
 
         String sinkTableDdl = String.format(""
                 + "CREATE TABLE sinkTable "
@@ -149,12 +157,8 @@ public abstract class DeltaEndToEndTableTestSuite {
      */
     @Test
     public void shouldReadAndWriteDeltaTable_AsSelect() throws Exception {
-
-        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
-            getTestStreamEnv(false) // streamingMode = false
-        );
-
-        setupDeltaCatalog(tableEnv);
+        // streamingMode = false
+        StreamTableEnvironment tableEnv = setupTableEnvAndDeltaCatalog(false);
 
         String sinkTableDdl = String.format(""
                 + "CREATE TABLE sinkTable "
@@ -182,18 +186,6 @@ public abstract class DeltaEndToEndTableTestSuite {
 
     @Test
     public void shouldWriteAndReadNestedStructures() throws Exception {
-
-        String sourceTableDdl = "CREATE TABLE sourceTable ("
-            + " col1 INT,"
-            + " col2 ROW <a INT, b INT>"
-            + ") WITH ("
-            + "'connector' = 'datagen',"
-            + "'rows-per-second' = '1',"
-            + "'fields.col1.kind' = 'sequence',"
-            + "'fields.col1.start' = '1',"
-            + "'fields.col1.end' = '5'"
-            + ")";
-
         String deltaSinkTableDdl =
             String.format("CREATE TABLE deltaSinkTable ("
                     + " col1 INT,"
@@ -204,13 +196,22 @@ public abstract class DeltaEndToEndTableTestSuite {
                     + ")",
                 sinkTablePath);
 
-        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
-            getTestStreamEnv(true) // streamingMode = false
-        );
+        StreamExecutionEnvironment streamEnv = getTestStreamEnv(true);// streamingMode = true
+        StreamTableEnvironment tableEnv = setupTableEnvAndDeltaCatalog(streamEnv);
 
-        setupDeltaCatalog(tableEnv);
-
-        tableEnv.executeSql(sourceTableDdl).await(10, TimeUnit.SECONDS);
+        // We are running this in a streaming mode Delta global committer will be lagging one
+        // commit behind comparing to the rest of the pipeline. At the same time we want to
+        // always commit to delta_log everything that test source produced. Because of this we
+        // need to use a source that will wait one extra Flin checkpoint after sending all its data
+        // before shutting off. This is why we are using our CheckpointCountingSource.
+        // Please note that we don't have its Table API version hence we are using combination of
+        // Streaming and Table API.
+        DataStreamSource<RowData> streamSource = streamEnv.addSource(
+            //recordsPerCheckpoint =1, numberOfCheckpoints = 5
+            new CheckpointCountingSource(1, 5, new NestedRowColumnRowProducer())
+        ).setParallelism(1);
+        Table sourceTable = tableEnv.fromDataStream(streamSource);
+        tableEnv.createTemporaryView("sourceTable", sourceTable);
         tableEnv.executeSql(deltaSinkTableDdl).await(10, TimeUnit.SECONDS);
 
         tableEnv.executeSql("INSERT INTO deltaSinkTable SELECT * FROM sourceTable")
@@ -219,6 +220,7 @@ public abstract class DeltaEndToEndTableTestSuite {
         // Execute SELECT on sink table and validate TableResult.
         TableResult tableResult =
             tableEnv.executeSql("SELECT col2.a AS innerA, col2.b AS innerB FROM deltaSinkTable");
+        tableResult.await();
         List<Row> result = readRowsFromQuery(tableResult, 5);
         for (Row row : result) {
             assertThat(row.getField("innerA")).isInstanceOf(Integer.class);
@@ -239,7 +241,6 @@ public abstract class DeltaEndToEndTableTestSuite {
         verifyDeltaTable(this.sinkTablePath, rowType, 1100);
     }
 
-    @NotNull
     private List<Row> readRowsFromQuery(TableResult tableResult, int expectedRowsCount)
         throws Exception {
 
@@ -252,6 +253,74 @@ public abstract class DeltaEndToEndTableTestSuite {
 
         assertThat(result).hasSize(expectedRowsCount);
         return result;
+    }
+
+    private StreamTableEnvironment setupTableEnvAndDeltaCatalog(boolean streamingMode) {
+        return setupTableEnvAndDeltaCatalog(getTestStreamEnv(streamingMode));
+    }
+
+    private StreamTableEnvironment setupTableEnvAndDeltaCatalog(
+            StreamExecutionEnvironment streamingExecutionEnv) {
+        StreamTableEnvironment tableEnv = StreamTableEnvironment.create(
+            streamingExecutionEnv
+        );
+        setupDeltaCatalog(tableEnv);
+        return tableEnv;
+    }
+
+    /**
+     * A {@link RowProducer} implementation used by {@link CheckpointCountingSource}.
+     * This implementation will produce records with schema containing a nested row.
+     * The produced schema:
+     * <pre>
+     *     Row&lt;"col1"[Int], "col2"[Row&lt;"a"[Int], "b[Int]&gt;]&gt;
+     * </pre>
+     *
+     * Columns {@code col1} and {@code col2.a} will have a sequence value.
+     * <p>
+     * Column {@code col2.b} will have a value equal to {@code col2.a" * 2}.
+     */
+    private static class NestedRowColumnRowProducer implements RowProducer {
+
+        private final RowType nestedRowType = new RowType(Arrays.asList(
+            new RowType.RowField("col1", new IntType()),
+            new RowType.RowField("col2", new RowType(
+                Arrays.asList(
+                    new RowType.RowField("a", new IntType()),
+                    new RowType.RowField("b", new IntType())
+                ))
+            ))
+        );
+
+        @SuppressWarnings("unchecked")
+        private final DataFormatConverters.DataFormatConverter<RowData, Row>
+            rowTypeConverter = DataFormatConverters.getConverterForDataType(
+            TypeConversions.fromLogicalToDataType(nestedRowType)
+        );
+
+        @Override
+        public int emitRecordsBatch(int nextValue, SourceContext<RowData> ctx, int batchSize) {
+            for (int i = 0; i < batchSize; ++i) {
+                RowData row = rowTypeConverter.toInternal(
+                    Row.of(
+                        nextValue,
+                        Row.of(nextValue, nextValue * 2)
+                    )
+                );
+                ctx.collect(row);
+                nextValue++;
+            }
+
+            return nextValue;
+        }
+
+        @Override
+        public TypeInformation<RowData> getProducedType() {
+            LogicalType[] fieldTypes = nestedRowType.getFields().stream()
+                .map(RowField::getType).toArray(LogicalType[]::new);
+            String[] fieldNames = nestedRowType.getFieldNames().toArray(new String[0]);
+            return InternalTypeInfo.of(RowType.of(fieldTypes, fieldNames));
+        }
     }
 
     public abstract void setupDeltaCatalog(TableEnvironment tableEnv);

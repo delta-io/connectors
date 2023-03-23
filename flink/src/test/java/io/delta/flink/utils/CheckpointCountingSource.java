@@ -1,8 +1,9 @@
-package io.delta.flink.sink.utils;
+package io.delta.flink.utils;
 
 import java.io.Serializable;
 import java.util.Collections;
 
+import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;

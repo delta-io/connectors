@@ -26,10 +26,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import io.delta.flink.sink.utils.CheckpointCountingSource;
-import io.delta.flink.sink.utils.CheckpointCountingSource.RowProducer;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import io.delta.flink.source.internal.DeltaSourceOptions;
+import io.delta.flink.utils.CheckpointCountingSource;
+import io.delta.flink.utils.CheckpointCountingSource.RowProducer;
 import io.delta.flink.utils.DeltaTestUtils;
 import io.delta.flink.utils.TestParquetReader;
 import org.apache.flink.api.common.RuntimeExecutionMode;

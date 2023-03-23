@@ -88,6 +88,13 @@ public class DeltaDynamicTableSource implements ScanTableSource {
                     ));
         }
 
+        // Since currently DeltaDynamicTableSource does not implement SupportsProjectionPushDown,
+        // one may say that passing columns (which currently represents full table schema)
+        // to the DeltaSourceBuilder seems useless since DeltaSourceBuilder will discover full table
+        // schema if no user columns are specified. However, with this we can play extra safe and
+        // ensure that source will use exact the same schema that is specified in Delta Catalog
+        // which should match exactly _delta_log schema for this table. With this, TableAPI is
+        // fully relying on Delta catalog as the source of truth.
         sourceBuilder.columnNames(columns);
 
         for (Entry<String, String> queryOption : queryOptions.getJobSpecificOptions().entrySet()) {

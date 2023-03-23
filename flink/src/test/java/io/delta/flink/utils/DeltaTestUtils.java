@@ -36,6 +36,7 @@ import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
 import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;
@@ -47,6 +48,7 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemTestHelper;
 import org.apache.hadoop.fs.Path;
@@ -789,5 +791,15 @@ public class DeltaTestUtils {
                 "Unable to modify " + logFile + " last modified timestamp.",
                 logFile.toFile().setLastModified(toTimestamp), equalTo(true));
         }
+    }
+
+    public static List<Row> readTableResult(TableResult tableResult) throws Exception {
+        List<Row> resultData = new ArrayList<>();
+        try(CloseableIterator<Row> collect = tableResult.collect()) {
+            while (collect.hasNext()) {
+                resultData.add(collect.next());
+            }
+        }
+        return resultData;
     }
 }
