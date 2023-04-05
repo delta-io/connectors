@@ -2,9 +2,15 @@ package io.delta.flink.internal.table;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import javax.annotation.ParametersAreNonnullByDefault;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import io.delta.flink.internal.table.DeltaCatalogTableHelper.DeltaMetastoreTable;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.table.api.Schema;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.CatalogBaseTable;
@@ -23,6 +29,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Operation;
+import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.types.StructType;
 
@@ -36,6 +43,8 @@ import io.delta.standalone.types.StructType;
  */
 public class DeltaCatalog {
 
+    private static final String DEFAULT_TABLE_CACHE_SIZE = "100";
+
     private final String catalogName;
 
     /**
@@ -46,7 +55,7 @@ public class DeltaCatalog {
      */
     private final Catalog decoratedCatalog;
 
-    private final Configuration hadoopConf;
+    private final LoadingCache<DeltaLogCacheKey, DeltaLog> deltaLogCache;
 
     /**
      * Creates instance of {@link DeltaCatalog} for given decorated catalog and catalog name.
@@ -63,7 +72,6 @@ public class DeltaCatalog {
     DeltaCatalog(String catalogName, Catalog decoratedCatalog, Configuration hadoopConf) {
         this.catalogName = catalogName;
         this.decoratedCatalog = decoratedCatalog;
-        this.hadoopConf = hadoopConf;
 
         checkArgument(
             !StringUtils.isNullOrWhitespaceOnly(catalogName),
@@ -75,6 +83,30 @@ public class DeltaCatalog {
         checkArgument(hadoopConf != null,
             "The Hadoop Configuration object - 'hadoopConfiguration' cannot be null."
         );
+
+        // Get max cache size from cluster Hadoop configuration.
+        long cacheSize =
+            Long.parseLong(hadoopConf.get("deltaCatalogTableCacheSize", DEFAULT_TABLE_CACHE_SIZE));
+
+        this.deltaLogCache =  CacheBuilder.newBuilder()
+            // Note that each DeltaLog, while in memory, contains a reference to a current
+            // Snapshot, though that current Snapshot may not be the latest Snapshot available
+            // for that delta table. Recomputing these Snapshots from scratch is expensive, hence
+            // this cache. It is preferred, instead, to keep the most-recently-computed Snapshot
+            // per Delta Log instance in this cache, so that generating the latest Snapshot means we
+            // (internally) only have to apply the incremental changes.
+            // A retained size for DeltaLog instance containing a Snapshot for a delta table with
+            // 1100 records and 10 versions is only 700 KB.
+            // When cache reaches its maximum size, the lest recently used entry will be replaced
+            // (LRU eviction policy).
+            .maximumSize(cacheSize)
+            .build(new CacheLoader<DeltaLogCacheKey, DeltaLog>() {
+                @Override
+                @ParametersAreNonnullByDefault
+                public DeltaLog load(DeltaLogCacheKey key) {
+                    return DeltaLog.forTable(hadoopConf, key.deltaTablePath);
+                }
+            });
     }
 
     /**
@@ -143,7 +175,7 @@ public class DeltaCatalog {
         StructType ddlDeltaSchema =
             DeltaCatalogTableHelper.resolveDeltaSchemaFromDdl((ResolvedCatalogTable) table);
 
-        DeltaLog deltaLog = DeltaLog.forTable(hadoopConf, deltaTablePath);
+        DeltaLog deltaLog = getDeltaLogFromCache(catalogTable, deltaTablePath);
         if (deltaLog.tableExists()) {
             // Table was not present in metastore however it is present on Filesystem, we have to
             // verify if schema, partition spec and properties stored in _delta_log match with DDL.
@@ -214,6 +246,24 @@ public class DeltaCatalog {
     }
 
     /**
+     * Deletes metastore entry and clears DeltaCatalog cache for given Delta table.
+     * <p>
+     * By design, we will remove only metastore information during drop table. No filesystem
+     * information (for example _delta_log folder) will be removed. However, we have to clear
+     * DeltaCatalog's cache for this table.
+     */
+    public void dropTable(DeltaCatalogBaseTable catalogTable, boolean ignoreIfExists)
+        throws TableNotExistException {
+        CatalogBaseTable metastoreTable = catalogTable.getCatalogTable();
+        String tablePath =
+            metastoreTable.getOptions().get(DeltaTableConnectorOptions.TABLE_PATH.key());
+
+        ObjectPath tableCatalogPath = catalogTable.getTableCatalogPath();
+        this.deltaLogCache.invalidate(new DeltaLogCacheKey(tableCatalogPath, tablePath));
+        this.decoratedCatalog.dropTable(tableCatalogPath, ignoreIfExists);
+    }
+
+    /**
      * Returns a {@link CatalogBaseTable} identified by the given
      * {@link DeltaCatalogBaseTable#getCatalogTable()}.
      * This method assumes that provided {@link DeltaCatalogBaseTable#getCatalogTable()} table
@@ -224,11 +274,11 @@ public class DeltaCatalog {
     public CatalogBaseTable getTable(DeltaCatalogBaseTable catalogTable)
             throws TableNotExistException {
         CatalogBaseTable metastoreTable = catalogTable.getCatalogTable();
-
         String tablePath =
             metastoreTable.getOptions().get(DeltaTableConnectorOptions.TABLE_PATH.key());
 
-        DeltaLog deltaLog = DeltaLog.forTable(this.hadoopConf, tablePath);
+        DeltaLog deltaLog = getDeltaLogFromCache(catalogTable, tablePath);
+        Snapshot snapshot = deltaLog.update();
         if (!deltaLog.tableExists()) {
             // TableNotExistException does not accept custom message, but we would like to meet
             // API contracts from Flink's Catalog::getTable interface and throw
@@ -245,7 +295,7 @@ public class DeltaCatalog {
                 )
             );
         }
-        Metadata deltaMetadata = deltaLog.update().getMetadata();
+        Metadata deltaMetadata = snapshot.getMetadata();
         StructType deltaSchema = deltaMetadata.getSchema();
         if (deltaSchema == null) {
             // This should not happen, but if it did for some reason it mens there is something
@@ -282,7 +332,7 @@ public class DeltaCatalog {
         CatalogBaseTable metastoreTable = catalogTable.getCatalogTable();
         String deltaTablePath =
             metastoreTable.getOptions().get(DeltaTableConnectorOptions.TABLE_PATH.key());
-        return DeltaLog.forTable(hadoopConf, deltaTablePath).tableExists();
+        return getDeltaLogFromCache(catalogTable, deltaTablePath).tableExists();
     }
 
     /**
@@ -313,7 +363,7 @@ public class DeltaCatalog {
         Map<String, String> filteredDdlOptions =
             DeltaCatalogTableHelper.filterMetastoreDdlOptions(alterTableDdlOptions);
 
-        DeltaLog deltaLog = DeltaLog.forTable(hadoopConf, deltaTablePath);
+        DeltaLog deltaLog = getDeltaLogFromCache(newCatalogTable, deltaTablePath);
         Metadata originalMetaData = deltaLog.update().getMetadata();
 
         // Add new properties to metadata.
@@ -334,5 +384,50 @@ public class DeltaCatalog {
         // add properties to _delta_log
         DeltaCatalogTableHelper
             .commitToDeltaLog(deltaLog, updatedMetadata, Operation.Name.SET_TABLE_PROPERTIES);
+    }
+
+    private DeltaLog getDeltaLogFromCache(DeltaCatalogBaseTable catalogTable, String tablePath) {
+        return deltaLogCache.getUnchecked(
+            new DeltaLogCacheKey(
+                catalogTable.getTableCatalogPath(),
+                tablePath
+            ));
+    }
+
+    @VisibleForTesting
+    LoadingCache<DeltaLogCacheKey, DeltaLog> getDeltaLogCache() {
+        return deltaLogCache;
+    }
+
+    /**
+     * This class represents a key for DeltaLog instances cache.
+     */
+    static class DeltaLogCacheKey {
+
+        private final ObjectPath objectPath;
+
+        private final String deltaTablePath;
+
+        DeltaLogCacheKey(ObjectPath objectPath, String deltaTablePath) {
+            this.objectPath = objectPath;
+            this.deltaTablePath = deltaTablePath;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DeltaLogCacheKey that = (DeltaLogCacheKey) o;
+            return objectPath.equals(that.objectPath) && deltaTablePath.equals(that.deltaTablePath);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(objectPath, deltaTablePath);
+        }
     }
 }

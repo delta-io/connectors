@@ -1,5 +1,6 @@
 package io.delta.flink.table.it.suite;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -11,9 +12,11 @@ import java.util.StringJoiner;
 
 import io.delta.flink.internal.table.TestTableData;
 import io.delta.flink.utils.DeltaTestUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
@@ -769,6 +772,44 @@ public abstract class DeltaCatalogTestSuite {
         assertThat(deltaLog.update().getMetadata().getConfiguration())
             .containsEntry("userCustomProp", "myVal2")
             .containsEntry("delta.appendOnly", "true");
+    }
+
+    @Test
+    public void shouldThrow_whenDeltaLogWasDeleted() throws Exception {
+        DeltaTestUtils.setupDeltaTable(
+            tablePath,
+            Collections.emptyMap(),
+            Metadata.builder()
+                .schema(new StructType(TestTableData.DELTA_FIELDS))
+                .build()
+        );
+
+        String deltaTable =
+            String.format("CREATE TABLE sourceTable ("
+                    + "col1 BOOLEAN,"
+                    + "col2 INT,"
+                    + "col3 VARCHAR"
+                    + ") WITH ("
+                    + " 'connector' = 'delta',"
+                    + " 'table-path' = '%s'"
+                    + ")",
+                tablePath);
+
+        // WHEN
+        tableEnv.executeSql(deltaTable).await();
+
+        // We want to execute any query, so DeltaLog instance for tablePath will be initialized and
+        // added to DeltaCatalog's cache.
+        String queryStatement = "SELECT * FROM sourceTable";
+        TableResult tableResult = tableEnv.executeSql(queryStatement);
+        tableResult.collect().close();
+
+        // delete _delta_log from tablePath.
+        FileUtils.cleanDirectory(new File(tablePath));
+
+        // Now queryStatement should throw an exception. If not, then it could mean that
+        // DeltaCatalog cache entry was not refreshed.
+        assertThrows(ValidationException.class, () -> tableEnv.executeSql(queryStatement));
     }
 
     private void verifyThatSchemaAndPartitionSpecNotChanged(Metadata metadata) {

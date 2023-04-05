@@ -44,14 +44,6 @@ public abstract class BaseCatalog extends AbstractCatalog {
         return Optional.of(DeltaDynamicTableFactory.fromCatalog());
     }
 
-    // By design, we will remove only metastore information during drop table.
-    // No filesystem information (for example _delta_log folder) will be removed.
-    @Override
-    public void dropTable(ObjectPath tablePath, boolean ignoreIfNotExists)
-        throws TableNotExistException, CatalogException {
-        this.decoratedCatalog.dropTable(tablePath, ignoreIfNotExists);
-    }
-
     /////////////////////////////////////////////////////
     // Obvious, not Delta related pass-through methods //
     /////////////////////////////////////////////////////

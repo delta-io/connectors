@@ -73,6 +73,18 @@ public class CatalogProxy extends BaseCatalog {
     }
 
     @Override
+    public void dropTable(ObjectPath tablePath, boolean ignoreIfNotExists)
+        throws TableNotExistException, CatalogException {
+
+        DeltaCatalogBaseTable catalogTable = getCatalogTable(tablePath);
+        if (catalogTable.isDeltaTable()) {
+            this.deltaCatalog.dropTable(catalogTable, ignoreIfNotExists);
+        } else {
+            this.decoratedCatalog.dropTable(tablePath, ignoreIfNotExists);
+        }
+    }
+
+    @Override
     public void alterTable(
             ObjectPath tablePath,
             CatalogBaseTable newTable,
