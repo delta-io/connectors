@@ -29,8 +29,7 @@ public class Lazy<T> {
         this.supplier = supplier;
     }
 
-    /** Not thread-safe (i.e. may perform duplicate `supplier.get()` calls) */
-    public T get() {
+    public synchronized T get() {
         if (!instance.isPresent()) {
             instance = Optional.of(supplier.get());
         }

@@ -273,12 +273,11 @@ public class DeltaGlobalCommitter
             DeltaLog deltaLog) {
 
         // The last committed table version by THIS flink application.
-        // Even though `Lazy` is thread-unsafe, we know that the GlobalCommitter runs with
-        // parallelism equal to 1, and we are only accessing this local variable in this single
-        // method.
         Lazy<Long> lastCommittedTableVersion =
             new Lazy<>(() -> deltaLog.startTransaction().txnVersion(appId));
 
+        // Keep `lastCommittedTableVersion.get() < 0` as the second predicate in the OR statement
+        // below since it is expensive and we should avoid computing it if possible.
         if (!this.firstCommit || lastCommittedTableVersion.get() < 0) {
             // normal run
             return groupCommittablesByCheckpointInterval(globalCommittables);
