@@ -273,18 +273,24 @@ public class DeltaGlobalCommitter
             DeltaLog deltaLog) {
 
         // The last committed table version by THIS flink application.
+        //
+        // We can access this value using `threadUnsafeGet` because Flink's threading model
+        // guarantees that GlobalCommitter::commit will be executed by a single thread.
         Lazy<Long> lastCommittedTableVersion =
             new Lazy<>(() -> deltaLog.startTransaction().txnVersion(appId));
 
         // Keep `lastCommittedTableVersion.get() < 0` as the second predicate in the OR statement
         // below since it is expensive and we should avoid computing it if possible.
-        if (!this.firstCommit || lastCommittedTableVersion.get() < 0) {
+        if (!this.firstCommit || lastCommittedTableVersion.threadUnsafeGet() < 0) {
             // normal run
             return groupCommittablesByCheckpointInterval(globalCommittables);
         } else {
             // processing recovery, deduplication on recovered committables.
-            Collection<CheckpointData> deDuplicateData =
-                deduplicateFiles(globalCommittables, deltaLog, lastCommittedTableVersion.get());
+            Collection<CheckpointData> deDuplicateData = deduplicateFiles(
+                globalCommittables,
+                deltaLog,
+                lastCommittedTableVersion.threadUnsafeGet()
+            );
 
             return groupCommittablesByCheckpointInterval(deDuplicateData);
         }
