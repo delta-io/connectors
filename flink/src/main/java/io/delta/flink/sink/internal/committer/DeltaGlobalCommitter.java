@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.delta.flink.internal.ConnectorUtils;
+import io.delta.flink.internal.lang.Lazy;
 import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
@@ -271,16 +272,20 @@ public class DeltaGlobalCommitter
             List<DeltaGlobalCommittable> globalCommittables,
             DeltaLog deltaLog) {
 
-        OptimisticTransaction transaction = deltaLog.startTransaction();
-        long tableVersion = transaction.txnVersion(appId);
+        // The last committed table version by THIS flink application.
+        // Even though `Lazy` is thread-unsafe, we know that the GlobalCommitter runs with
+        // parallelism equal to 1, and we are only accessing this local variable in this single
+        // method.
+        Lazy<Long> lastCommittedTableVersion =
+            new Lazy<>(() -> deltaLog.startTransaction().txnVersion(appId));
 
-        if (!this.firstCommit || tableVersion < 0) {
+        if (!this.firstCommit || lastCommittedTableVersion.get() < 0) {
             // normal run
             return groupCommittablesByCheckpointInterval(globalCommittables);
         } else {
             // processing recovery, deduplication on recovered committables.
             Collection<CheckpointData> deDuplicateData =
-                deduplicateFiles(globalCommittables, deltaLog, tableVersion);
+                deduplicateFiles(globalCommittables, deltaLog, lastCommittedTableVersion.get());
 
             return groupCommittablesByCheckpointInterval(deDuplicateData);
         }
