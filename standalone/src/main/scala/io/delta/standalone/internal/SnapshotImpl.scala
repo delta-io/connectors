@@ -39,9 +39,18 @@ import io.delta.standalone.internal.logging.Logging
 import io.delta.standalone.internal.scan.{DeltaScanImpl, FilteredDeltaScanImpl}
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 
+/**
+ * Contains the protocol, metadata, and corresponding table version. The protocol and metadata
+ * will be used as the defaults in the Snapshot if no newer values are found in logs > `version`.
+ */
 case class SnapshotProtocolMetadataHint(protocol: Protocol, metadata: Metadata, version: Long)
 
-/** Visible for testing. */
+/**
+ * Visible for testing.
+ *
+ * Will contain various metrics collected while finding/loading the latest protocol and metadata
+ * for this Snapshot. This can be used to verify that the minimal log replay occurred.
+ */
 case class ProtocolMetadataLoadMetrics(fileVersions: Seq[Long])
 
 /**
@@ -65,6 +74,11 @@ private[internal] class SnapshotImpl(
     val timestamp: Long,
     protocolMetadataHint: Option[SnapshotProtocolMetadataHint] = Option.empty)
   extends Snapshot with Logging {
+
+  protocolMetadataHint.foreach { hint =>
+    require(hint.version <= version, s"Cannot use a protocolMetadataHint with a version newer " +
+      s"than that of this Snapshot. Hint version: ${hint.version}, Snapshot version: $version")
+  }
 
   import SnapshotImpl._
 
