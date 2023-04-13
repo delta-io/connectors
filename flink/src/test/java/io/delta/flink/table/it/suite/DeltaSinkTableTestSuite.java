@@ -26,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import io.delta.flink.source.internal.DeltaSourceOptions;
 import io.delta.flink.utils.CheckpointCountingSource;
 import io.delta.flink.utils.CheckpointCountingSource.RowProducer;
@@ -97,8 +96,6 @@ public abstract class DeltaSinkTableTestSuite {
 
     private final MiniClusterWithClientResource miniClusterResource = buildCluster(PARALLELISM);
 
-    protected RowType testRowType;
-
     @BeforeAll
     public static void beforeAll() throws IOException {
         testWorkers = Executors.newCachedThreadPool(r -> {
@@ -143,28 +140,25 @@ public abstract class DeltaSinkTableTestSuite {
      */
     private static Stream<Arguments> tableArguments() {
         return Stream.of(
-            Arguments.of(false, false, false, false),
-            Arguments.of(false, true, false, false),
-            Arguments.of(true, false, false, false),
-            Arguments.of(true, false, true, false),
-            Arguments.of(false, false, false, true)
+            Arguments.of(false, false, false),
+            Arguments.of(true, false, false),
+            Arguments.of(true, true, false),
+            Arguments.of(false, false, true)
         );
     }
 
     @ParameterizedTest(
         name = "isPartitioned = {0}, " +
-            "includeOptionalOptions = {1}, " +
-            "useStaticPartition = {2}, " +
-            "useBoundedMode = {3}")
+            "useStaticPartition = {1}, " +
+            "useBoundedMode = {2}")
     @MethodSource("tableArguments")
     public void testInsertQueryWithAllFields(
             boolean isPartitioned,
-            boolean includeOptionalOptions,
             boolean useStaticPartition,
             boolean useBoundedMode) throws Exception {
 
         int expectedNumberOfRows = 20;
-        String deltaTablePath = setupTestFolders(includeOptionalOptions);
+        String deltaTablePath = setupTestFolders();
 
         // Column `col1` would be a partition column if isPartitioned or useStaticPartition
         // set to true.
@@ -175,7 +169,6 @@ public abstract class DeltaSinkTableTestSuite {
             testTableJob(
                 deltaTablePath,
                 isPartitioned,
-                includeOptionalOptions,
                 useStaticPartition,
                 useBoundedMode,
                 insertSql,
@@ -202,13 +195,11 @@ public abstract class DeltaSinkTableTestSuite {
 
     @ParameterizedTest(
         name = "isPartitioned = {0}, " +
-            "includeOptionalOptions = {1}, " +
-            "useStaticPartition = {2}, " +
-            "useBoundedMode = {3}")
+            "useStaticPartition = {1}, " +
+            "useBoundedMode = {2}")
     @MethodSource("tableArguments")
     public void testInsertQueryWithOneFiled(
             boolean isPartitioned,
-            boolean includeOptionalOptions,
             boolean useStaticPartition,
             boolean useBoundedMode) throws Exception {
 
@@ -223,7 +214,6 @@ public abstract class DeltaSinkTableTestSuite {
             testTableJob(
                 TEMPORARY_FOLDER.newFolder().getAbsolutePath(),
                 isPartitioned,
-                includeOptionalOptions,
                 useStaticPartition,
                 useBoundedMode,
                 insertSql,
@@ -252,13 +242,11 @@ public abstract class DeltaSinkTableTestSuite {
 
     @ParameterizedTest(
         name = "isPartitioned = {0}, " +
-            "includeOptionalOptions = {1}, " +
-            "useStaticPartition = {2}, " +
-            "useBoundedMode = {3}")
+            "useStaticPartition = {1}, " +
+            "useBoundedMode = {2}")
     @MethodSource("tableArguments")
     public void testInsertQueryWithOneFiledWithNullCasts(
             boolean isPartitioned,
-            boolean includeOptionalOptions,
             boolean useStaticPartition,
             boolean useBoundedMode) throws Exception {
 
@@ -267,16 +255,12 @@ public abstract class DeltaSinkTableTestSuite {
         // Column `col1` would be a partition column if isPartitioned or useStaticPartition
         // set to true.
         // Column `col3` would be a partition column if isPartitioned is set to true.
-        String insertSql = buildInsertOneFieldSqlNullCasts(
-            useStaticPartition,
-            includeOptionalOptions
-        );
+        String insertSql = buildInsertOneFieldSqlNullCasts(useStaticPartition);
 
         DeltaLog deltaLog =
             testTableJob(
                 TEMPORARY_FOLDER.newFolder().getAbsolutePath(),
                 isPartitioned,
-                includeOptionalOptions,
                 useStaticPartition,
                 useBoundedMode,
                 insertSql,
@@ -388,24 +372,18 @@ public abstract class DeltaSinkTableTestSuite {
         );
     }
 
-    private String buildInsertOneFieldSqlNullCasts(
-            boolean useStaticPartition,
-            boolean includeOptionalOptions) {
+    private String buildInsertOneFieldSqlNullCasts(boolean useStaticPartition) {
 
         if (useStaticPartition) {
             return String.format(
-                "INSERT INTO %s PARTITION(col1='val1') (SELECT col2, cast(null as INT)"
-                    + ((includeOptionalOptions) ? ", cast(null as INT) " : "")
-                    + " FROM %s)",
+                "INSERT INTO %s PARTITION(col1='val1') (SELECT col2, cast(null as INT) FROM %s)",
                 DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
                 DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
             );
         }
 
         return String.format(
-            "INSERT INTO %s (SELECT col1, cast(null as VARCHAR), cast(null as INT) "
-                + ((includeOptionalOptions) ? ", cast(null as INT) " : "")
-                + "FROM %s)",
+            "INSERT INTO %s (SELECT col1, cast(null as VARCHAR), cast(null as INT) FROM %s)",
             DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME,
             DeltaSinkTableTestSuite.TEST_SOURCE_TABLE_NAME
         );
@@ -414,7 +392,6 @@ public abstract class DeltaSinkTableTestSuite {
     private DeltaLog testTableJob(
             String deltaTablePath,
             boolean isPartitioned,
-            boolean includeOptionalOptions,
             boolean useStaticPartition,
             boolean useBoundedMode,
             String insertSql,
@@ -428,7 +405,6 @@ public abstract class DeltaSinkTableTestSuite {
         runFlinkJob(
             deltaTablePath,
             useBoundedMode,
-            includeOptionalOptions,
             isPartitioned,
             insertSql,
             expectedNumberOfRows);
@@ -438,7 +414,6 @@ public abstract class DeltaSinkTableTestSuite {
         // THEN
         validateTargetTable(
             isPartitioned,
-            includeOptionalOptions,
             useStaticPartition,
             deltaLog,
             initialDeltaFiles,
@@ -451,7 +426,6 @@ public abstract class DeltaSinkTableTestSuite {
     @SuppressWarnings("unchecked")
     private void validateTargetTable(
             boolean isPartitioned,
-            boolean includeOptionalOptions,
             boolean useStaticPartition,
             DeltaLog deltaLog,
             List<AddFile> initialDeltaFiles,
@@ -482,11 +456,11 @@ public abstract class DeltaSinkTableTestSuite {
             );
         }
 
-        List<String> expectedTableCols = includeOptionalOptions ?
-            Arrays.asList("col1", "col2", "col3", "col4") : Arrays.asList("col1", "col2", "col3");
+        List<String> expectedTableCols = Arrays.asList("col1", "col2", "col3");
         assertThat(
             Arrays.asList(deltaLog.snapshot().getMetadata().getSchema().getFieldNames()),
-            CoreMatchers.is(expectedTableCols));
+            CoreMatchers.is(expectedTableCols)
+        );
 
         if (useStaticPartition) {
             for (AddFile file : deltaLog.snapshot().getAllFiles()) {
@@ -495,17 +469,9 @@ public abstract class DeltaSinkTableTestSuite {
         }
     }
 
-    public String setupTestFolders(boolean includeOptionalOptions) {
+    public String setupTestFolders() {
         try {
-            String deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            // one of the optional options is whether the sink should try to update the table's
-            // schema, so we are initializing an existing table to test this behaviour
-            if (includeOptionalOptions) {
-                testRowType = DeltaSinkTestUtils.addNewColumnToSchema(TEST_ROW_TYPE);
-            } else {
-                testRowType = TEST_ROW_TYPE;
-            }
-            return deltaTablePath;
+            return TEMPORARY_FOLDER.newFolder().getAbsolutePath();
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -517,7 +483,6 @@ public abstract class DeltaSinkTableTestSuite {
     private void runFlinkJob(
             String deltaTablePath,
             boolean useBoundedMode,
-            boolean includeOptionalOptions,
             boolean isPartitioned,
             String insertSql,
             int expectedNumberOfRows) {
@@ -528,7 +493,7 @@ public abstract class DeltaSinkTableTestSuite {
 
         if (useBoundedMode) {
             // will use datagen for Source Table
-            String sourceSql = buildSourceTableSql(expectedNumberOfRows, includeOptionalOptions);
+            String sourceSql = buildSourceTableSql(expectedNumberOfRows);
             tableEnv.executeSql(sourceSql);
         } else {
             // Since Delta Sink's Global Committer lags 1 commit behind rest of the pipeline,
@@ -541,25 +506,17 @@ public abstract class DeltaSinkTableTestSuite {
             int recordsPerCheckpoint = 5;
             int numberOfCheckpoints =
                 (int) Math.ceil(expectedNumberOfRows / (double) recordsPerCheckpoint);
-            if (includeOptionalOptions) {
-                source =
-                    new CheckpointCountingSource(
-                        recordsPerCheckpoint,
-                        numberOfCheckpoints,
-                        new ExtraColumnRowProducer());
-            } else {
-                source =
-                    new CheckpointCountingSource(
-                        recordsPerCheckpoint,
-                        numberOfCheckpoints,
-                        new RowTypeColumnarRowProducer());
-            }
+            source = new CheckpointCountingSource(
+                recordsPerCheckpoint,
+                numberOfCheckpoints,
+                new RowTypeColumnarRowProducer()
+            );
 
             DataStreamSource<RowData> streamSource = streamEnv.addSource(source).setParallelism(1);
             tableEnv.createTemporaryView(TEST_SOURCE_TABLE_NAME, streamSource);
         }
 
-        String sinkSql = buildSinkTableSql(deltaTablePath, includeOptionalOptions, isPartitioned);
+        String sinkSql = buildSinkTableSql(deltaTablePath, isPartitioned);
         tableEnv.executeSql(sinkSql);
 
         try {
@@ -585,15 +542,13 @@ public abstract class DeltaSinkTableTestSuite {
         return env;
     }
 
-    private String buildSourceTableSql(int rows, boolean includeOptionalOptions) {
+    private String buildSourceTableSql(int rows) {
 
-        String additionalCol = includeOptionalOptions ? ", col4 INT " : "";
         return String.format(
             "CREATE TABLE %s ("
                 + " col1 VARCHAR,"
                 + " col2 VARCHAR,"
                 + " col3 INT"
-                + additionalCol
                 + ") WITH ("
                 + " 'connector' = 'datagen',"
                 + "'number-of-rows' = '%s',"
@@ -603,27 +558,19 @@ public abstract class DeltaSinkTableTestSuite {
             rows);
     }
 
-    private String buildSinkTableSql(
-            String tablePath,
-            boolean includeOptionalOptions,
-            boolean isPartitioned) {
-
-        String optionalTableOptions = (includeOptionalOptions ? "'mergeSchema' = 'true', " : "");
+    private String buildSinkTableSql(String tablePath, boolean isPartitioned) {
 
         String partitionedClause = isPartitioned ? "PARTITIONED BY (col1, col3) " : "";
-        String additionalCol = includeOptionalOptions ? ", col4 INT " : "";
 
         return String.format(
             "CREATE TABLE %s ("
                 + " col1 VARCHAR,"
                 + " col2 VARCHAR,"
                 + " col3 INT"
-                + additionalCol
                 + ") "
                 + partitionedClause
                 + "WITH ("
                 + " 'connector' = 'delta',"
-                + optionalTableOptions
                 + " 'table-path' = '%s'"
                 + ")",
             DeltaSinkTableTestSuite.TEST_SINK_TABLE_NAME, tablePath);
@@ -661,48 +608,6 @@ public abstract class DeltaSinkTableTestSuite {
             LogicalType[] fieldTypes = TEST_ROW_TYPE.getFields().stream()
                 .map(RowField::getType).toArray(LogicalType[]::new);
             String[] fieldNames = TEST_ROW_TYPE.getFieldNames().toArray(new String[0]);
-            return InternalTypeInfo.of(RowType.of(fieldTypes, fieldNames));
-        }
-    }
-
-    private static class ExtraColumnRowProducer implements RowProducer {
-
-        private static final RowType EXTRA_COLUMN_ROW_TYPE = new RowType(Arrays.asList(
-            new RowType.RowField("col1", new VarCharType(VarCharType.MAX_LENGTH)),
-            new RowType.RowField("col2", new VarCharType(VarCharType.MAX_LENGTH)),
-            new RowType.RowField("col3", new IntType()),
-            new RowType.RowField("col4", new IntType())
-        ));
-
-        @SuppressWarnings("unchecked")
-        private static final DataFormatConverters.DataFormatConverter<RowData, Row>
-            EXTRA_COLUMN_ROW_TYPE_CONVERTER = DataFormatConverters.getConverterForDataType(
-            TypeConversions.fromLogicalToDataType(EXTRA_COLUMN_ROW_TYPE)
-        );
-
-
-        @Override
-        public int emitRecordsBatch(int nextValue, SourceContext<RowData> ctx, int batchSize) {
-            for (int i = 0; i < batchSize; ++i) {
-                RowData row = EXTRA_COLUMN_ROW_TYPE_CONVERTER.toInternal(
-                    Row.of(
-                        String.valueOf(nextValue),
-                        String.valueOf((nextValue + nextValue)),
-                        nextValue,
-                        nextValue
-                    )
-                );
-                ctx.collect(row);
-                nextValue++;
-            }
-            return nextValue;
-        }
-
-        @Override
-        public TypeInformation<RowData> getProducedType() {
-            LogicalType[] fieldTypes = EXTRA_COLUMN_ROW_TYPE.getFields().stream()
-                .map(RowField::getType).toArray(LogicalType[]::new);
-            String[] fieldNames = EXTRA_COLUMN_ROW_TYPE.getFieldNames().toArray(new String[0]);
             return InternalTypeInfo.of(RowType.of(fieldTypes, fieldNames));
         }
     }

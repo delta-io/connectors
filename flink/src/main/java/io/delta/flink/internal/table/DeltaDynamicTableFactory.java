@@ -125,7 +125,6 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory,
             new Path(options.get(DeltaTableConnectorOptions.TABLE_PATH)),
             conf,
             rowType,
-            false, // mergeSchema = false,
             context.getCatalogTable()
         );
     }

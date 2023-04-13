@@ -34,13 +34,4 @@ public class DeltaTableConnectorOptions {
             .stringType()
             .noDefaultValue();
 
-    /**
-     * Indicator whether we should try to update table's schema with stream's schema in case
-     * those will not match. The update is not guaranteed as there will be still some checks
-     * performed whether the updates to the schema are compatible.
-     */
-    public static final ConfigOption<Boolean> MERGE_SCHEMA =
-        ConfigOptions.key("mergeSchema")
-            .booleanType()
-            .defaultValue(false);
 }

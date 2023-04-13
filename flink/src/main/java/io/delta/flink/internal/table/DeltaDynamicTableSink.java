@@ -20,6 +20,7 @@ package io.delta.flink.internal.table;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import io.delta.flink.internal.options.DeltaConnectorConfiguration;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.internal.DeltaBucketAssigner;
 import io.delta.flink.sink.internal.DeltaPartitionComputer.DeltaRowDataPartitionComputer;
@@ -38,7 +39,6 @@ import org.apache.flink.table.connector.sink.abilities.SupportsPartitioning;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
-
 
 /**
  * Sink of a dynamic Flink table to a Delta lake table.
@@ -63,6 +63,13 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
      */
     private static final boolean PARQUET_UTC_TIMESTAMP = true;
 
+    /**
+     * The Delta's mergeSchema option is not supported in Flink SQL/Table API due to fact that
+     * Flink's table planner validates every query against table schema.
+     * If query schema does not match table's schema the query will fail.
+     */
+    private static final boolean MERGE_SCHEMA = false;
+
     private final Path basePath;
 
     private final Configuration hadoopConf;
@@ -70,8 +77,6 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
     private final RowType rowType;
 
     private final CatalogTable catalogTable;
-
-    private final boolean mergeSchema;
 
     /**
      * Flink is providing the connector with the partition values derived from the PARTITION
@@ -89,8 +94,6 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
      * @param basePath     full Delta table path
      * @param hadoopConf   Hadoop's configuration
      * @param rowType      Flink's logical type with the structure of the events in the stream
-     * @param mergeSchema  whether we should try to update table's schema with stream's schema in
-     *                     case those will not match
      * @param catalogTable represents the unresolved metadata of derived by Flink framework from
      *                     table's DDL
      */
@@ -98,17 +101,15 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
             Path basePath,
             Configuration hadoopConf,
             RowType rowType,
-            boolean mergeSchema,
             CatalogTable catalogTable) {
 
-        this(basePath, hadoopConf, rowType, mergeSchema, catalogTable, new LinkedHashMap<>());
+        this(basePath, hadoopConf, rowType, catalogTable, new LinkedHashMap<>());
     }
 
     private DeltaDynamicTableSink(
             Path basePath,
             Configuration hadoopConf,
             RowType rowType,
-            boolean mergeSchema,
             CatalogTable catalogTable,
             LinkedHashMap<String, String> staticPartitionSpec) {
 
@@ -116,7 +117,6 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
         this.rowType = rowType;
         this.hadoopConf = hadoopConf;
         this.catalogTable = catalogTable;
-        this.mergeSchema = mergeSchema;
         this.staticPartitionSpec = staticPartitionSpec;
     }
 
@@ -154,8 +154,8 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
                 new BasePathBucketAssigner<>(),
                 OnCheckpointRollingPolicy.build(),
                 this.rowType,
-                mergeSchema,
-                null // sinkConfiguration ???
+                MERGE_SCHEMA, // mergeSchema = false
+                new DeltaConnectorConfiguration()
             );
 
         if (catalogTable.isPartitioned()) {
@@ -180,7 +180,6 @@ public class DeltaDynamicTableSink implements DynamicTableSink, SupportsPartitio
             this.basePath,
             this.hadoopConf,
             this.rowType,
-            this.mergeSchema,
             this.catalogTable,
             new LinkedHashMap<>(this.staticPartitionSpec));
     }
