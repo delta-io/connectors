@@ -243,6 +243,12 @@ private[internal] class OptimisticTransactionImpl(
     val customCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
 
+    // Allowing shallow clones by setting hadoop configuration
+    val ignoreError = deltaLog.hadoopConf.get(
+      OptimisticTransaction.RELATIVE_PATH_IGNORE, "false").toLowerCase()
+    assert(Set("true", "false").contains(ignoreError),
+      s"${OptimisticTransaction.RELATIVE_PATH_IGNORE} must be set to true or false")
+
     // Convert AddFile paths to relative paths if they're in the table path
     var finalActions = actions.map {
       case addFile: AddFile =>
@@ -250,7 +256,8 @@ private[internal] class OptimisticTransactionImpl(
           DeltaFileOperations.tryRelativizePath(
             deltaLog.fs,
             deltaLog.getPath,
-            new Path(addFile.path)
+            new Path(addFile.path),
+            ignoreError.toBoolean
           ).toString)
       case a: Action => a
     }
