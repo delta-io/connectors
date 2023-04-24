@@ -33,7 +33,8 @@ public interface OptimisticTransaction {
     /**
      * Set within a hadoop configuration (passed when accessing a delta table), this property
      * will be used to ignore errors related to absolute paths. This allows user to define
-     * shallow clone delta tables where data resides in external file systems s3://, wasbs:// or adls://
+     * shallow clone delta tables where data resides in external file systems such as
+     * s3://, wasbs:// or adls://
      */
     String RELATIVE_PATH_IGNORE = "io.delta.vacuum.relativize.ignoreError";
 
