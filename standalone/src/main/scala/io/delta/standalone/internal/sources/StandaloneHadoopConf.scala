@@ -21,6 +21,14 @@ package io.delta.standalone.internal.sources
  */
 private[internal] object StandaloneHadoopConf {
 
+  /**
+   * Set within a hadoop configuration (passed when accessing a delta table), this property
+   * will be used to ignore errors related to absolute paths. This allows user to define
+   * shallow clone delta tables where data resides in external file systems such as
+   * s3://, wasbs:// or adls://
+   */
+  val RELATIVE_PATH_IGNORE = "io.delta.vacuum.relativize.ignoreError"
+
   /** Time zone as which time-based parquet values will be encoded and decoded. */
   val PARQUET_DATA_TIME_ZONE_ID = "io.delta.standalone.PARQUET_DATA_TIME_ZONE_ID"
 

@@ -31,14 +31,6 @@ import io.delta.standalone.expressions.Expression;
 public interface OptimisticTransaction {
 
     /**
-     * Set within a hadoop configuration (passed when accessing a delta table), this property
-     * will be used to ignore errors related to absolute paths. This allows user to define
-     * shallow clone delta tables where data resides in external file systems such as
-     * s3://, wasbs:// or adls://
-     */
-    String RELATIVE_PATH_IGNORE = "io.delta.vacuum.relativize.ignoreError";
-
-    /**
      * Modifies the state of the log by adding a new commit that is based on a read at the table's
      * latest version as of this transaction's instantiation. In the case of a conflict with a
      * concurrent writer this method will throw an exception.

@@ -21,7 +21,6 @@ import java.util.UUID
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-import scala.util.{Failure, Success, Try}
 
 import org.apache.hadoop.fs.Path
 
@@ -34,6 +33,7 @@ import io.delta.standalone.types.StructType
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.logging.Logging
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
 import io.delta.standalone.internal.util.DeltaFileOperations
 
@@ -246,18 +246,9 @@ private[internal] class OptimisticTransactionImpl(
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
 
     // Allowing shallow clones by setting hadoop configuration
-    val ignoreError = Try {
-      deltaLog
-        .hadoopConf
-        .get(OptimisticTransaction.RELATIVE_PATH_IGNORE, "false")
-        .toBoolean
-    } match {
-      case Success(value) => value
-      case Failure(exception) =>
-        throw new IllegalArgumentException(
-          s"${OptimisticTransaction.RELATIVE_PATH_IGNORE} conf must be valid boolean", exception
-        )
-    }
+    val ignoreError = deltaLog
+      .hadoopConf
+      .getBoolean(StandaloneHadoopConf.RELATIVE_PATH_IGNORE, false)
 
     // Convert AddFile paths to relative paths if they're in the table path
     var finalActions = actions.map {
