@@ -17,22 +17,19 @@
 package io.delta.standalone.internal
 
 import java.util.Collections
-
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scalatest.FunSuite
-
 import io.delta.standalone.{DeltaLog, NAME, Operation, VERSION}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.exceptions.{ConcurrentAppendException, ConcurrentDeleteDeleteException, ConcurrentDeleteReadException, ConcurrentTransactionException, MetadataChangedException, ProtocolChangedException}
 import io.delta.standalone.expressions.{EqualTo, Literal}
 import io.delta.standalone.types._
-
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
 import io.delta.standalone.internal.util.TestUtils._
 
@@ -256,6 +253,32 @@ class OptimisticTransactionLegacySuite extends FunSuite {
         }
         assert(e.getMessage.contains("Invalid Protocol"))
       }
+    }
+  }
+
+  test("Can't create table with external files") {
+    val extFile = AddFile("s3://snip/snip.parquet", Map.empty, 1, 1, dataChange = true)
+    val conf = new Configuration()
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(conf, dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e = intercept[IllegalStateException] {
+        txn.updateMetadata(metadataJ)
+        txn.commit(List(extFile), manualUpdate, engineInfo)
+      }
+      assert(e.getMessage.contains("Failed to relativize the path"))
+    }
+  }
+
+  test("Create table with external files override") {
+    val extFile = AddFile("s3://snip/snip.parquet", Map.empty, 1, 1, dataChange = true)
+    val conf = new Configuration()
+    conf.setBoolean(StandaloneHadoopConf.RELATIVE_PATH_IGNORE, true)
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(conf, dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.updateMetadata(metadataJ)
+      txn.commit(List(extFile), manualUpdate, engineInfo)
     }
   }
 
