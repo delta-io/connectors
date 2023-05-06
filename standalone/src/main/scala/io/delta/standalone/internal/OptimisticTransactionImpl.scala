@@ -246,8 +246,8 @@ private[internal] class OptimisticTransactionImpl(
     assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
 
     // This will ignore errors (disabled by default) when trying to relativize a path
-    // This is specifically for paths in a filesystem different from the base table path
-    // so once could enable shallow clones across file systems
+    // This is specifically for files living in a filesystem different from the base table path
+    // so one can enable shallow clones across file systems
     val relativizeIgnoreError = deltaLog
       .hadoopConf
       .getBoolean(StandaloneHadoopConf.RELATIVE_PATH_IGNORE, false)
