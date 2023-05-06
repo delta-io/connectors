@@ -22,10 +22,11 @@ package io.delta.standalone.internal.sources
 private[internal] object StandaloneHadoopConf {
 
   /**
-   * Set within a hadoop configuration (passed when accessing a delta table), this property
-   * will be used to ignore errors related to absolute paths. This allows user to define
-   * shallow clone delta tables where data resides in external file systems such as
-   * s3://, wasbs:// or adls://
+   * If enabled, this ignores errors when trying to relativize an absolute path of an
+   * [[io.delta.standalone.actions.AddFile]] across file systems.
+   * This allows user to define shallow clone delta tables where data resides in
+   * external file systems such as s3://, wasbs:// or adls://
+   * By default, this feature is enabled. Set to `false` to disable.
    */
   val RELATIVE_PATH_IGNORE = "io.delta.vacuum.relativize.ignoreError"
 
