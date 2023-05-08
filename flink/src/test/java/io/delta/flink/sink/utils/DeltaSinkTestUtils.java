@@ -359,6 +359,13 @@ public class DeltaSinkTestUtils {
     public static DeltaSinkInternal<RowData> createDeltaSink(
             String deltaTablePath,
             boolean isTablePartitioned) {
+        return createDeltaSink(deltaTablePath, isTablePartitioned, DeltaTestUtils.getHadoopConf());
+    }
+
+    public static DeltaSinkInternal<RowData> createDeltaSink(
+            String deltaTablePath,
+            boolean isTablePartitioned,
+            org.apache.hadoop.conf.Configuration hadoopConf) {
 
         if (isTablePartitioned) {
             DeltaSinkBuilder<RowData> builder = new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
@@ -366,7 +373,7 @@ public class DeltaSinkTestUtils {
                 DeltaTestUtils.getHadoopConf(),
                 ParquetRowDataBuilder.createWriterFactory(
                     DeltaSinkTestUtils.TEST_ROW_TYPE,
-                    DeltaTestUtils.getHadoopConf(),
+                    hadoopConf,
                     true // utcTimestamp
                 ),
                 new BasePathBucketAssigner<>(),
@@ -382,7 +389,7 @@ public class DeltaSinkTestUtils {
         return DeltaSink
             .forRowData(
                 new Path(deltaTablePath),
-                DeltaTestUtils.getHadoopConf(),
+                hadoopConf,
                 DeltaSinkTestUtils.TEST_ROW_TYPE).build();
     }
 
