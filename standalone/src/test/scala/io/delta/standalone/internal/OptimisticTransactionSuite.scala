@@ -346,6 +346,7 @@ class OptimisticTransactionSuite extends OptimisticTransactionSuiteBase {
       val committedPath = new Path(committedAddFile.getPath)
       // Path is preserved
       assert(committedPath.isAbsolute && !committedPath.isAbsoluteAndSchemeAuthorityNull)
+      assert(committedPath.toString == "s3://snip/snip.parquet")
     }
   }
 

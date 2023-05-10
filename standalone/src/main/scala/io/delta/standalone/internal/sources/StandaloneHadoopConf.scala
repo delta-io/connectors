@@ -26,7 +26,7 @@ private[internal] object StandaloneHadoopConf {
    * [[io.delta.standalone.actions.AddFile]] across file systems.
    * This allows user to define shallow clone delta tables where data resides in
    * external file systems such as s3://, wasbs:// or adls://
-   * By default, this feature is enabled. Set to `false` to disable.
+   * By default, this feature is disabled. Set to `true` to enable.
    */
   val RELATIVE_PATH_IGNORE = "io.delta.vacuum.relativize.ignoreError"
 
