@@ -221,7 +221,7 @@ public class DeltaSinkStreamingExecutionITCase extends DeltaSinkExecutionITCaseB
     }
 
     @Test
-    void can_disable_delta_checkpointing() throws Exception {
+    public void canDisableDeltaCheckpointing() throws Exception {
         final org.apache.hadoop.conf.Configuration hadoopConf =
             new org.apache.hadoop.conf.Configuration();
         hadoopConf.set("io.delta.standalone.checkpointing.enabled", "false");
