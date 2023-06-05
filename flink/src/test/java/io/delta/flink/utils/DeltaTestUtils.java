@@ -727,12 +727,6 @@ public class DeltaTestUtils {
         return deltaLog;
     }
 
-    public static MiniClusterWithClientResource buildCluster(int parallelismLevel) {
-
-        return new MiniClusterWithClientResource(
-            buildClusterResourceConfig(parallelismLevel));
-    }
-
     public static MiniClusterResourceConfiguration buildClusterResourceConfig(
         int parallelismLevel) {
 
